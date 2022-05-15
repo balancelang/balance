@@ -1,0 +1,21 @@
+// Bool
+var myBool = true
+print(myBool)
+
+// Int
+var myInt = 24
+print(myInt)
+
+// Double
+var myDouble = 25.66
+print(myDouble)
+
+// String
+var myString = "Lorem ipsum"
+print(myString)
+
+// Multiline string
+var a = "This is a multiline string
+that started on the previous line
+and is now on the 3rd line"
+print(a)

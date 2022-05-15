@@ -57,6 +57,7 @@
 
 #include "../tests/ASTTests.h"
 #include "../tests/CompileTests.h"
+#include "../tests/ExampleTests.h"
 #include "config.h"
 
 #include "BalanceLexer.h"
@@ -160,6 +161,14 @@ Module *buildModuleFromFile(char *filePath)
     return buildModuleFromStream(input);
 }
 
+
+Module *buildModuleFromPath(string path) {
+    ifstream inputStream;
+    inputStream.open(path);
+    ANTLRInputStream input(inputStream);
+    return buildModuleFromStream(input);
+}
+
 void printVersion()
 {
     cout << "Balance version: " << BALANCE_VERSION << endl;
@@ -220,6 +229,7 @@ int main(int argc, char **argv)
     {
         runASTTestSuite();
         runCompileTestSuite();
+        runExamplesTestSuite();
     }
     else
     {

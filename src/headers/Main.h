@@ -12,6 +12,7 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace antlr4;
 
-Module * buildModuleFromStream(ANTLRInputStream stream);
-Module * buildModuleFromString(std::string program);
-tree::ParseTree * buildASTFromString(std::string program);
+Module *buildModuleFromStream(ANTLRInputStream stream);
+Module *buildModuleFromString(std::string program);
+Module *buildModuleFromPath(std::string path);
+tree::ParseTree *buildASTFromString(std::string program);

@@ -1,0 +1,11 @@
+def funcTakesIntReturnsInt(Int a) -> Int {
+    return a + 55
+}
+
+def funcTakesNothingReturnsNothing() {
+    print("Because this returns 'None', we can ommit '-> None'")
+}
+
+var a = funcTakesIntReturnsInt(25)
+print(a)
+funcTakesNothingReturnsNothing()
