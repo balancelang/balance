@@ -68,7 +68,12 @@ include_directories(${ANTLR4_INCLUDE_DIRS})
 
 # set variable pointing to the antlr tool that supports C++
 # this is not required if the jar file can be found under PATH environment
+
 set(ANTLR_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/../dependencies/antlr-4.10.1-complete.jar)
+if(NOT EXISTS ${ANTLR_EXECUTABLE})
+  message(FATAL_ERROR "Balance: antlr-x-complete.jar not found. Please check install.sh, under the antlr section.")
+endif()
+
 # add macros to generate ANTLR Cpp code from grammar
 find_package(ANTLR REQUIRED)
 

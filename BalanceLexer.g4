@@ -57,7 +57,7 @@ WS: [ \t]+ -> skip;
 
 IDENTIFIER: [a-zA-Z_]+ [a-zA-Z_0-9]*;
 
-STRING: '"' [a-zA-Z_ 0-9!#¤%&/()=?\\`']* '"' {setText(getText().substr(1, getText().length()-2));};
+STRING: '"' [a-zA-Z_ 0-9!#¤%&/()=?\\`'.]* '"' {setText(getText().substr(1, getText().length()-2));};
 
 
 // STRING
