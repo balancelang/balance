@@ -23,6 +23,8 @@
     - Classes, "struct" (data DTO's)
     - interfaces
     - builtin serialization (JSON, XML, YAML)
+    - all strings can be multiline?
+    - all strings be f-strings?  var a = "Test: {y}"
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits
