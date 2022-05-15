@@ -1,0 +1,16 @@
+class MyClass {
+    Int a
+
+    def getA() -> Int {
+        return a
+    }
+
+    def setA(Int value) -> None {
+        a = value
+    }
+}
+
+var cls = new MyClass()
+cls.setA(25)
+print(cls.getA())
+// outputs 25
