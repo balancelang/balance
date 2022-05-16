@@ -1,2 +1,2 @@
 // Here you can test balance code for development
-print("Because this returns 'None', we can ommit '-> None'")
+print("Hello from balance!")
