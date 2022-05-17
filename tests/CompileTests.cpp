@@ -144,7 +144,13 @@ void createLambdaAndInvoke() {
     assertEqual("55\n", result, program);
 }
 
-
+void createReassignment() {
+    string program = "var a = 555\na=222\nprint(a)";
+    Module * module = buildModuleFromString(program);
+    writeModuleToFile(module);
+    string result = exec("./main");
+    assertEqual("222\n", result, program);
+}
 
 
     // func with no arguments and no return
@@ -168,7 +174,7 @@ void createLambdaAndInvoke() {
 
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");
-    
+
     createPrintInt();
     createPrintBool();
     createPrintDouble();
@@ -176,6 +182,7 @@ void runCompileTestSuite() {
     createPrintList();
     createFunctionAndInvoke();
     createLambdaAndInvoke();
+    createReassignment();
 }
 
 

@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/balance",
-            "args": [ "${workspaceFolder}/src/testFile.bl" ],
+            "args": [ "${workspaceFolder}/testFile.bl" ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
