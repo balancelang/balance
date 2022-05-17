@@ -107,14 +107,14 @@ void examplesVariablesTest() {
     Module * module = buildModuleFromPath("../examples/variables.bl");
     writeModuleToFile(module);
     string result = execExample("./main");
-    assertEqual("1\n24\n25.66\nLorem ipsum\n", result, "Variables");
+    assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {
     Module * module = buildModuleFromPath("../examples/functions.bl");
     writeModuleToFile(module);
     string result = execExample("./main");
-    assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Functions");
+    assertEqual("80\nBecause this returns 'None', we can ommit '-> None'\n", result, "Functions");
 }
 
 void runExamplesTestSuite() {

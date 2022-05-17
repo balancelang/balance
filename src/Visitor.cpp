@@ -69,9 +69,10 @@ extern LLVMContext *context;
 extern Module *module;
 extern IRBuilder<> *builder;
 
-struct TypeAndIndex {
+struct TypeAndIndex
+{
     int index;
-    Type * type;
+    Type *type;
 };
 
 class BalanceClass
@@ -187,15 +188,21 @@ void createDefaultConstructor(StructType *classValue)
     BasicBlock *resumeBlock = builder->GetInsertBlock();
     builder->SetInsertPoint(functionBody);
 
-    for (auto const& x : currentClass->properties) {
-        Type * propertyType = x.second.type;
+    for (auto const &x : currentClass->properties)
+    {
+        Type *propertyType = x.second.type;
 
-        Value * initialValue;
-        if (propertyType->isIntegerTy(1)) {
+        Value *initialValue;
+        if (propertyType->isIntegerTy(1))
+        {
             initialValue = ConstantInt::get(getBuiltinType("Bool"), 0, true);
-        } else if (propertyType->isIntegerTy(32)) {
+        }
+        else if (propertyType->isIntegerTy(32))
+        {
             initialValue = ConstantInt::get(getBuiltinType("Int"), 0, true);
-        } else if (propertyType->isFloatingPointTy()) {
+        }
+        else if (propertyType->isFloatingPointTy())
+        {
             initialValue = ConstantFP::get(getBuiltinType("Double"), 0.0);
         }
         // TODO: Handle String and nullable types
@@ -203,7 +210,7 @@ void createDefaultConstructor(StructType *classValue)
         int intIndex = x.second.index;
         auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
-        Type * structType = thisValue->getType()->getPointerElementType();
+        Type *structType = thisValue->getType()->getPointerElementType();
 
         auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
         builder->CreateStore(initialValue, ptr);
@@ -215,9 +222,10 @@ void createDefaultConstructor(StructType *classValue)
     builder->SetInsertPoint(resumeBlock);
 }
 
-void finalizeClass() {
+void finalizeClass()
+{
     vector<Type *> propertyTypes;
-    for (auto const& x : currentClass->properties)
+    for (auto const &x : currentClass->properties)
     {
         propertyTypes.push_back(x.second.type);
     }
@@ -233,12 +241,14 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
     currentClass = new BalanceClass(className);
     types[className] = currentClass;
 
-    StructType * structType = StructType::create(*context, className);
+    StructType *structType = StructType::create(*context, className);
     currentClass->structType = structType;
 
     // We make sure to parse all classProperties first, so we can finalize class.
-    for (auto const& x : ctx->classElement()) {
-        if (x->classProperty()) {
+    for (auto const &x : ctx->classElement())
+    {
+        if (x->classProperty())
+        {
             visit(x);
         }
     }
@@ -246,8 +256,10 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
     finalizeClass();
     createDefaultConstructor(structType);
 
-    for (auto const& x : ctx->classElement()) {
-        if (x->functionDefinition()) {
+    for (auto const &x : ctx->classElement())
+    {
+        if (x->functionDefinition())
+        {
             visit(x);
         }
     }
@@ -266,7 +278,7 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
     ArrayRef<Value *> argumentsReference{alloca};
     builder->CreateCall(type->constructor, argumentsReference);
     // return (Value *)builder->CreateLoad(alloca);
-    return (Value *) alloca;
+    return (Value *)alloca;
 }
 
 any BalanceVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx)
@@ -282,7 +294,7 @@ any BalanceVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx)
     }
 
     int count = currentClass->properties.size();
-    currentClass->properties[name] = { count, typeValue };
+    currentClass->properties[name] = {count, typeValue};
     return any();
 }
 
@@ -458,16 +470,22 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 {
     string variableName = ctx->variable()->IDENTIFIER()->getText();
     Value *val = getValue(variableName);
-    if (val == nullptr && currentClass != nullptr) {
+    if (val == nullptr && currentClass != nullptr)
+    {
         // TODO: Check if variableName is in currentClass->properties
         int intIndex = currentClass->properties[variableName].index;
         auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
-        Value * thisValue = getValue("this");
-        Type * structType = thisValue->getType()->getPointerElementType();
+        Value *thisValue = getValue("this");
+        Type *structType = thisValue->getType()->getPointerElementType();
 
         auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
         return (Value *)builder->CreateLoad(ptr);
+    }
+
+    if (val->getType()->isPointerTy())
+    {
+        return (Value *)builder->CreateLoad(val);
     }
     return val;
 }
@@ -478,8 +496,10 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     string variableName = ctx->IDENTIFIER()->getText();
     any expressionResult = visit(ctx->expression());
     Value *value = anyToValue(expressionResult);
-    setValue(variableName, value);
-    return value;
+    Value *alloca = builder->CreateAlloca(value->getType(), nullptr);
+    Value *store = builder->CreateStore(value, alloca);
+    setValue(variableName, alloca);
+    return alloca;
 }
 
 any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx)
@@ -491,13 +511,14 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
     llvm::Value *value = anyToValue(expressionResult);
 
     Value *variable = getValue(variableName);
-    if (variable == nullptr && currentClass != nullptr) {
+    if (variable == nullptr && currentClass != nullptr)
+    {
         // TODO: Check if variableName is in currentClass->properties
         int intIndex = currentClass->properties[variableName].index;
         auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
-        Value * thisValue = getValue("this");
-        Type * structType = thisValue->getType()->getPointerElementType();
+        Value *thisValue = getValue("this");
+        Type *structType = thisValue->getType()->getPointerElementType();
 
         auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
         return (Value *)builder->CreateStore(value, ptr);
@@ -529,6 +550,74 @@ any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressio
     else if (ctx->OP_GE())
     {
         return (Value *)builder->CreateICmpSGE(lhsVal, rhsVal, "getmp");
+    }
+
+    return any();
+}
+
+any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx)
+{
+    any lhs = visit(ctx->lhs);
+    any rhs = visit(ctx->rhs);
+
+    llvm::Value *lhsVal = anyToValue(lhs);
+    llvm::Value *rhsVal = anyToValue(rhs);
+
+    // If either operand is float, cast other to float (consolidate this whole thing)
+    if (lhsVal->getType()->isFloatingPointTy() || rhsVal->getType()->isFloatingPointTy())
+    {
+        if (!lhsVal->getType()->isFloatingPointTy())
+        {
+            if (lhsVal->getType()->isIntegerTy())
+            {
+                int width = lhsVal->getType()->getIntegerBitWidth();
+                if (width == 1)
+                {
+                    // bool
+                    lhsVal = builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
+                }
+                else if (width == 32)
+                {
+                    // int32
+                    lhsVal = builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
+                }
+            }
+        }
+        if (!rhsVal->getType()->isFloatingPointTy())
+        {
+            if (rhsVal->getType()->isIntegerTy())
+            {
+                int width = rhsVal->getType()->getIntegerBitWidth();
+                if (width == 1)
+                {
+                    // bool
+                    rhsVal = builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
+                }
+                else if (width == 32)
+                {
+                    // int32
+                    rhsVal = builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
+                }
+            }
+        }
+    }
+
+    if (ctx->STAR())
+    {
+        // Just check one of them, since both will be floats or none.
+        if (lhsVal->getType()->isFloatingPointTy())
+        {
+            return (Value *)builder->CreateFMul(lhsVal, rhsVal);
+        }
+        return (Value *)builder->CreateMul(lhsVal, rhsVal);
+    }
+    else
+    {
+        if (lhsVal->getType()->isFloatingPointTy())
+        {
+            return (Value *)builder->CreateFDiv(lhsVal, rhsVal);
+        }
+        return (Value *)builder->CreateSDiv(lhsVal, rhsVal);
     }
 
     return any();
@@ -586,17 +675,17 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
         // Just check one of them, since both will be floats or none.
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFAdd(lhsVal, rhsVal, "addtmp");
+            return (Value *)builder->CreateFAdd(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateAdd(lhsVal, rhsVal, "addtmp");
+        return (Value *)builder->CreateAdd(lhsVal, rhsVal);
     }
     else
     {
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFSub(lhsVal, rhsVal, "addtmp");
+            return (Value *)builder->CreateFSub(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateSub(lhsVal, rhsVal, "subtmp");
+        return (Value *)builder->CreateSub(lhsVal, rhsVal);
     }
 
     return any();
@@ -716,7 +805,8 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             Type *elementType = accessedValue->getType();
             vector<Value *> functionArguments;
 
-            if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType())) {
+            if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType()))
+            {
                 // TODO: Check that it is actually struct
                 string className = PT->getElementType()->getStructName().str();
 
@@ -729,13 +819,15 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     functionArguments.push_back(castVal);
                 }
 
-                BalanceClass * bClass = types[className];
-                Function * function = bClass->methods[functionName];
-                FunctionType * functionType = function->getFunctionType();
+                BalanceClass *bClass = types[className];
+                Function *function = bClass->methods[functionName];
+                FunctionType *functionType = function->getFunctionType();
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
-                return (Value *)builder->CreateCall(functionType, (Value *) function, argumentsReference);
-            } else {
+                return (Value *)builder->CreateCall(functionType, (Value *)function, argumentsReference);
+            }
+            else
+            {
                 // TODO: Handle invoking functions on non-structs
             }
         }
@@ -744,6 +836,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         llvm::Value *val = getValue(functionName);
         if (val)
         {
+            auto ty = val->getType();
             if (val->getType()->getPointerElementType()->isFunctionTy())
             {
                 vector<Value *> functionArguments;
@@ -758,9 +851,20 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 ArrayRef<Value *> argumentsReference(functionArguments);
                 return (Value *)builder->CreateCall(FunctionType::get(val->getType(), false), val, argumentsReference);
             }
-            else
+            else if (val->getType()->getPointerElementType()->isPointerTy())
             {
-                // TODO: Handle this
+                Value *loaded = builder->CreateLoad(val);
+                vector<Value *> functionArguments;
+
+                for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
+                {
+                    any anyVal = visit(argument);
+                    llvm::Value *castVal = anyToValue(anyVal);
+                    functionArguments.push_back(castVal);
+                }
+
+                ArrayRef<Value *> argumentsReference(functionArguments);
+                return (Value *)builder->CreateCall(FunctionType::get(loaded->getType(), false), loaded, argumentsReference);
             }
         }
         else
@@ -892,8 +996,9 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     // Check if we are parsing a class method
     Function *function;
-    if (currentClass != nullptr) {
-        PointerType * thisPointer = currentClass->structType->getPointerTo();
+    if (currentClass != nullptr)
+    {
+        PointerType *thisPointer = currentClass->structType->getPointerTo();
         functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
         functionParameterNames.insert(functionParameterNames.begin(), "this");
         string functionNameWithClass = currentClass->name + "_" + functionName;
@@ -901,7 +1006,9 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
         FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
         function = Function::Create(functionType, Function::InternalLinkage, functionNameWithClass, module);
         currentClass->methods[functionName] = function;
-    } else {
+    }
+    else
+    {
         ArrayRef<Type *> parametersReference(functionParameterTypes);
         FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
         function = Function::Create(functionType, Function::InternalLinkage, functionName, module);

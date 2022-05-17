@@ -88,68 +88,98 @@ string exec(const char* cmd) {
     return result;
 }
 
-void createPrintInt() {
-    string program = "var a = 555\nprint(a)";
+string run(string program) {
     Module * module = buildModuleFromString(program);
     writeModuleToFile(module);
-    string result = exec("./main");
+    return exec("./main");
+}
+
+void createPrintInt() {
+    string program = "var a = 555\nprint(a)";
+    string result = run(program);
     assertEqual("555\n", result, program);
 }
 
 void createPrintBool() {
     string program = "var a = true\nprint(a)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("1\n", result, program);
 }
 
 void createPrintDouble() {
     string program = "var a = 5.5\nprint(a)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("5.5\n", result, program);
 }
 
 void createPrintString() {
     string program = "var a = \"HELLO\"\nprint(a)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("HELLO\n", result, program);
 }
 
 void createPrintList() {
     string program = "var a = [1,2,3,4]\nprint(a)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("[1, 2, 3, 4]\n", result, program);
 }
 
 void createFunctionAndInvoke() {
     string program = "def test(Int a) -> None {\nprint(a)\n}\ntest(55)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createLambdaAndInvoke() {
     string program = "var lamb = (Int a) -> None {\nprint(a)\n}\nlamb(55)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createReassignment() {
     string program = "var a = 555\na=222\nprint(a)";
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    string result = exec("./main");
+    string result = run(program);
     assertEqual("222\n", result, program);
+}
+
+void operatorsTwoOperandsTest() {
+    string program = "print(46 + 2)";
+    string result = run(program);
+    assertEqual("48\n", result, program);
+
+    program = "print(46 - 2)";
+    result = run(program);
+    assertEqual("44\n", result, program);
+
+    program = "print(8 * 2)";
+    result = run(program);
+    assertEqual("16\n", result, program);
+
+    program = "print(8 / 2)";
+    result = run(program);
+    assertEqual("4\n", result, program);
+}
+
+void operatorsThreeOperandsTest() {
+    string program = "print(46 + 2 - 2)";
+    string result = run(program);
+    assertEqual("46\n", result, program);
+
+    program = "print(46 - 2 * 2)";
+    result = run(program);
+    assertEqual("42\n", result, program);
+
+    program = "print(8 * 2 + 6)";
+    result = run(program);
+    assertEqual("22\n", result, program);
+
+    program = "print(6 + 8 * 2)";
+    result = run(program);
+    assertEqual("22\n", result, program);
+
+    program = "print(8 / 2)";
+    result = run(program);
+    assertEqual("4\n", result, program);
 }
 
 
@@ -183,6 +213,8 @@ void runCompileTestSuite() {
     createFunctionAndInvoke();
     createLambdaAndInvoke();
     createReassignment();
+    operatorsTwoOperandsTest();
+    operatorsThreeOperandsTest();
 }
 
 
