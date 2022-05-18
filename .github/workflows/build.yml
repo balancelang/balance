@@ -30,4 +30,4 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
     - name: Test
-      run: cd build && ./balance --test
+      run: cd ${{github.workspace}}/build && ./balance --test
