@@ -73,17 +73,14 @@ include (FetchContent)
 FetchContent_Declare(
   AntlrJar
   URL      https://www.antlr.org/download/antlr-4.10.1-complete.jar
-  SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/dependencies
+  DOWNLOAD_DIR ${CMAKE_CURRENT_BINARY_DIR}/dependencies
   DOWNLOAD_NO_EXTRACT TRUE
 )
 
 FetchContent_GetProperties(AntlrJar)
-FetchContent_Populate(AntlrJar)
-#if(NOT AntlrJar_POPULATED)
-#  message(STATUS "FETCHING ANTLRJAR...")
-#  FetchContent_Populate(AntlrJar)
-#  message(STATUS "FINISHED FETCHING ANTLRJAR")
-#endif()
+if(NOT AntlrJar_POPULATED)
+  FetchContent_Populate(AntlrJar)
+endif()
 
 set(ANTLR_EXECUTABLE ${CMAKE_CURRENT_BINARY_DIR}/dependencies/antlr-4.10.1-complete.jar)
 # add macros to generate ANTLR Cpp code from grammar
