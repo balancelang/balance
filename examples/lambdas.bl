@@ -1,0 +1,20 @@
+var lambda1 = (Int w) -> Double {
+    print(w)
+    return w * 2.0
+}
+
+var lambda2 = () {
+    print("This implicitly returns None")
+}
+
+var q = lambda1(5)
+lambda2()
+
+def functionTakesLambda(Lambda<Int, Double> x) -> Lambda<Int, None> {
+    var q = x(5)
+    return (Int x) {
+        print("Hello")
+    }
+}
+
+functionTakesLambda(lambda1)

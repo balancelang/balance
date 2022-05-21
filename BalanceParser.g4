@@ -76,8 +76,17 @@ parameterList
 	: (parameter (COMMA parameter)*)?
 	;
 
+typeIdentifier
+    : IDENTIFIER ('<' typeIdentifier (COMMA typeIdentifier)* '>')*
+    ;
+
+// Int
+// List<Int>
+// Map<Int, Int>
+
+
 parameter
-    : type=IDENTIFIER identifier=IDENTIFIER /* For now, require type */
+    : typeIdentifier identifier=IDENTIFIER /* For now, require type */
     ;
 
 argumentList
@@ -92,12 +101,20 @@ argument
     | IDENTIFIER
     ;
 
+genericType
+    : IDENTIFIER
+    ;
+
+genericTypeList
+    : '<' genericType (COMMA genericType)* '>'
+    ;
+
 functionCall
-    : IDENTIFIER '(' argumentList ')'
+    : IDENTIFIER genericTypeList? '(' argumentList ')'
     ;
 
 functionDefinition
-    : DEF IDENTIFIER OPEN_PARENS parameterList CLOSE_PARENS returnType? WS* OPEN_BRACE LINE_BREAK* functionBlock WS* CLOSE_BRACE WS*
+    : DEF IDENTIFIER genericTypeList? OPEN_PARENS parameterList CLOSE_PARENS returnType? WS* OPEN_BRACE LINE_BREAK* functionBlock WS* CLOSE_BRACE WS*
     ;
 
 classInitializer

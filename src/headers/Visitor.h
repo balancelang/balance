@@ -42,6 +42,7 @@ public:
     any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     any visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) override;
     any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
+    any visitTypeIdentifier(BalanceParser::TypeIdentifierContext *ctx) override;
 };
 
 class ScopeBlock

@@ -913,7 +913,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     {
         string parameterName = parameter->identifier->getText();
         functionParameterNames.push_back(parameterName);
-        string typeString = parameter->type->getText();
+        string typeString = parameter->typeIdentifier()->getText();
         Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
         functionParameterTypes.push_back(type);
     }
@@ -968,6 +968,20 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     return (llvm::Value *)builder->CreateLoad(p);
 }
 
+any BalanceVisitor::visitTypeIdentifier(BalanceParser::TypeIdentifierContext *ctx) {
+    string text = ctx->getText();
+
+    // E.g. 'List' in 'List<Int>'
+    string baseType = ctx->IDENTIFIER()->getText();
+
+    for (BalanceParser::TypeIdentifierContext *type : ctx->typeIdentifier()) {
+        string t = type->getText();
+        int i = 123;
+    }
+
+    return any();
+}
+
 any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx)
 {
     string functionName = ctx->IDENTIFIER()->getText();
@@ -977,8 +991,11 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     {
         string parameterName = parameter->identifier->getText();
         functionParameterNames.push_back(parameterName);
-        string typeString = parameter->type->getText();
-        Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
+        // string typeString = parameter->typeIdentifier()->getText();
+        // Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
+        any anyValType = visit(parameter->typeIdentifier());
+        Value *valueType = anyToValue(anyValType);
+        Type * type = valueType->getType();
         functionParameterTypes.push_back(type);
     }
 
