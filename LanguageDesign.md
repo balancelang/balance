@@ -16,14 +16,14 @@
     - Pattern matching
     - checked exceptions
     - "compiled" docstrings, e.g. warnings when wrong
-    - lambda expressions with body
+    - lambda expressions with body (+)
     - destructuring
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword
-    - Classes, "struct" (data DTO's)
+    - Classes (+)
     - interfaces
     - builtin serialization (JSON, XML, YAML)
-    - all strings can be multiline?
+    - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
@@ -53,6 +53,7 @@
     - run with profiling, show how much a function adds to runtime/memory
     - when inspecting builtin functions, add a helper-pane that documents usage
         - also with examples of for-loops, if statements etc.
+
 - Package manager
     - All packages compiled in cloud-service, which lazily builds requested architectures?
     - Code-coverage requirements?
