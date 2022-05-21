@@ -1,4 +1,5 @@
 # Balance
+[![Build](https://github.com/balancelang/balance/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/balancelang/balance/actions/workflows/build.yml)
 ## The Balance programming language
 
 Example of syntax:
