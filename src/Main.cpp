@@ -3,7 +3,6 @@
 #include "headers/Builtins.h"
 #include "headers/Visitor.h"
 
-#include <experimental/filesystem>
 #include <iostream>
 #include <cstdio>
 #include <fstream>
@@ -78,7 +77,7 @@ Module *module;
 IRBuilder<> *builder;
 vector<BalanceType> types;
 ScopeBlock *currentScope = nullptr;
-bool verbose = true;
+bool verbose = false;
 
 bool file_exist(string fileName)
 {
@@ -161,8 +160,6 @@ Module *buildModuleFromPath(string filePath)
         cout << "Input file doesn't exist: " << filePath << endl;
         exit(1);
     }
-    auto size = std::experimental::filesystem::file_size(filePath);
-    cout << "File size: " << size << endl;
 
     ifstream inputStream;
     inputStream.open(filePath);

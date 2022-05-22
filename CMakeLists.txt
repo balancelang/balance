@@ -116,5 +116,5 @@ add_executable(balance
 # run this to get list of components: llvm-config-12 --components
 llvm_map_components_to_libnames(llvm_libs support core irreader mc target ${LLVM_TARGETS_TO_BUILD})
 target_link_libraries(balance antlr4_static)
-target_link_libraries(balance Threads::Threads stdc++fs)
+target_link_libraries(balance Threads::Threads)
 target_link_libraries(balance LLVM clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)
