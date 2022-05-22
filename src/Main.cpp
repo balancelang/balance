@@ -3,6 +3,7 @@
 #include "headers/Builtins.h"
 #include "headers/Visitor.h"
 
+#include <experimental/filesystem>
 #include <iostream>
 #include <cstdio>
 #include <fstream>
@@ -79,7 +80,7 @@ vector<BalanceType> types;
 ScopeBlock *currentScope = nullptr;
 bool verbose = true;
 
-bool file_exist(char *fileName)
+bool file_exist(string fileName)
 {
     ifstream infile(fileName);
     return infile.good();
@@ -153,24 +154,20 @@ Module *buildModuleFromString(string program)
     return buildModuleFromStream(input);
 }
 
-Module *buildModuleFromFile(char *filePath)
+Module *buildModuleFromPath(string filePath)
 {
     if (!file_exist(filePath))
     {
         cout << "Input file doesn't exist: " << filePath << endl;
         exit(1);
     }
+    auto size = std::experimental::filesystem::file_size(filePath);
+    cout << "File size: " << size << endl;
 
     ifstream inputStream;
     inputStream.open(filePath);
-    ANTLRInputStream input(inputStream);
-    return buildModuleFromStream(input);
-}
 
 
-Module *buildModuleFromPath(string path) {
-    ifstream inputStream;
-    inputStream.open(path);
     ANTLRInputStream input(inputStream);
     return buildModuleFromStream(input);
 }
@@ -239,9 +236,10 @@ int main(int argc, char **argv)
     }
     else
     {
-        Module *mod = buildModuleFromFile(argv[1]);
+        Module *mod = buildModuleFromPath(argv[1]);
 
-        if (verbose) {
+        if (verbose)
+        {
             module->print(llvm::errs(), nullptr);
         }
         writeModuleToFile(module);
