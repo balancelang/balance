@@ -77,7 +77,7 @@ Module *module;
 IRBuilder<> *builder;
 vector<BalanceType> types;
 ScopeBlock *currentScope = nullptr;
-bool verbose = false;
+bool verbose = true;
 
 bool file_exist(char *fileName)
 {
@@ -155,6 +155,12 @@ Module *buildModuleFromString(string program)
 
 Module *buildModuleFromFile(char *filePath)
 {
+    if (!file_exist(filePath))
+    {
+        cout << "Input file doesn't exist: " << filePath << endl;
+        exit(1);
+    }
+
     ifstream inputStream;
     inputStream.open(filePath);
     ANTLRInputStream input(inputStream);
@@ -233,12 +239,6 @@ int main(int argc, char **argv)
     }
     else
     {
-        if (!file_exist(argv[1]))
-        {
-            cout << "Input file doesn't exist: " << argv[1] << endl;
-            return 1;
-        }
-
         Module *mod = buildModuleFromFile(argv[1]);
 
         if (verbose) {
