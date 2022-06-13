@@ -21,6 +21,9 @@ void assertEqual(string expected, string actual, string program) {
         cout << "Actual: " << actual << endl;
 
         cout << endl;
+
+        // For now, we exit early on first error
+        exit(1);
     }
 }
 

@@ -183,6 +183,29 @@ void printHelp()
     cout << "'./balance --verbose' to have verbose output" << endl;
 }
 
+void createNewProject() {
+    if (file_exist("package.json"))
+    {
+        cout << "This directory already contains a package.json" << endl;
+        exit(1);
+    }
+
+    std::ofstream  dst("package.json",   std::ios::binary);
+
+    dst << ""
+"{"
+"\"name\": \"\",\n"
+"\"version\": \"0.0.0\",\n"
+"\"entrypoints\": {\n"
+"\"default\": \"[REPLACE WITH DEFAULT PROGRAM]\"\n"
+"},\n"
+"\"dependencies\": {\n"
+"}\n"
+"}\n";
+
+    cout << "Created new project." << endl;
+}
+
 int main(int argc, char **argv)
 {
     bool isTest = false;
@@ -194,6 +217,17 @@ int main(int argc, char **argv)
         printVersion();
         printHelp();
         return 0;
+    }
+
+    // TODO: Consider something like https://github.com/CLIUtils/CLI11 to parse arguments
+    char *arg1 = argv[1];
+    if (strcmp(arg1, "new") == 0) {
+        createNewProject();
+        exit(0);
+    } else if (strcmp(arg1, "run") == 0) {
+        // Run default entrypoint
+        // TODO: Implement specifying another entrypoint
+        exit(0);
     }
 
     for (int i = 0; i < argc; i++)

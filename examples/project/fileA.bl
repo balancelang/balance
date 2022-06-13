@@ -1,0 +1,4 @@
+
+def someFunc() -> None {
+    print("Hello from fileA")
+}

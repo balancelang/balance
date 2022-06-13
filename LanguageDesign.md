@@ -7,6 +7,7 @@
         but not:
             var a = myFunc();
     - favor x.y().z().q() over q(z(y(x)))
+    - use "from X import Y", rather than "import Y from X", since intellisense can't guess Y before knowing X.
     - variable def: 'var a = 2' or 'Int a = 2'. Favor this over 'var a: Int = 2' since this requires both 'var', 'a', and 'Int'.
 - Features
     - If statements (+)
@@ -36,9 +37,9 @@
 - Builtin types
     - Int (+), Float, Double (+), Bool (+), Any, None (+), Array (+), List, Dict, Optional
 - CLI
+    - package.json determines version
     - updater built in, e.g. "balance --update" to upgrade to latest version
-    - set version, e.g. "balance --set-version 3.5"
-    - create project
+    - create project "balance new"
         - eventually wizard options for use-cases
 - Formatter
 
