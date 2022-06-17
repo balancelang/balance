@@ -3,7 +3,7 @@
 
 using namespace llvm;
 
-void writeModuleToFile(Module *module)
+void writeModuleToFile(std::string fileName, std::vector<Module *> modules)
 {
     auto TargetTriple = sys::getDefaultTargetTriple();
     InitializeAllTargetInfos();
@@ -28,29 +28,32 @@ void writeModuleToFile(Module *module)
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    module->setDataLayout(TargetMachine->createDataLayout());
-    module->setTargetTriple(TargetTriple);
+    for (Module * module : modules) {
+        module->setDataLayout(TargetMachine->createDataLayout());
+        module->setTargetTriple(TargetTriple);
 
-    auto Filename = "output.o";
-    std::error_code EC;
-    raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+        std::string objectFileName = module->getSourceFileName() + ".o";
+        std::error_code EC;
+        raw_fd_ostream dest(objectFileName, EC, sys::fs::OF_None);
 
-    if (EC)
-    {
-        errs() << "Could not open file: " << EC.message();
-        return;
+        if (EC)
+        {
+            errs() << "Could not open file: " << EC.message();
+            return;
+        }
+
+        legacy::PassManager pass;
+        auto FileType = CGFT_ObjectFile;
+
+        if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType))
+        {
+            errs() << "TargetMachine can't emit a file of this type";
+            return;
+        }
+
+        pass.run(*module);
+        dest.flush();
     }
-
-    legacy::PassManager pass;
-    auto FileType = CGFT_ObjectFile;
-
-    if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType))
-    {
-        errs() << "TargetMachine can't emit a file of this type";
-        return;
-    }
-    pass.run(*module);
-    dest.flush();
 
     IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts = new clang::DiagnosticOptions;
     clang::TextDiagnosticPrinter *DiagClient = new clang::TextDiagnosticPrinter(errs(), &*DiagOpts);
@@ -58,7 +61,14 @@ void writeModuleToFile(Module *module)
     clang::DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
     clang::driver::Driver TheDriver(CLANGXX, TargetTriple, Diags);
 
-    auto args = ArrayRef<const char *>{"-g", "output.o", "-o", "main"};
+    std::vector<const char *> myArguments = { "-g" };
+    for (Module * module : modules) {
+        std::string objectFileName = module->getSourceFileName() + ".o";
+        myArguments.push_back(objectFileName.c_str());
+    }
+    myArguments.push_back("-o");
+    myArguments.push_back(fileName.c_str());
+    auto args = ArrayRef<const char *>(myArguments);
 
     std::unique_ptr<clang::driver::Compilation> C(TheDriver.BuildCompilation(args));
 
@@ -68,5 +78,8 @@ void writeModuleToFile(Module *module)
         TheDriver.ExecuteCompilation(*C, FailingCommands);
     }
 
-    remove(Filename);
+    for (Module * module : modules) {
+        std::string objectFileName = module->getSourceFileName() + ".o";
+        remove(objectFileName.c_str());
+    }
 }

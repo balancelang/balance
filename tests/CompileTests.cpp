@@ -90,7 +90,9 @@ string exec(const char* cmd) {
 
 string run(string program) {
     Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
+    std::vector<Module *> modules;
+    modules.push_back(module);
+    writeModuleToFile("main", modules);
     return exec("./main");
 }
 

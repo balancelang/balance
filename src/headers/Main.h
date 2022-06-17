@@ -1,3 +1,6 @@
+#ifndef MAIN_H
+#define MAIN_H
+
 #include "llvm/IR/Module.h"
 #include "antlr4-runtime.h"
 
@@ -16,3 +19,5 @@ Module *buildModuleFromStream(ANTLRInputStream stream);
 Module *buildModuleFromString(std::string program);
 Module *buildModuleFromPath(std::string path);
 tree::ParseTree *buildASTFromString(std::string program);
+
+#endif

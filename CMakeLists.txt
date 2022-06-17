@@ -18,6 +18,8 @@ message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
 
+include("rapidjson")
+
 macro(find_program_or_die OUTPUT_VAR PROG_NAME DOCSTRING)
   find_program(${OUTPUT_VAR}
     NAMES "${PROG_NAME}${LLVM_BINARY_SUFFIX}${CMAKE_EXECUTABLE_SUFFIX}" "${PROG_NAME}${CMAKE_EXECUTABLE_SUFFIX}"
@@ -36,6 +38,8 @@ endmacro()
 find_package(Clang REQUIRED)
 find_program_or_die( CLANGXX "clang++-12" "clang++ binary")
 execute_process(COMMAND "${CLANGXX}" "--version" OUTPUT_VARIABLE LLVM_CLANGXX_VERSION RESULT_VARIABLE CLANGXX_RES)
+
+include_directories(${RAPIDJSON_INCLUDE_DIR})
 
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.h.in.cmake ${CMAKE_BINARY_DIR}/generated/config.h )
 include_directories( ${CMAKE_BINARY_DIR}/generated/ )
@@ -104,6 +108,8 @@ add_executable(balance
                src/Builder.cpp
                src/Builtins.cpp
                src/Visitor.cpp
+               src/Package.cpp
+               src/Utilities.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
@@ -118,3 +124,4 @@ llvm_map_components_to_libnames(llvm_libs support core irreader mc target ${LLVM
 target_link_libraries(balance antlr4_static)
 target_link_libraries(balance Threads::Threads)
 target_link_libraries(balance LLVM clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)
+add_dependencies(balance rapidjson)

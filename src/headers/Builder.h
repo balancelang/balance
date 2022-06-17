@@ -1,3 +1,6 @@
+#ifndef BUILDER_H
+#define BUILDER_H
+
 #include "llvm/IR/Module.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Basic/Diagnostic.h"
@@ -48,4 +51,6 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/IR/ValueSymbolTable.h"
 
-void writeModuleToFile(llvm::Module *module);
+void writeModuleToFile(std::string fileName, std::vector<llvm::Module *> modules);
+
+#endif

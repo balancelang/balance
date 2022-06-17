@@ -28,20 +28,19 @@ void assertEqual(string expected, string actual, string program) {
 }
 
 string programToString(string program) {
-    ANTLRInputStream input(program);
-    BalanceLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
+    antlr4::ANTLRInputStream input(program);
+    antlrcpptest::BalanceLexer lexer(&input);
+    antlr4::CommonTokenStream tokens(&lexer);
 
     tokens.fill();
 
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
+    antlrcpptest::BalanceParser parser(&tokens);
+    antlr4::tree::ParseTree *tree = parser.root();
 
     return tree->toStringTree(&parser, false);
 }
 
 void createVariablesTestInt() {
-    
     string program = "var a = 555";
     string actual = programToString(program);
     string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (numericLiteral 555))))) <EOF>)))";

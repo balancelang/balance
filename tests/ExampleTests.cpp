@@ -91,28 +91,36 @@ string execExample(const char* cmd) {
 
 void examplesClassTest() {
     Module * module = buildModuleFromPath("../examples/class.bl");
-    writeModuleToFile(module);
+    std::vector<Module *> modules;
+    modules.push_back(module);
+    writeModuleToFile("main", modules);
     string result = execExample("./main");
     assertEqual("25\n", result, "Class test");
 }
 
 void examplesHelloWorldTest() {
     Module * module = buildModuleFromPath("../examples/helloWorld.bl");
-    writeModuleToFile(module);
+    std::vector<Module *> modules;
+    modules.push_back(module);
+    writeModuleToFile("main", modules);
     string result = execExample("./main");
     assertEqual("Hello world!\n", result, "Hello world");
 }
 
 void examplesVariablesTest() {
     Module * module = buildModuleFromPath("../examples/variables.bl");
-    writeModuleToFile(module);
+    std::vector<Module *> modules;
+    modules.push_back(module);
+    writeModuleToFile("main", modules);
     string result = execExample("./main");
     assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {
     Module * module = buildModuleFromPath("../examples/functions.bl");
-    writeModuleToFile(module);
+    std::vector<Module *> modules;
+    modules.push_back(module);
+    writeModuleToFile("main", modules);
     string result = execExample("./main");
     assertEqual("80\nBecause this returns 'None', we can ommit '-> None'\n", result, "Functions");
 }

@@ -1,3 +1,6 @@
+#ifndef VISITOR_H
+#define VISITOR_H
+
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -56,3 +59,5 @@ public:
         this->parent = parent;
     }
 };
+
+#endif

@@ -2,6 +2,8 @@
 #include "headers/Builder.h"
 #include "headers/Builtins.h"
 #include "headers/Visitor.h"
+#include "headers/Package.h"
+#include "headers/Utilities.h"
 
 #include <iostream>
 #include <cstdio>
@@ -78,12 +80,6 @@ IRBuilder<> *builder;
 vector<BalanceType> types;
 ScopeBlock *currentScope = nullptr;
 bool verbose = false;
-
-bool file_exist(string fileName)
-{
-    ifstream infile(fileName);
-    return infile.good();
-}
 
 void initializeModule()
 {
@@ -223,57 +219,69 @@ int main(int argc, char **argv)
     char *arg1 = argv[1];
     if (strcmp(arg1, "new") == 0) {
         createNewProject();
-        exit(0);
+        return 0;
     } else if (strcmp(arg1, "run") == 0) {
-        // Run default entrypoint
-        // TODO: Implement specifying another entrypoint
-        exit(0);
-    }
+        std::string entryPoint;
+        if (argc > 2) {
+            entryPoint = argv[2];
+        }
 
-    for (int i = 0; i < argc; i++)
-    {
-        char *arg = argv[i];
-        if (strcmp(arg, "--test") == 0)
-        {
-            isTest = true;
+        if (!file_exist("package.json")) {
+            cout << "Found no package.json in current directory, exiting.." << endl;
+            return 1;
         }
-        else if (strcmp(arg, "--version") == 0)
-        {
-            isPrintVersion = true;
-        }
-        else if (strcmp(arg, "--help") == 0)
-        {
-            isHelp = true;
-        }
-        else if (strcmp(arg, "--verbose") == 0)
-        {
-            verbose = true;
-        }
-    }
 
-    if (isPrintVersion)
-    {
-        printVersion();
-    }
-    else if (isHelp)
-    {
-        printHelp();
-    }
-    else if (isTest)
-    {
-        runASTTestSuite();
-        runCompileTestSuite();
-        runExamplesTestSuite();
-    }
-    else
-    {
-        Module *mod = buildModuleFromPath(argv[1]);
-
-        if (verbose)
+        // TODO: One day we might allow executing from a different directory
+        Package * package = new Package("package.json", entryPoint);
+        bool success = package->execute();
+        return !success;
+    } else {
+        for (int i = 0; i < argc; i++)
         {
-            module->print(llvm::errs(), nullptr);
+            char *arg = argv[i];
+            if (strcmp(arg, "--test") == 0)
+            {
+                isTest = true;
+            }
+            else if (strcmp(arg, "--version") == 0)
+            {
+                isPrintVersion = true;
+            }
+            else if (strcmp(arg, "--help") == 0)
+            {
+                isHelp = true;
+            }
+            else if (strcmp(arg, "--verbose") == 0)
+            {
+                verbose = true;
+            }
         }
-        writeModuleToFile(module);
+
+        if (isPrintVersion)
+        {
+            printVersion();
+        }
+        else if (isHelp)
+        {
+            printHelp();
+        }
+        else if (isTest)
+        {
+            runASTTestSuite();
+            runCompileTestSuite();
+            runExamplesTestSuite();
+        }
+        else
+        {
+            Module *mod = buildModuleFromPath(argv[1]);
+
+            if (verbose)
+            {
+                mod->print(llvm::errs(), nullptr);
+            }
+            // TODO: Get filename from argv[1] path
+            writeModuleToFile("main", { mod });
+        }
     }
 
     return 0;

@@ -1,8 +1,8 @@
 {
-    "name": "ExampleProject",
+    "name": "exampleProject",
     "version": "1.2.3",
     "entrypoints": {
-        "default": "fileB.bl"
+        "default": "fileA.bl"
     },
     "dependencies": {}
 }
