@@ -1,6 +1,4 @@
+from fileB import someFunc
 
-def someFunc() -> None {
-    print("Hello from fileA")
-}
-
+print("Hello from fileA")
 someFunc()

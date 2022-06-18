@@ -1,5 +1,3 @@
-from fileA import someFunc
-
-def main() -> None {
-    someFunc()
+def someFunc() -> None {
+    print("Hello from fileB.bl")
 }

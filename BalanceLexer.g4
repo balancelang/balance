@@ -14,6 +14,9 @@ TRUE                : 'true';
 WHILE               : 'while';
 CLASS               : 'class';
 NEW                 : 'new';
+FROM                : 'from';
+IMPORT              : 'import';
+AS                  : 'as';
 
 OPEN_BRACE          : '{';
 CLOSE_BRACE         : '}';
@@ -56,6 +59,8 @@ LINE_BREAK
 WS: [ \t]+ -> skip;
 
 IDENTIFIER: [a-zA-Z_]+ [a-zA-Z_0-9]*;
+
+IMPORT_PATH: '/'? ([a-zA-Z_]+ [a-zA-Z_0-9]* '/'?)+;
 
 STRING: '"' ~["]* '"' {setText(getText().substr(1, getText().length()-2));};
 // STRING: '"' [a-zA-Z_ 0-9!#¤%&/()=?\\`',.]* '"' {setText(getText().substr(1, getText().length()-2));};

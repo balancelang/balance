@@ -57,7 +57,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/balance",
-            "args": [ "run" ],
+            "args": [ "run", "--verbose" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/examples/project",
             "environment": [],
