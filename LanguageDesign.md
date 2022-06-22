@@ -15,18 +15,19 @@
     - while loops (+)
     - for loops
     - Pattern matching
-    - checked exceptions
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
-    - Java-like "throws" keyword
+    - Java-like "throws" keyword - checked exceptions
     - Classes (+)
     - interfaces
     - builtin serialization (JSON, XML, YAML)
     - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"
     - extension methods on types
+    - forward references - e.g. extend a class defined later in the same file
+    - Not compile classes/functions not imported?
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits

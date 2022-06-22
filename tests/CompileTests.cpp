@@ -1,6 +1,6 @@
 #include "CompileTests.h"
 #include "../src/headers/Main.h"
-#include "../src/headers/Builder.h"
+#include "../src/headers/Visitor.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -89,11 +89,13 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
-    Module * module = buildModuleFromString(program);
-    std::vector<Module *> modules;
-    modules.push_back(module);
-    writeModuleToFile("main", modules);
-    return exec("./main");
+    // BalanceModule * bmodule = new BalanceModule("")
+    // Module * module = buildModuleFromString(program);
+    // std::vector<Module *> modules;
+    // modules.push_back(module);
+    // writeModuleToFile("main", modules);
+    // return exec("./main");
+    return ""; // TODO: FIX
 }
 
 void createPrintInt() {

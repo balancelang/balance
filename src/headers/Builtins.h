@@ -11,7 +11,7 @@ using namespace std;
 
 class BalanceType {
 public:
-    Module * module;
+    Module * module; // TODO: BalanceModule?
     Type * type;
     string name;
     BalanceType(Module * module, Type * type, string name) {

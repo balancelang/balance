@@ -1,5 +1,4 @@
 #include "headers/Main.h"
-#include "headers/Builder.h"
 #include "headers/Builtins.h"
 #include "headers/Visitor.h"
 #include "headers/Package.h"
@@ -75,94 +74,26 @@ using namespace antlr4;
 using namespace std;
 
 LLVMContext *context;
-Module *module;
 IRBuilder<> *builder;
 vector<BalanceType> types;
-ScopeBlock *currentScope = nullptr;
+BalancePackage *currentPackage = nullptr;
+BalanceModule *currentModule = nullptr;
 bool verbose = false;
 
-void initializeModule()
+void initializeModule(BalanceModule * bmodule)
 {
     context = new LLVMContext();
-    module = new Module("main", *context);
     builder = new IRBuilder<>(*context);
-    currentScope = nullptr;
-}
+    bmodule->module = new Module(bmodule->path, *context);
+    currentModule = bmodule;
 
-Module *buildModuleFromStream(ANTLRInputStream stream)
-{
-    initializeModule();
-    BalanceLexer lexer(&stream);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
-    if (verbose)
-    {
-        cout << tree->toStringTree(&parser, true) << endl;
-    }
-
-    create_functions();
-    create_types();
-
+    // Initialize module root scope
     FunctionType *funcType = FunctionType::get(builder->getInt32Ty(), false);
-    Function *mainFunc = Function::Create(funcType, Function::ExternalLinkage, "main", module);
-    BasicBlock *entry = BasicBlock::Create(*context, "entrypoint", mainFunc);
-
-    // Set insert point to end of (start of) main block
+    Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, bmodule->isEntrypoint ? "main" : "root", bmodule->module);
+    BasicBlock *entry = BasicBlock::Create(*context, "entrypoint", rootFunc);
     builder->SetInsertPoint(entry);
-    currentScope = new ScopeBlock(entry, nullptr);
-    BalanceVisitor visitor;
-
-    // Visit entire tree
-    visitor.visit(tree);
-
-    // Return 0
-    builder->CreateRet(ConstantInt::get(*context, APInt(32, 0)));
-    return module;
-}
-
-tree::ParseTree *buildASTFromString(string program)
-{
-    ANTLRInputStream input(program);
-    BalanceLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
-    if (verbose)
-    {
-        cout << tree->toStringTree(&parser, true) << endl;
-    }
-    return tree;
-}
-
-Module *buildModuleFromString(string program)
-{
-    ANTLRInputStream input(program);
-    return buildModuleFromStream(input);
-}
-
-Module *buildModuleFromPath(string filePath)
-{
-    if (!file_exist(filePath))
-    {
-        cout << "Input file doesn't exist: " << filePath << endl;
-        exit(1);
-    }
-
-    ifstream inputStream;
-    inputStream.open(filePath);
-
-
-    ANTLRInputStream input(inputStream);
-    return buildModuleFromStream(input);
+    bmodule->rootScope = new ScopeBlock(entry, nullptr);
+    bmodule->currentScope = bmodule->rootScope;
 }
 
 void printVersion()
@@ -232,8 +163,8 @@ int main(int argc, char **argv)
         }
 
         // TODO: One day we might allow executing from a different directory
-        Package * package = new Package("package.json", entryPoint);
-        bool success = package->execute();
+        currentPackage = new BalancePackage("package.json", entryPoint);
+        bool success = currentPackage->execute();
         return !success;
     } else {
         for (int i = 0; i < argc; i++)
@@ -273,14 +204,14 @@ int main(int argc, char **argv)
         }
         else
         {
-            Module *mod = buildModuleFromPath(argv[1]);
+            // Module *mod = buildModuleFromPath(argv[1]);
 
-            if (verbose)
-            {
-                mod->print(llvm::errs(), nullptr);
-            }
-            // TODO: Get filename from argv[1] path
-            writeModuleToFile("main", { mod });
+            // if (verbose)
+            // {
+            //     mod->print(llvm::errs(), nullptr);
+            // }
+            // // TODO: Get filename from argv[1] path
+            // writeModuleToFile("main", { mod });
         }
     }
 

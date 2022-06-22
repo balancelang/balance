@@ -40,7 +40,7 @@ importDefinitionList
 
 importDefinition
     : IDENTIFIER                                                        # UnnamedImportDefinition
-    | IDENTIFIER AS name=IDENTIFIER                                     # NamedImportDefinition
+    // | IDENTIFIER AS name=IDENTIFIER                                     # NamedImportDefinition
     ;
 
 whileStatement

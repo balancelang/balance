@@ -7,15 +7,14 @@
 using namespace std;
 
 extern std::unique_ptr<LLVMContext> context;
-extern std::unique_ptr<Module> module;
 extern std::unique_ptr<IRBuilder<>> builder;
-extern ScopeBlock *currentScope;
+extern BalanceModule *currentModule;
 extern vector<BalanceType> types;
 
 void create_function_print()
 {
     FunctionType * functionType = FunctionType::get(IntegerType::getInt32Ty(*context), PointerType::get(Type::getInt8Ty(*context), 0), true);
-    FunctionCallee printfFunc = module->getOrInsertFunction("printf", functionType);
+    FunctionCallee printfFunc = currentModule->module->getOrInsertFunction("printf", functionType);
 }
 
 void create_functions() {

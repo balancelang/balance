@@ -71,4 +71,10 @@
         "regex": "cpp"
     },
     "cmake.sourceDirectory": "${workspaceFolder}/.",
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
+    "editor.quickSuggestions": {
+        "other": "off",
+        "comments": "off",
+        "strings": "off"
+    },
 }

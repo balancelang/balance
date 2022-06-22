@@ -105,11 +105,11 @@ include_directories(${ANTLR_BalanceGrammarParser_OUTPUT_DIR})
 # add generated grammar to the binary target
 add_executable(balance
                src/Main.cpp
-               src/Builder.cpp
                src/Builtins.cpp
                src/Visitor.cpp
                src/Package.cpp
                src/Utilities.cpp
+               src/ImportVisitor.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

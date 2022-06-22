@@ -1,3 +1,7 @@
-def someFunc() -> None {
+from filaA import MyClass
+from subfolder/fileC import A
+
+def someFunc(A a) -> None {
     print("Hello from fileB.bl")
+    print(A)
 }

@@ -12,15 +12,8 @@
 #include "llvm/IR/LLVMContext.h"
 #include "rapidjson/document.h"
 
-class Package {
+class BalancePackage {
 public:
-    LLVMContext *context;
-    Module *module;
-    IRBuilder<> *builder;
-    vector<BalanceType> types;
-    ScopeBlock *currentScope;
-    bool verbose = false;
-
     std::string packageJsonPath;
     std::string entrypoint;
     rapidjson::Document document;
@@ -28,9 +21,9 @@ public:
     std::string name;
     std::string version;
     std::map<std::string, std::string> entrypoints = {};
-    std::map<std::string, llvm::Module *> modules = {};
+    std::map<std::string, BalanceModule *> modules = {};
 
-    Package(std::string packageJsonPath, std::string entrypoint) {
+    BalancePackage(std::string packageJsonPath, std::string entrypoint) {
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
     }
@@ -40,7 +33,10 @@ public:
     void populate();
     void throwIfMissing(std::string property);
     bool compileAndPersist();
-    void compileRecursively(std::string path, std::vector<Module *> * modules);
+    void compileRecursively(std::string path);
+    void buildDependencyTree(std::string rootPath);
+    void writePackageToBinary(std::string entrypointName);
+    BalanceModule * getNextElementOrNull();
 };
 
 #endif
