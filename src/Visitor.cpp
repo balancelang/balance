@@ -64,70 +64,44 @@
 #include <typeindex>
 
 using namespace antlrcpptest;
-using namespace std;
 
 extern BalancePackage *currentPackage;
-extern LLVMContext *context;
-extern IRBuilder<> *builder;
 
 // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
-Value *accessedValue;
-extern BalanceModule *currentModule;
-BalanceClass *currentClass = nullptr;
+llvm::Value *accessedValue;
 
-void LogError(string errorMessage)
+void LogError(std::string errorMessage)
 {
     fprintf(stderr, "Error: %s\n", errorMessage.c_str());
 }
 
-Value *anyToValue(any anyVal)
+llvm::Value *anyToValue(any anyVal)
 {
-    return any_cast<Value *>(anyVal);
-}
-
-Value *getValue(string variableName)
-{
-    ScopeBlock *scope = currentModule->currentScope;
-    while (scope != nullptr)
-    {
-        Value *tryVal = scope->symbolTable[variableName];
-        if (tryVal != nullptr)
-        {
-            return tryVal;
-        }
-        scope = scope->parent;
-    }
-    // LogError("Failed to find variable in scope or parent scopes: " + variableName); // TODO: Move this to caller, when checking if nullptr
-    return nullptr;
-}
-
-void setValue(string variableName, Value *value)
-{
-    currentModule->currentScope->symbolTable[variableName] = value;
+    return any_cast<llvm::Value *>(anyVal);
 }
 
 Type *
-getBuiltinType(string typeString)
+getBuiltinType(std::string typeString)
 {
     if (typeString == "Int")
     {
-        return Type::getInt32Ty(*context);
+        return Type::getInt32Ty(*currentPackage->currentModule->context);
     }
     else if (typeString == "Bool")
     {
-        return Type::getInt1Ty(*context);
+        return Type::getInt1Ty(*currentPackage->currentModule->context);
     }
     else if (typeString == "String")
     {
-        return Type::getInt8PtrTy(*context);
+        return Type::getInt8PtrTy(*currentPackage->currentModule->context);
     }
     else if (typeString == "Double")
     {
-        return Type::getDoubleTy(*context);
+        return Type::getDoubleTy(*currentPackage->currentModule->context);
     }
     else if (typeString == "None")
     {
-        return Type::getVoidTy(*context);
+        return Type::getVoidTy(*currentPackage->currentModule->context);
     }
 
     return nullptr;
@@ -145,30 +119,31 @@ Constant *geti8StrVal(Module &M, char const *str, Twine const &name)
 
 void createDefaultConstructor(StructType *classValue)
 {
-    string constructorName = classValue->getName().str() + "_constructor";
+    std::string constructorName = classValue->getName().str() + "_constructor";
     vector<Type *> functionParameterTypes;
 
-    // If we don't have a return type, assume none
+    // TODO: Constructor should return Type of class?
     Type *returnType = getBuiltinType("None");
 
     ArrayRef<Type *> parametersReference{classValue->getPointerTo()};
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::InternalLinkage, constructorName, currentModule->module);
-    currentClass->constructor = function;
+    Function *function = Function::Create(functionType, Function::InternalLinkage, constructorName, currentPackage->currentModule->module);
+    currentPackage->currentModule->currentClass->constructor = function;
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
     llvm::Value *thisValue = args++;
     thisValue->setName("this");
 
-    BasicBlock *functionBody = BasicBlock::Create(*context, constructorName + "_body", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, constructorName + "_body", function);
     // Store current block so we can return to it after function declaration
-    BasicBlock *resumeBlock = builder->GetInsertBlock();
-    builder->SetInsertPoint(functionBody);
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    for (auto const &x : currentClass->properties)
+    for (auto const &x : currentPackage->currentModule->currentClass->properties)
     {
-        Type *propertyType = x.second.type;
+        BalanceProperty * property = x.second;
+        Type *propertyType = property->type;
 
         Value *initialValue;
         if (propertyType->isIntegerTy(1))
@@ -183,56 +158,32 @@ void createDefaultConstructor(StructType *classValue)
         {
             initialValue = ConstantFP::get(getBuiltinType("Double"), 0.0);
         }
-        // TODO: Handle String and nullable types
+        // // TODO: Handle String and nullable types
 
-        int intIndex = x.second.index;
-        auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
+        int intIndex = property->index;
+        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
         Type *structType = thisValue->getType()->getPointerElementType();
 
-        auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
-        builder->CreateStore(initialValue, ptr);
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
+        currentPackage->currentModule->builder->CreateStore(initialValue, ptr);
     }
 
-    builder->CreateRetVoid();
+    currentPackage->currentModule->builder->CreateRetVoid();
 
     bool hasError = verifyFunction(*function);
-    builder->SetInsertPoint(resumeBlock);
-}
-
-void finalizeClass()
-{
-    vector<Type *> propertyTypes;
-    for (auto const &x : currentClass->properties)
-    {
-        propertyTypes.push_back(x.second.type);
-    }
-    ArrayRef<Type *> propertyTypesRef(propertyTypes);
-    currentClass->structType->setBody(propertyTypesRef, false);
-    currentClass->finalized = true;
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
 any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx)
 {
-    string text = ctx->getText();
-    string className = ctx->className->getText();
-    currentClass = currentModule->classes[className];
+    std::string text = ctx->getText();
+    std::string className = ctx->className->getText();
+    currentPackage->currentModule->currentClass = currentPackage->currentModule->classes[className];
 
-    StructType *structType = StructType::create(*context, className);
-    currentClass->structType = structType;
+    createDefaultConstructor(currentPackage->currentModule->currentClass->structType);
 
-    // We make sure to parse all classProperties first, so we can finalize class.
-    for (auto const &x : ctx->classElement())
-    {
-        if (x->classProperty())
-        {
-            visit(x);
-        }
-    }
-
-    finalizeClass();
-    createDefaultConstructor(structType);
-
+    // Visit all class functions
     for (auto const &x : ctx->classElement())
     {
         if (x->functionDefinition())
@@ -241,43 +192,36 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
         }
     }
 
-    currentClass = nullptr;
+    currentPackage->currentModule->currentClass = nullptr;
     return nullptr;
 }
 
 any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx)
 {
-    string text = ctx->getText();
-    string className = ctx->classInitializer()->IDENTIFIER()->getText();
+    std::string text = ctx->getText();
+    std::string className = ctx->classInitializer()->IDENTIFIER()->getText();
 
-    BalanceClass *type = currentModule->classes[className];
-    AllocaInst *alloca = builder->CreateAlloca(type->structType);
-    ArrayRef<Value *> argumentsReference{alloca};
-    builder->CreateCall(type->constructor, argumentsReference);
-    // return (Value *)builder->CreateLoad(alloca);
-    return (Value *)alloca;
-}
-
-any BalanceVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx)
-{
-    string text = ctx->getText();
-    string typeString = ctx->type->getText();
-    string name = ctx->name->getText();
-
-    Type *typeValue = getBuiltinType(typeString);
-    if (typeValue == nullptr)
-    {
-        // TODO: Handle non builtin types (e.g. other classes)
+    BalanceClass *type;
+    if (currentPackage->currentModule->classes.find(className) != currentPackage->currentModule->classes.end()) {
+        // Class is in current module
+        type = currentPackage->currentModule->classes[className];
+    } else if (currentPackage->currentModule->importedClasses.find(className) != currentPackage->currentModule->importedClasses.end()) {
+        // Class is imported
+        type = currentPackage->currentModule->importedClasses[className];
+    } else {
+        // TODO: throw error
     }
 
-    int count = currentClass->properties.size();
-    currentClass->properties[name] = {count, typeValue};
-    return any();
+    type = currentPackage->currentModule->classes[className];
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(type->structType);
+    ArrayRef<Value *> argumentsReference{alloca};
+    currentPackage->currentModule->builder->CreateCall(type->constructor, argumentsReference);
+    return (Value *)alloca;
 }
 
 any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx)
 {
-    string text = ctx->getText();
+    std::string text = ctx->getText();
 
     any anyValMember = visit(ctx->member);
     llvm::Value *valueMember = anyToValue(anyValMember);
@@ -294,44 +238,44 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
 {
     any text = ctx->getText();
 
-    Function *function = builder->GetInsertBlock()->getParent();
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     // Set up the 3 blocks we need: condition, loop-block and merge
-    BasicBlock *condBlock = BasicBlock::Create(*context, "loopcond", function);
-    BasicBlock *loopBlock = BasicBlock::Create(*context, "loop", function);
-    BasicBlock *mergeBlock = BasicBlock::Create(*context, "afterloop", function);
+    BasicBlock *condBlock = BasicBlock::Create(*currentPackage->currentModule->context, "loopcond", function);
+    BasicBlock *loopBlock = BasicBlock::Create(*currentPackage->currentModule->context, "loop", function);
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->currentModule->context, "afterloop", function);
 
     // Jump to condition
-    builder->CreateBr(condBlock);
-    builder->SetInsertPoint(condBlock);
+    currentPackage->currentModule->builder->CreateBr(condBlock);
+    currentPackage->currentModule->builder->SetInsertPoint(condBlock);
 
     // while condition, e.g. (i < 5)
     any expressionResult = visit(ctx->expression());
     llvm::Value *expression = anyToValue(expressionResult);
 
     // Create the condition - if expression is true, jump to loop block, else jump to after loop block
-    builder->CreateCondBr(expression, loopBlock, mergeBlock);
+    currentPackage->currentModule->builder->CreateCondBr(expression, loopBlock, mergeBlock);
 
     // Set insert point to the loop-block so we can populate it
-    builder->SetInsertPoint(loopBlock);
-    currentModule->currentScope = new ScopeBlock(loopBlock, currentModule->currentScope);
+    currentPackage->currentModule->builder->SetInsertPoint(loopBlock);
+    currentPackage->currentModule->currentScope = new ScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
 
     // Visit the while-block statements
     visit(ctx->ifBlock());
 
-    currentModule->currentScope = new ScopeBlock(condBlock, currentModule->currentScope->parent);
+    currentPackage->currentModule->currentScope = new ScopeBlock(condBlock, currentPackage->currentModule->currentScope->parent);
     // At the end of while-block, jump back to the condition which may jump to mergeBlock or reiterate
-    builder->CreateBr(condBlock);
+    currentPackage->currentModule->builder->CreateBr(condBlock);
 
     // Make sure new code is added to "block" after while statement
-    builder->SetInsertPoint(mergeBlock);
-    currentModule->currentScope = new ScopeBlock(mergeBlock, currentModule->currentScope->parent); // TODO: Store scope in beginning of this function, and restore here?
+    currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
+    currentPackage->currentModule->currentScope = new ScopeBlock(mergeBlock, currentPackage->currentModule->currentScope->parent); // TODO: Store scope in beginning of this function, and restore here?
     return any();
 }
 
 any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx)
 {
-    string text = ctx->getText();
+    std::string text = ctx->getText();
 
     any anyValMember = visit(ctx->member);
     llvm::Value *valueMember = anyToValue(anyValMember);
@@ -340,31 +284,31 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     any anyVal = visit(ctx->value);
     llvm::Value *value = anyToValue(anyVal);
 
-    auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-    auto ptr = builder->CreateGEP(valueMember, {zero, valueIndex});
-    builder->CreateStore(value, ptr);
+    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+    auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, valueIndex});
+    currentPackage->currentModule->builder->CreateStore(value, ptr);
 
     return any();
 }
 
 any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx)
 {
-    string text = ctx->getText();
-    Function *function = builder->GetInsertBlock()->getParent();
+    std::string text = ctx->getText();
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     any anyValMember = visit(ctx->member);
     llvm::Value *valueMember = anyToValue(anyValMember);
     any anyValIndex = visit(ctx->index);
     llvm::Value *valueIndex = anyToValue(anyValIndex); // Should return i32 for now
 
-    auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-    auto ptr = builder->CreateGEP(valueMember, {zero, valueIndex});
-    return (Value *)builder->CreateLoad(ptr);
+    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+    auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, valueIndex});
+    return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
 }
 
 any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx)
 {
-    string text = ctx->getText();
+    std::string text = ctx->getText();
     vector<llvm::Value *> values;
     for (BalanceParser::ExpressionContext *expression : ctx->listElements()->expression())
     {
@@ -376,65 +320,65 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx)
     Type *type = values[0]->getType();
     auto arrayType = llvm::ArrayType::get(type, values.size());
 
-    AllocaInst *alloca = builder->CreateAlloca(arrayType);
-    auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
+    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
     for (int i = 0; i < values.size(); i++)
     {
-        auto index = ConstantInt::get(*context, llvm::APInt(32, i, true));
-        auto ptr = builder->CreateGEP(alloca, {zero, index});
-        builder->CreateStore(values[i], ptr);
+        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, i, true));
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(alloca, {zero, index});
+        currentPackage->currentModule->builder->CreateStore(values[i], ptr);
     }
     return (Value *)alloca;
 }
 
 any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
 {
-    string text = ctx->getText();
-    ScopeBlock *scope = currentModule->currentScope;
-    Function *function = builder->GetInsertBlock()->getParent();
+    std::string text = ctx->getText();
+    ScopeBlock *scope = currentPackage->currentModule->currentScope;
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     any expressionResult = visit(ctx->expression());
     llvm::Value *expression = anyToValue(expressionResult);
-    BasicBlock *thenBlock = BasicBlock::Create(*context, "then", function);
-    BasicBlock *elseBlock = BasicBlock::Create(*context, "else");
-    BasicBlock *mergeBlock = BasicBlock::Create(*context, "ifcont");
-    builder->CreateCondBr(expression, thenBlock, elseBlock);
+    BasicBlock *thenBlock = BasicBlock::Create(*currentPackage->currentModule->context, "then", function);
+    BasicBlock *elseBlock = BasicBlock::Create(*currentPackage->currentModule->context, "else");
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->currentModule->context, "ifcont");
+    currentPackage->currentModule->builder->CreateCondBr(expression, thenBlock, elseBlock);
 
-    builder->SetInsertPoint(thenBlock);
-    currentModule->currentScope = new ScopeBlock(thenBlock, scope);
+    currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
+    currentPackage->currentModule->currentScope = new ScopeBlock(thenBlock, scope);
     visit(ctx->ifblock);
-    builder->CreateBr(mergeBlock);
-    thenBlock = builder->GetInsertBlock();
+    currentPackage->currentModule->builder->CreateBr(mergeBlock);
+    thenBlock = currentPackage->currentModule->builder->GetInsertBlock();
     function->getBasicBlockList().push_back(elseBlock);
-    builder->SetInsertPoint(elseBlock);
-    currentModule->currentScope = new ScopeBlock(elseBlock, scope);
+    currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
+    currentPackage->currentModule->currentScope = new ScopeBlock(elseBlock, scope);
     if (ctx->elseblock)
     {
         visit(ctx->elseblock);
     }
-    builder->CreateBr(mergeBlock);
-    elseBlock = builder->GetInsertBlock();
+    currentPackage->currentModule->builder->CreateBr(mergeBlock);
+    elseBlock = currentPackage->currentModule->builder->GetInsertBlock();
     function->getBasicBlockList().push_back(mergeBlock);
-    builder->SetInsertPoint(mergeBlock);
-    currentModule->currentScope = scope;
+    currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
+    currentPackage->currentModule->currentScope = scope;
     return any();
 }
 
 any BalanceVisitor::visitArgument(BalanceParser::ArgumentContext *ctx)
 {
-    string text = ctx->getText();
-    Function *function = builder->GetInsertBlock()->getParent();
+    std::string text = ctx->getText();
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
     if (ctx->IDENTIFIER())
     {
         // Argument is a variable
-        string variableName = ctx->IDENTIFIER()->getText();
-        llvm::Value *val = getValue(variableName);
+        std::string variableName = ctx->IDENTIFIER()->getText();
+        llvm::Value *val = currentPackage->currentModule->getValue(variableName);
 
         Type *type = val->getType();
 
         if (isa<PointerType>(val->getType()))
         {
-            llvm::Value *load = builder->CreateLoad(val, variableName);
+            llvm::Value *load = currentPackage->currentModule->builder->CreateLoad(val, variableName);
             return load;
         }
 
@@ -445,63 +389,63 @@ any BalanceVisitor::visitArgument(BalanceParser::ArgumentContext *ctx)
 
 any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx)
 {
-    string variableName = ctx->variable()->IDENTIFIER()->getText();
-    Value *val = getValue(variableName);
-    if (val == nullptr && currentClass != nullptr)
+    std::string variableName = ctx->variable()->IDENTIFIER()->getText();
+    Value *val = currentPackage->currentModule->getValue(variableName);
+    if (val == nullptr && currentPackage->currentModule->currentClass != nullptr)
     {
         // TODO: Check if variableName is in currentClass->properties
-        int intIndex = currentClass->properties[variableName].index;
-        auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
-        Value *thisValue = getValue("this");
+        int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
+        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
+        Value *thisValue = currentPackage->currentModule->getValue("this");
         Type *structType = thisValue->getType()->getPointerElementType();
 
-        auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
-        return (Value *)builder->CreateLoad(ptr);
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
+        return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
     }
 
     if (val->getType()->isPointerTy())
     {
-        return (Value *)builder->CreateLoad(val);
+        return (Value *)currentPackage->currentModule->builder->CreateLoad(val);
     }
     return val;
 }
 
 any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
 {
-    string text = ctx->getText();
-    string variableName = ctx->IDENTIFIER()->getText();
+    std::string text = ctx->getText();
+    std::string variableName = ctx->IDENTIFIER()->getText();
     any expressionResult = visit(ctx->expression());
     Value *value = anyToValue(expressionResult);
-    Value *alloca = builder->CreateAlloca(value->getType(), nullptr);
-    Value *store = builder->CreateStore(value, alloca);
-    setValue(variableName, alloca);
+    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->getType(), nullptr);
+    Value *store = currentPackage->currentModule->builder->CreateStore(value, alloca);
+    currentPackage->currentModule->setValue(variableName, alloca);
     return alloca;
 }
 
 any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx)
 {
-    string text = ctx->getText();
-    Function *function = builder->GetInsertBlock()->getParent();
-    string variableName = ctx->IDENTIFIER()->getText();
+    std::string text = ctx->getText();
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
+    std::string variableName = ctx->IDENTIFIER()->getText();
     any expressionResult = visit(ctx->expression());
     llvm::Value *value = anyToValue(expressionResult);
 
-    Value *variable = getValue(variableName);
-    if (variable == nullptr && currentClass != nullptr)
+    Value *variable = currentPackage->currentModule->getValue(variableName);
+    if (variable == nullptr && currentPackage->currentModule->currentClass != nullptr)
     {
         // TODO: Check if variableName is in currentClass->properties
-        int intIndex = currentClass->properties[variableName].index;
-        auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*context, llvm::APInt(32, intIndex, true));
-        Value *thisValue = getValue("this");
+        int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
+        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
+        Value *thisValue = currentPackage->currentModule->getValue("this");
         Type *structType = thisValue->getType()->getPointerElementType();
 
-        auto ptr = builder->CreateGEP(structType, thisValue, {zero, index});
-        return (Value *)builder->CreateStore(value, ptr);
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
+        return (Value *)currentPackage->currentModule->builder->CreateStore(value, ptr);
     }
 
-    return (Value *)builder->CreateStore(value, variable);
+    return (Value *)currentPackage->currentModule->builder->CreateStore(value, variable);
 }
 
 any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx)
@@ -514,19 +458,19 @@ any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressio
 
     if (ctx->LT())
     {
-        return (Value *)builder->CreateICmpSLT(lhsVal, rhsVal, "lttmp");
+        return (Value *)currentPackage->currentModule->builder->CreateICmpSLT(lhsVal, rhsVal, "lttmp");
     }
     else if (ctx->GT())
     {
-        return (Value *)builder->CreateICmpSGT(lhsVal, rhsVal, "gttmp");
+        return (Value *)currentPackage->currentModule->builder->CreateICmpSGT(lhsVal, rhsVal, "gttmp");
     }
     else if (ctx->OP_LE())
     {
-        return (Value *)builder->CreateICmpSLE(lhsVal, rhsVal, "letmp");
+        return (Value *)currentPackage->currentModule->builder->CreateICmpSLE(lhsVal, rhsVal, "letmp");
     }
     else if (ctx->OP_GE())
     {
-        return (Value *)builder->CreateICmpSGE(lhsVal, rhsVal, "getmp");
+        return (Value *)currentPackage->currentModule->builder->CreateICmpSGE(lhsVal, rhsVal, "getmp");
     }
 
     return any();
@@ -551,12 +495,12 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
                 if (width == 1)
                 {
                     // bool
-                    lhsVal = builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
                 }
                 else if (width == 32)
                 {
                     // int32
-                    lhsVal = builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
                 }
             }
         }
@@ -568,12 +512,12 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
                 if (width == 1)
                 {
                     // bool
-                    rhsVal = builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
                 }
                 else if (width == 32)
                 {
                     // int32
-                    rhsVal = builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
                 }
             }
         }
@@ -584,17 +528,17 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
         // Just check one of them, since both will be floats or none.
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFMul(lhsVal, rhsVal);
+            return (Value *)currentPackage->currentModule->builder->CreateFMul(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateMul(lhsVal, rhsVal);
+        return (Value *)currentPackage->currentModule->builder->CreateMul(lhsVal, rhsVal);
     }
     else
     {
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFDiv(lhsVal, rhsVal);
+            return (Value *)currentPackage->currentModule->builder->CreateFDiv(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateSDiv(lhsVal, rhsVal);
+        return (Value *)currentPackage->currentModule->builder->CreateSDiv(lhsVal, rhsVal);
     }
 
     return any();
@@ -619,12 +563,12 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
                 if (width == 1)
                 {
                     // bool
-                    lhsVal = builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
                 }
                 else if (width == 32)
                 {
                     // int32
-                    lhsVal = builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
                 }
             }
         }
@@ -636,12 +580,12 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
                 if (width == 1)
                 {
                     // bool
-                    rhsVal = builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
                 }
                 else if (width == 32)
                 {
                     // int32
-                    rhsVal = builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
                 }
             }
         }
@@ -652,17 +596,17 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
         // Just check one of them, since both will be floats or none.
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFAdd(lhsVal, rhsVal);
+            return (Value *)currentPackage->currentModule->builder->CreateFAdd(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateAdd(lhsVal, rhsVal);
+        return (Value *)currentPackage->currentModule->builder->CreateAdd(lhsVal, rhsVal);
     }
     else
     {
         if (lhsVal->getType()->isFloatingPointTy())
         {
-            return (Value *)builder->CreateFSub(lhsVal, rhsVal);
+            return (Value *)currentPackage->currentModule->builder->CreateFSub(lhsVal, rhsVal);
         }
-        return (Value *)builder->CreateSub(lhsVal, rhsVal);
+        return (Value *)currentPackage->currentModule->builder->CreateSub(lhsVal, rhsVal);
     }
 
     return any();
@@ -670,8 +614,8 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
 
 any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx)
 {
-    string value = ctx->DECIMAL_INTEGER()->getText();
-    Type *i32_type = IntegerType::getInt32Ty(*context);
+    std::string value = ctx->DECIMAL_INTEGER()->getText();
+    Type *i32_type = IntegerType::getInt32Ty(*currentPackage->currentModule->context);
     int intValue = stoi(value);
     return (Value *)ConstantInt::get(i32_type, intValue, true);
 }
@@ -688,7 +632,7 @@ any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ct
 
 any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx)
 {
-    string value = ctx->DOUBLE()->getText();
+    std::string value = ctx->DOUBLE()->getText();
     Type *type = getBuiltinType("Double");
     double doubleValue = stod(value);
     return (Value *)ConstantFP::get(type, doubleValue);
@@ -697,18 +641,18 @@ any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx)
 any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
 {
     // TODO: is CreateGlobalStringPtr the best solution?
-    string text = ctx->STRING()->getText();
-    return (Value *)builder->CreateGlobalStringPtr(text);
+    std::string text = ctx->STRING()->getText();
+    return (Value *)currentPackage->currentModule->builder->CreateGlobalStringPtr(text);
 }
 
 any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
 {
-    string text = ctx->getText();
-    string functionName = ctx->IDENTIFIER()->getText();
+    std::string text = ctx->getText();
+    std::string functionName = ctx->IDENTIFIER()->getText();
     // TODO: Make a search through scope, parent scopes, builtins etc.
     if (accessedValue == nullptr && functionName == "print")
     {
-        FunctionCallee printfFunc = currentModule->module->getFunction("printf");   // TODO: Move this to separate module
+        FunctionCallee printfFunc = currentPackage->currentModule->module->getFunction("printf");   // TODO: Move this to separate module
         vector<Value *> functionArguments;
         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
         {
@@ -716,37 +660,37 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             llvm::Value *value = anyToValue(anyVal);
             if (PointerType *PT = dyn_cast<PointerType>(value->getType()))
             {
-                if (PT == Type::getInt8PtrTy(*context, PT->getPointerAddressSpace()))
+                if (PT == Type::getInt8PtrTy(*currentPackage->currentModule->context, PT->getPointerAddressSpace()))
                 {
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%s\n", "args"), value};
-                    return (Value *)builder->CreateCall(printfFunc, args);
+                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%s\n", "args"), value};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                 }
                 else if (PT->getElementType()->isArrayTy())
                 {
-                    auto zero = ConstantInt::get(*context, llvm::APInt(32, 0, true));
-                    auto argsBefore = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "[", "args")};
-                    (Value *)builder->CreateCall(printfFunc, argsBefore);
+                    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
+                    (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
                     int numElements = PT->getElementType()->getArrayNumElements();
                     // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
                     // Also, make a function that does this, which takes value, type and whether to linebreak?
                     for (int i = 0; i < numElements; i++)
                     {
-                        auto index = ConstantInt::get(*context, llvm::APInt(32, i, true));
-                        auto ptr = builder->CreateGEP(value, {zero, index});
-                        llvm::Value *valueAtIndex = (Value *)builder->CreateLoad(ptr);
+                        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, i, true));
+                        auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
+                        llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
                         if (i < numElements - 1)
                         {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%d, ", "args"), valueAtIndex};
-                            (Value *)builder->CreateCall(printfFunc, args);
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
+                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         }
                         else
                         {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%d", "args"), valueAtIndex};
-                            (Value *)builder->CreateCall(printfFunc, args);
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
+                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         }
                     }
-                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "]\n", "args")};
-                    (Value *)builder->CreateCall(printfFunc, argsAfter);
+                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
+                    (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
 
                     return any();
                 }
@@ -757,19 +701,19 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 if (width == 1)
                 {
                     // Figure out how to print 'true' or 'false' when we know runtime value
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%d\n", "args"), value};
-                    return (Value *)builder->CreateCall(printfFunc, args);
+                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                 }
                 else
                 {
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%d\n", "args"), value};
-                    return (Value *)builder->CreateCall(printfFunc, args);
+                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                 }
             }
             else if (value->getType()->isFloatingPointTy())
             {
-                auto args = ArrayRef<Value *>{geti8StrVal(*currentModule->module, "%g\n", "args"), value};
-                return (Value *)builder->CreateCall(printfFunc, args);
+                auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%g\n", "args"), value};
+                return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
             }
             break;
         }
@@ -785,7 +729,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType()))
             {
                 // TODO: Check that it is actually struct
-                string className = PT->getElementType()->getStructName().str();
+                std::string className = PT->getElementType()->getStructName().str();
 
                 functionArguments.push_back(accessedValue);
 
@@ -796,12 +740,12 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     functionArguments.push_back(castVal);
                 }
 
-                BalanceClass *bClass = currentModule->classes[className];
-                Function *function = bClass->methods[functionName];
+                BalanceClass *bClass = currentPackage->currentModule->classes[className];
+                Function *function = bClass->methods[functionName]->function;
                 FunctionType *functionType = function->getFunctionType();
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
-                return (Value *)builder->CreateCall(functionType, (Value *)function, argumentsReference);
+                return (Value *)currentPackage->currentModule->builder->CreateCall(functionType, (Value *)function, argumentsReference);
             }
             else
             {
@@ -810,7 +754,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
 
         // Check if function is a variable (lambda e.g.)
-        llvm::Value *val = getValue(functionName);
+        llvm::Value *val = currentPackage->currentModule->getValue(functionName);
         if (val)
         {
             auto ty = val->getType();
@@ -826,11 +770,11 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 }
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
-                return (Value *)builder->CreateCall(FunctionType::get(val->getType(), false), val, argumentsReference);
+                return (Value *)currentPackage->currentModule->builder->CreateCall(FunctionType::get(val->getType(), false), val, argumentsReference);
             }
             else if (val->getType()->getPointerElementType()->isPointerTy())
             {
-                Value *loaded = builder->CreateLoad(val);
+                Value *loaded = currentPackage->currentModule->builder->CreateLoad(val);
                 vector<Value *> functionArguments;
 
                 for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
@@ -841,13 +785,20 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 }
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
-                return (Value *)builder->CreateCall(FunctionType::get(loaded->getType(), false), loaded, argumentsReference);
+                return (Value *)currentPackage->currentModule->builder->CreateCall(FunctionType::get(loaded->getType(), false), loaded, argumentsReference);
             }
         }
         else
         {
-            // FunctionCallee function = currentModule->module->getFunction(functionName);
-            BalanceFunction * bfunction = currentModule->functions[functionName];
+            // FunctionCallee function = currentPackage->currentModule->module->getFunction(functionName);
+            BalanceFunction * bfunction = currentPackage->currentModule->getFunction(functionName);
+            if (bfunction == nullptr) {
+                bfunction = currentPackage->currentModule->getImportedFunction(functionName);
+                if (bfunction == nullptr) {
+                    // TODO: Throw error
+                }
+            }
+
             FunctionCallee function = bfunction->function;
             vector<Value *> functionArguments;
 
@@ -859,7 +810,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             }
 
             ArrayRef<Value *> argumentsReference(functionArguments);
-            return (Value *)builder->CreateCall(function, argumentsReference);
+            return (Value *)currentPackage->currentModule->builder->CreateCall(function, argumentsReference);
         }
     }
 
@@ -868,7 +819,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
 
 any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *ctx)
 {
-    string text = ctx->getText();
+    std::string text = ctx->getText();
     if (ctx->expression()->getText() == "None")
     {
         // handled in visitFunctionDefinition, since we will not hit this method on implicit 'return None'
@@ -877,7 +828,7 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
     {
         any anyVal = visit(ctx->expression());
         llvm::Value *castVal = anyToValue(anyVal);
-        builder->CreateRet(castVal);
+        currentPackage->currentModule->builder->CreateRet(castVal);
     }
     return any();
 }
@@ -885,14 +836,14 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
 any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx)
 {
     // https://stackoverflow.com/questions/54905211/how-to-implement-function-pointer-by-using-llvm-c-api
-    string text = ctx->getText();
+    std::string text = ctx->getText();
     vector<Type *> functionParameterTypes;
-    vector<string> functionParameterNames;
+    vector<std::string> functionParameterNames;
     for (BalanceParser::ParameterContext *parameter : ctx->lambda()->parameterList()->parameter())
     {
-        string parameterName = parameter->identifier->getText();
+        std::string parameterName = parameter->identifier->getText();
         functionParameterNames.push_back(parameterName);
-        string typeString = parameter->type->getText();
+        std::string typeString = parameter->type->getText();
         Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
         functionParameterTypes.push_back(type);
     }
@@ -901,7 +852,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     Type *returnType;
     if (ctx->lambda()->returnType())
     {
-        string functionReturnTypeString = ctx->lambda()->returnType()->IDENTIFIER()->getText();
+        std::string functionReturnTypeString = ctx->lambda()->returnType()->IDENTIFIER()->getText();
         returnType = getBuiltinType(functionReturnTypeString); // TODO: Handle unknown type
     }
     else
@@ -911,53 +862,57 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
 
     ArrayRef<Type *> parametersReference(functionParameterTypes);
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::InternalLinkage, "", currentModule->module);
+    Function *function = Function::Create(functionType, Function::InternalLinkage, "", currentPackage->currentModule->module);
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
-    for (string parameterName : functionParameterNames)
+    for (std::string parameterName : functionParameterNames)
     {
         llvm::Value *x = args++;
         x->setName(parameterName);
-        setValue(parameterName, x);
+        currentPackage->currentModule->setValue(parameterName, x);
     }
 
-    BasicBlock *functionBody = BasicBlock::Create(*context, "", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, "", function);
     // Store current block so we can return to it after function declaration
-    BasicBlock *resumeBlock = builder->GetInsertBlock();
-    builder->SetInsertPoint(functionBody);
-    ScopeBlock *scope = currentModule->currentScope;
-    currentModule->currentScope = new ScopeBlock(functionBody, scope);
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+    ScopeBlock *scope = currentPackage->currentModule->currentScope;
+    currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
 
     visit(ctx->lambda()->functionBlock());
 
     if (returnType->isVoidTy())
     {
-        builder->CreateRetVoid();
+        currentPackage->currentModule->builder->CreateRetVoid();
     }
 
     bool hasError = verifyFunction(*function);
 
-    builder->SetInsertPoint(resumeBlock);
-    currentModule->currentScope = scope;
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+    currentPackage->currentModule->currentScope = scope;
 
     // Create alloca so we can return it as expression
-    llvm::Value *p = builder->CreateAlloca(function->getType(), nullptr, "");
-    builder->CreateStore(function, p, false);
-    return (llvm::Value *)builder->CreateLoad(p);
+    llvm::Value *p = currentPackage->currentModule->builder->CreateAlloca(function->getType(), nullptr, "");
+    currentPackage->currentModule->builder->CreateStore(function, p, false);
+    return (llvm::Value *)currentPackage->currentModule->builder->CreateLoad(p);
 }
 
 any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx)
 {
-    string functionName = ctx->IDENTIFIER()->getText();
+    std::string functionName = ctx->IDENTIFIER()->getText();
     vector<Type *> functionParameterTypes;
-    vector<string> functionParameterNames;
+    vector<std::string> functionParameterNames;
     for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter())
     {
-        string parameterName = parameter->identifier->getText();
+        std::string parameterName = parameter->identifier->getText();
         functionParameterNames.push_back(parameterName);
-        string typeString = parameter->type->getText();
+        std::string typeString = parameter->type->getText();
         Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
+        if (type == nullptr) {
+            llvm::Value * val = currentPackage->currentModule->getValue(typeString);
+            int i = 123;
+        }
         functionParameterTypes.push_back(type);
     }
 
@@ -965,7 +920,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     Type *returnType;
     if (ctx->returnType())
     {
-        string functionReturnTypeString = ctx->returnType()->IDENTIFIER()->getText();
+        std::string functionReturnTypeString = ctx->returnType()->IDENTIFIER()->getText();
         returnType = getBuiltinType(functionReturnTypeString); // TODO: Handle unknown type
     }
     else
@@ -975,52 +930,53 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     // Check if we are parsing a class method
     Function *function;
-    if (currentClass != nullptr)
+    if (currentPackage->currentModule->currentClass != nullptr)
     {
-        PointerType *thisPointer = currentClass->structType->getPointerTo();
+        PointerType *thisPointer = currentPackage->currentModule->currentClass->structType->getPointerTo();
         functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
         functionParameterNames.insert(functionParameterNames.begin(), "this");
-        string functionNameWithClass = currentClass->name + "_" + functionName;
+        std::string functionNameWithClass = currentPackage->currentModule->currentClass->name + "_" + functionName;
         ArrayRef<Type *> parametersReference(functionParameterTypes);
         FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-        function = Function::Create(functionType, Function::InternalLinkage, functionNameWithClass, currentModule->module);
-        currentClass->methods[functionName] = function;
+        function = Function::Create(functionType, Function::InternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+        currentPackage->currentModule->currentClass->methods[functionName]->function = function;
     }
     else
     {
         ArrayRef<Type *> parametersReference(functionParameterTypes);
         FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-        function = Function::Create(functionType, Function::InternalLinkage, functionName, currentModule->module);
+        function = Function::Create(functionType, Function::InternalLinkage, functionName, currentPackage->currentModule->module);
+        currentPackage->currentModule->functions[functionName]->function = function;
     }
 
-    ScopeBlock *scope = currentModule->currentScope;
-    BasicBlock *functionBody = BasicBlock::Create(*context, functionName + "_body", function);
-    currentModule->currentScope = new ScopeBlock(functionBody, scope);
+    ScopeBlock *scope = currentPackage->currentModule->currentScope;
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, functionName + "_body", function);
+    currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
-    for (string parameterName : functionParameterNames)
+    for (std::string parameterName : functionParameterNames)
     {
         llvm::Value *x = args++;
         x->setName(parameterName);
-        setValue(parameterName, x);
+        currentPackage->currentModule->setValue(parameterName, x);
     }
 
     // Store current block so we can return to it after function declaration
-    BasicBlock *resumeBlock = builder->GetInsertBlock();
-    builder->SetInsertPoint(functionBody);
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
     visit(ctx->functionBlock());
 
     if (returnType->isVoidTy())
     {
-        builder->CreateRetVoid();
+        currentPackage->currentModule->builder->CreateRetVoid();
     }
 
     bool hasError = verifyFunction(*function);
 
-    builder->SetInsertPoint(resumeBlock);
-    currentModule->currentScope = scope;
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+    currentPackage->currentModule->currentScope = scope;
     return nullptr;
 }
 
@@ -1044,16 +1000,11 @@ any BalanceVisitor::visitImportStatement(BalanceParser::ImportStatementContext *
             BalanceParser::UnnamedImportDefinitionContext * import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
             std::string importString = import->IDENTIFIER()->getText();
             Value * val = importModule->getValue(importString);
-            setValue(importString, val);
+            // setValue(importString, val);
         }
     }
 
-    // 
-
-    // map<string, BalanceModule *>::iterator it = currentPackage->modules.find(importPath);
-    // if (currentPackage->modules.end() == it) {
-    //      = new BalanceModule(importPath, false);
-    // }
+    // TODO: We need to create the forward declarations in this module, given the type from the import func/class
 
     return nullptr;
 }

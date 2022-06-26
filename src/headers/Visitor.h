@@ -62,26 +62,20 @@ class ScopeBlock;
 class BalanceClass;
 class BalanceFunction;
 class BalanceModule;
+class BalanceProperty;
 
-Value *anyToValue(any anyVal);
-Value *getValue(string variableName);
-void setValue(string variableName, Value *value);
-Type * getBuiltinType(string typeString);
+llvm::Value *anyToValue(any anyVal);
+Type *getBuiltinType(string typeString);
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name);
 void LogError(string errorMessage);
-
-struct TypeAndIndex
-{
-    int index;
-    Type *type;
-};
 
 class ScopeBlock
 {
 public:
     BasicBlock *block;
     ScopeBlock *parent;
-    map<string, Value *> symbolTable;
+    map<string, llvm::Value *> symbolTable;
+
     ScopeBlock(BasicBlock *block, ScopeBlock *parent)
     {
         this->block = block;
@@ -89,67 +83,152 @@ public:
     }
 };
 
-class BalanceClass
+class BalanceProperty
 {
 public:
     string name;
-    map<string, TypeAndIndex> properties;
-    map<string, Function *> methods;
-    Function *constructor;
-    StructType *structType;
-    BalanceModule *module;
-    bool finalized;
-    BalanceClass(string name)
+    string stringType; // TODO: Make sure we use the same name convention (BalanceParameter calls it typeString)
+    int index;
+    Type *type;
+    BalanceProperty(string name, string stringType, int index)
     {
         this->name = name;
+        this->stringType = stringType;
+        this->index = index;
+        this->type = nullptr;
+    }
+
+    bool finalized()
+    {
+        return this->type != nullptr;
     }
 };
 
 class BalanceParameter
 {
 public:
-    string type;
+    string typeString;
     string name;
+    Type *type = nullptr;
 
-    BalanceParameter(string type, string name) {
-        this->type = type;
+    BalanceParameter(string typeString, string name)
+    {
+        this->typeString = typeString;
         this->name = name;
     }
-}
+
+    bool finalized()
+    {
+        return this->type != nullptr;
+    }
+};
 
 class BalanceFunction
 {
 public:
     string name;
-    string returnType;
-    vector<BalanceParameter> parameters;
-    Function * function;
-    BalanceModule *module;
+    string returnTypeString;
+    Type *returnType;
+    vector<BalanceParameter *> parameters;
+    Function *function = nullptr;
+    // BalanceModule *module;
 
-    BalanceFunction(string name) {
+    BalanceFunction(string name, vector<BalanceParameter *> parameters, string returnTypeString)
+    {
         this->name = name;
+        this->parameters = parameters;
+        this->returnTypeString = returnTypeString;
+    }
+
+    bool finalized()
+    {
+        for (auto const &x : this->parameters)
+        {
+            if (!x->finalized())
+            {
+                return false;
+            }
+        }
+
+        if (returnType == nullptr)
+        {
+            return false;
+        }
+
+        return true;
+    }
+};
+
+class BalanceClass
+{
+public:
+    string name;
+    map<string, BalanceProperty *> properties;
+    map<string, BalanceFunction *> methods;
+    Function *constructor;
+    StructType *structType;
+    bool hasBody;
+    BalanceModule *module;
+    BalanceClass(string name)
+    {
+        this->name = name;
+    }
+
+    bool finalized()
+    {
+        bool empty = this->properties.empty();
+        for (auto const &x : this->properties)
+        {
+            if (!x.second->finalized())
+            {
+                return false;
+            }
+        }
+
+        for (auto const &x : this->methods)
+        {
+            if (!x.second->finalized())
+            {
+                return false;
+            }
+        }
+
+        if (!this->hasBody)
+        {
+            return false;
+        }
+
+        return true;
     }
 };
 
 class BalanceModule
 {
 public:
+    LLVMContext *context;
+    IRBuilder<> *builder;
+
     string path;
     string filePath;
     string name;
     bool isEntrypoint;
 
-    // Overview of accessible properties of a module
-    map<string, BalanceClass *> classes;
-    map<string, BalanceFunction *> functions;
-    map<string, Value *> globals;
+    // Structures defined in this module
+    map<string, BalanceClass *> classes = {};
+    map<string, BalanceFunction *> functions = {};
+    map<string, llvm::Value *> globals = {};
 
-    ScopeBlock * rootScope;
-    ScopeBlock * currentScope;
+    // Structures imported into this module
+    map<string, BalanceClass *> importedClasses = {};
+    map<string, BalanceFunction *> importedFunctions = {};
+    map<string, llvm::Value *> importedGlobals = {};
 
-    llvm::Module * module;
+    ScopeBlock *rootScope;
+    BalanceClass *currentClass;
+    ScopeBlock *currentScope;
 
-    bool finalized;
+    llvm::Module *module;
+
     bool finishedDiscovery;
 
     BalanceModule(string path, bool isEntrypoint)
@@ -158,25 +237,105 @@ public:
         this->isEntrypoint = isEntrypoint;
         this->filePath = this->path + ".bl";
 
-        if (this->path.find('/') != std::string::npos) {
+        if (this->path.find('/') != std::string::npos)
+        {
             this->name = this->path.substr(this->path.find_last_of("/"), this->path.size());
-        } else {
+        }
+        else
+        {
             this->name = this->path;
         }
+
+        this->initializeModule();
     }
 
-    Value * getValue(std::string name) {
-        map<string, BalanceClass *>::iterator classIterator = this->classes.find(name);
-        if (classIterator != this->classes.end() ) {
-            return (Value *) classIterator->second->structType;
-        }
+    void initializeModule()
+    {
+        this->context = new LLVMContext();
+        this->builder = new IRBuilder<>(*this->context);
+        this->module = new Module(this->path, *this->context);
 
-        map<string, BalanceFunction *>::iterator functionIterator = this->functions.find(name);
-        if (functionIterator != this->functions.end()) {
-            return (Value *) functionIterator->second;
+        // Initialize module root scope
+        FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
+        Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : "root", this->module);
+        BasicBlock *entry = BasicBlock::Create(*this->context, "entrypoint", rootFunc);
+        this->builder->SetInsertPoint(entry);
+        this->rootScope = new ScopeBlock(entry, nullptr);
+        this->currentScope = this->rootScope;
+    }
+
+    BalanceClass * getClass(std::string className) {
+        if (this->classes.find(className) != this->classes.end()) {
+            return this->classes[className];
+        }
+        return nullptr;
+    }
+
+    BalanceFunction * getFunction(std::string functionName) {
+        if (this->functions.find(functionName) != this->functions.end())
+        {
+            return this->functions[functionName];
+        }
+        return nullptr;
+    }
+
+    BalanceClass * getImportedClass(std::string className) {
+        if (this->importedClasses.find(className) != this->importedClasses.end()) {
+            return this->importedClasses[className];
+        }
+        return nullptr;
+    }
+
+    BalanceFunction * getImportedFunction(std::string functionName) {
+        if (this->importedFunctions.find(functionName) != this->importedFunctions.end())
+        {
+            return this->importedFunctions[functionName];
+        }
+        return nullptr;
+    }
+
+    llvm::Value *getValue(std::string variableName)
+    {
+        ScopeBlock *scope = this->currentScope;
+        while (scope != nullptr)
+        {
+            // Check variables etc
+            llvm::Value *tryVal = scope->symbolTable[variableName];
+            if (tryVal != nullptr)
+            {
+                return tryVal;
+            }
+
+            scope = scope->parent;
         }
 
         return nullptr;
+    }
+
+    void setValue(std::string variableName, llvm::Value *value)
+    {
+        this->currentScope->symbolTable[variableName] = value;
+    }
+
+    bool finalized()
+    {
+        for (auto const &x : this->classes)
+        {
+            if (!x.second->finalized())
+            {
+                return false;
+            }
+        }
+
+        for (auto const &x : this->functions)
+        {
+            if (!x.second->finalized())
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 };
 
@@ -204,7 +363,7 @@ public:
     any visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) override;
     any visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) override;
     any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
-    any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
+    // any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     any visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) override;
     any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
     any visitImportStatement(BalanceParser::ImportStatementContext *ctx) override;

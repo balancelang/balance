@@ -1,7 +1,7 @@
-#include "headers/ImportVisitor.h"
+#include "../headers/PackageVisitor.h"
 
-#include "headers/Visitor.h"
-#include "headers/Package.h"
+#include "../headers/Visitor.h"
+#include "../headers/Package.h"
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -70,7 +70,7 @@ using namespace std;
 extern BalancePackage *currentPackage;
 extern BalanceModule *currentModule;
 
-std::any BalanceImportVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
+std::any PackageVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
     std::string text = ctx->getText();
 
     std::string importPath;
@@ -78,35 +78,12 @@ std::any BalanceImportVisitor::visitImportStatement(BalanceParser::ImportStateme
         importPath = ctx->IDENTIFIER()->getText();
     } else if (ctx->IMPORT_PATH()) {
         importPath = ctx->IMPORT_PATH()->getText();
-    } else {
-        // TODO: Handle this with an error
     }
 
     map<string, BalanceModule *>::iterator it = currentPackage->modules.find(importPath);
     if (currentPackage->modules.end() == it) {
         currentPackage->modules[importPath] = new BalanceModule(importPath, false);
     }
-
-    return nullptr;
-}
-
-std::any BalanceImportVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx)
-{
-    string text = ctx->getText();
-    string className = ctx->className->getText();
-
-    BalanceClass * bclass = new BalanceClass(className);
-    currentModule->classes[className] = bclass;
-
-    return nullptr;
-}
-
-std::any BalanceImportVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    string text = ctx->getText();
-    string functionName = ctx->IDENTIFIER()->getText();
-
-    BalanceFunction * bfunction = new BalanceFunction(functionName);
-    currentModule->functions[functionName] = bfunction;
 
     return nullptr;
 }

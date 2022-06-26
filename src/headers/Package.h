@@ -22,6 +22,7 @@ public:
     std::string version;
     std::map<std::string, std::string> entrypoints = {};
     std::map<std::string, BalanceModule *> modules = {};
+    BalanceModule *currentModule = nullptr;
 
     BalancePackage(std::string packageJsonPath, std::string entrypoint) {
         this->packageJsonPath = packageJsonPath;
@@ -33,10 +34,12 @@ public:
     void populate();
     void throwIfMissing(std::string property);
     bool compileAndPersist();
-    void compileRecursively(std::string path);
+    void compile();
     void buildDependencyTree(std::string rootPath);
     void writePackageToBinary(std::string entrypointName);
     BalanceModule * getNextElementOrNull();
+    void buildTextualRepresentations();
+    void buildStructures();
 };
 
 #endif

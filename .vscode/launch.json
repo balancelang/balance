@@ -9,7 +9,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/balance",
-            "args": [ "${workspaceFolder}/testFile.bl" ],
+            "args": [
+                "${workspaceFolder}/testFile.bl"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
@@ -22,7 +24,7 @@
                     "ignoreFailures": true
                 },
                 {
-                    "description":  "Set Disassembly Flavor to Intel",
+                    "description": "Set Disassembly Flavor to Intel",
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
@@ -33,7 +35,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/src/build/balance",
-            "args": [ "--test" ],
+            "args": [
+                "--test"
+            ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
@@ -46,7 +50,7 @@
                     "ignoreFailures": true
                 },
                 {
-                    "description":  "Set Disassembly Flavor to Intel",
+                    "description": "Set Disassembly Flavor to Intel",
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
@@ -57,7 +61,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/balance",
-            "args": [ "run", "--verbose" ],
+            "args": [
+                "run",
+                "--verbose"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/examples/project",
             "environment": [],
@@ -71,7 +78,7 @@
                     "ignoreFailures": true
                 },
                 {
-                    "description":  "Set Disassembly Flavor to Intel",
+                    "description": "Set Disassembly Flavor to Intel",
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }

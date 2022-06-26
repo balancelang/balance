@@ -73,28 +73,8 @@ using namespace llvm;
 using namespace antlr4;
 using namespace std;
 
-LLVMContext *context;
-IRBuilder<> *builder;
-vector<BalanceType> types;
-BalancePackage *currentPackage = nullptr;
-BalanceModule *currentModule = nullptr;
 bool verbose = false;
-
-void initializeModule(BalanceModule * bmodule)
-{
-    context = new LLVMContext();
-    builder = new IRBuilder<>(*context);
-    bmodule->module = new Module(bmodule->path, *context);
-    currentModule = bmodule;
-
-    // Initialize module root scope
-    FunctionType *funcType = FunctionType::get(builder->getInt32Ty(), false);
-    Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, bmodule->isEntrypoint ? "main" : "root", bmodule->module);
-    BasicBlock *entry = BasicBlock::Create(*context, "entrypoint", rootFunc);
-    builder->SetInsertPoint(entry);
-    bmodule->rootScope = new ScopeBlock(entry, nullptr);
-    bmodule->currentScope = bmodule->rootScope;
-}
+BalancePackage *currentPackage = nullptr;
 
 void printVersion()
 {

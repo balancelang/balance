@@ -1,20 +1,15 @@
 #include "headers/Builtins.h"
-#include "headers/Visitor.h"
+#include "headers/Package.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
-using namespace std;
-
-extern std::unique_ptr<LLVMContext> context;
-extern std::unique_ptr<IRBuilder<>> builder;
-extern BalanceModule *currentModule;
-extern vector<BalanceType> types;
+extern BalancePackage *currentPackage;
 
 void create_function_print()
 {
-    FunctionType * functionType = FunctionType::get(IntegerType::getInt32Ty(*context), PointerType::get(Type::getInt8Ty(*context), 0), true);
-    FunctionCallee printfFunc = currentModule->module->getOrInsertFunction("printf", functionType);
+    llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->currentModule->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->currentModule->context), 0), true);
+    llvm::FunctionCallee printfFunc = currentPackage->currentModule->module->getOrInsertFunction("printf", functionType);
 }
 
 void create_functions() {
@@ -29,7 +24,7 @@ void create_array_type() {
     // StructType::create(types, typeName, false);
 }
 
-void createIntegerToStringMethod(BalanceType * type) {
+void createIntegerToStringMethod() {
     // string functionName = "toString()"
     // // TODO: Implicit first argument is 'this' ? The integer
     // vector<Type *> functionParameterTypes;

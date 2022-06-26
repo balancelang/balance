@@ -1,5 +1,5 @@
-#ifndef IMPORT_VISITOR_H
-#define IMPORT_VISITOR_H
+#ifndef PACKAGE_VISITOR_H
+#define PACKAGE_VISITOR_H
 
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
@@ -12,12 +12,10 @@ using namespace llvm;
 using namespace std;
 
 
-class BalanceImportVisitor : public BalanceParserBaseVisitor
+class PackageVisitor : public BalanceParserBaseVisitor
 {
 public:
     std::any visitImportStatement(BalanceParser::ImportStatementContext *ctx) override;
-    std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
-    std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
 };
 
 #endif

@@ -109,7 +109,9 @@ add_executable(balance
                src/Visitor.cpp
                src/Package.cpp
                src/Utilities.cpp
-               src/ImportVisitor.cpp
+               src/visitors/PackageVisitor.cpp
+               src/visitors/StructureVisitor.cpp
+               src/visitors/TypeVisitor.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

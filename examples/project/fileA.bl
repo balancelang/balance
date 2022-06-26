@@ -7,4 +7,4 @@ class MyClass {
 var cls = new MyClass()
 
 print("Hello from fileA")
-someFunc()
+someFunc(cls)

@@ -10,6 +10,7 @@ sudo apt install kitware-archive-keyring
 sudo rm /etc/apt/trusted.gpg.d/kitware.gpg
 sudo apt install cmake
 sudo apt install uuid-dev
+sudo apt install ninja-build
 
 
 # LLVM-12

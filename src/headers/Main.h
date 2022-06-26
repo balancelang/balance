@@ -17,6 +17,4 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace antlr4;
 
-void initializeModule(BalanceModule * bmodule);
-
 #endif
