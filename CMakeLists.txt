@@ -106,12 +106,13 @@ include_directories(${ANTLR_BalanceGrammarParser_OUTPUT_DIR})
 add_executable(balance
                src/Main.cpp
                src/Builtins.cpp
-               src/Visitor.cpp
                src/Package.cpp
                src/Utilities.cpp
+               src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
                src/visitors/TypeVisitor.cpp
+               src/visitors/ForwardDeclarationVisitor.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

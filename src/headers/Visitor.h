@@ -128,8 +128,8 @@ class BalanceFunction
 public:
     string name;
     string returnTypeString;
-    Type *returnType;
     vector<BalanceParameter *> parameters;
+    Type *returnType = nullptr;
     Function *function = nullptr;
     // BalanceModule *module;
 
@@ -140,8 +140,7 @@ public:
         this->returnTypeString = returnTypeString;
     }
 
-    bool finalized()
-    {
+    bool hasAllTypes() {
         for (auto const &x : this->parameters)
         {
             if (!x->finalized())
@@ -157,6 +156,19 @@ public:
 
         return true;
     }
+
+    bool finalized()
+    {
+        if (!this->hasAllTypes()) {
+            return false;
+        }
+
+        if (function == nullptr) {
+            return false;
+        }
+
+        return true;
+    }
 };
 
 class BalanceClass
@@ -166,7 +178,7 @@ public:
     map<string, BalanceProperty *> properties;
     map<string, BalanceFunction *> methods;
     Function *constructor;
-    StructType *structType;
+    StructType *structType = nullptr;
     bool hasBody;
     BalanceModule *module;
     BalanceClass(string name)
@@ -224,7 +236,7 @@ public:
     map<string, llvm::Value *> importedGlobals = {};
 
     ScopeBlock *rootScope;
-    BalanceClass *currentClass;
+    BalanceClass *currentClass = nullptr;
     ScopeBlock *currentScope;
 
     llvm::Module *module;
@@ -363,10 +375,8 @@ public:
     any visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) override;
     any visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) override;
     any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
-    // any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     any visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) override;
     any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
-    any visitImportStatement(BalanceParser::ImportStatementContext *ctx) override;
 };
 
 #endif

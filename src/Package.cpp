@@ -3,6 +3,7 @@
 #include "headers/Utilities.h"
 #include "headers/PackageVisitor.h"
 #include "headers/StructureVisitor.h"
+#include "headers/ForwardDeclarationVisitor.h"
 #include "headers/TypeVisitor.h"
 #include "config.h"
 
@@ -81,6 +82,9 @@ bool BalancePackage::compileAndPersist()
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();
 
+        // Make sure all modules have forward declarations of imported classes etc.
+        this->buildForwardDeclarations();
+
         // (Visitor.cpp) Compile everything, now that functions, classes etc exist
         this->compile();
 
@@ -94,17 +98,19 @@ bool BalancePackage::compileAndPersist()
     return true;
 }
 
-void BalancePackage::buildStructures() {
-    bool anyModuleNotFinalized = true;
+void BalancePackage::buildStructures()
+{
     std::queue<BalanceModule *> queue;
 
-    for (auto const &x : modules) {
+    for (auto const &x : modules)
+    {
         queue.push(x.second);
     }
 
     int iterations = 0;
-    while (queue.size() > 0) {
-        BalanceModule * bmodule = queue.front();
+    while (queue.size() > 0)
+    {
+        BalanceModule *bmodule = queue.front();
         this->currentModule = bmodule;
         queue.pop();
 
@@ -130,21 +136,53 @@ void BalancePackage::buildStructures() {
         visitor.visit(tree);
 
         bool isFinalized = bmodule->finalized();
-        if (!isFinalized) {
+        if (!isFinalized)
+        {
             queue.push(bmodule);
         }
 
         // TODO: Check that we don't end up in a endless loop
         iterations++;
 
-        if (iterations > 100) {
+        if (iterations > 100)
+        {
             std::cout << "Killed type visitor loop as it exceeded max iterations. Please file this as a bug." << std::endl;
             exit(1);
         }
     }
 }
 
-void BalancePackage::buildTextualRepresentations() {
+void BalancePackage::buildForwardDeclarations()
+{
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+        ifstream inputStream;
+        inputStream.open(bmodule->filePath);
+
+        ANTLRInputStream stream(inputStream);
+        BalanceLexer lexer(&stream);
+        CommonTokenStream tokens(&lexer);
+
+        tokens.fill();
+
+        BalanceParser parser(&tokens);
+        tree::ParseTree *tree = parser.root();
+
+        if (verbose)
+        {
+            cout << tree->toStringTree(&parser, true) << endl;
+        }
+
+        // Visit entire tree
+        ForwardDeclarationVisitor visitor;
+        visitor.visit(tree);
+    }
+}
+
+void BalancePackage::buildTextualRepresentations()
+{
     for (auto const &x : modules)
     {
         BalanceModule *balanceModule = x.second;
@@ -172,7 +210,7 @@ void BalancePackage::buildTextualRepresentations() {
     }
 }
 
-void buildModuleFromStream(BalanceModule * bmodule, ANTLRInputStream stream)
+void buildModuleFromStream(BalanceModule *bmodule, ANTLRInputStream stream)
 {
     currentPackage->currentModule = bmodule;
     BalanceLexer lexer(&stream);
@@ -198,13 +236,13 @@ void buildModuleFromStream(BalanceModule * bmodule, ANTLRInputStream stream)
     currentPackage->currentModule->builder->CreateRet(ConstantInt::get(*currentPackage->currentModule->context, APInt(32, 0)));
 }
 
-void buildModuleFromString(BalanceModule * bmodule, std::string program)
+void buildModuleFromString(BalanceModule *bmodule, std::string program)
 {
     ANTLRInputStream input(program);
     return buildModuleFromStream(bmodule, input);
 }
 
-void buildModule(BalanceModule * bmodule)
+void buildModule(BalanceModule *bmodule)
 {
     ifstream inputStream;
     inputStream.open(bmodule->filePath);
@@ -222,7 +260,7 @@ void BalancePackage::compile()
     }
 }
 
-BalanceModule * BalancePackage::getNextElementOrNull()
+BalanceModule *BalancePackage::getNextElementOrNull()
 {
     for (auto const &x : modules)
     {
@@ -280,7 +318,8 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
     }
 }
 
-void BalancePackage::writePackageToBinary(std::string entrypointName) {
+void BalancePackage::writePackageToBinary(std::string entrypointName)
+{
     auto TargetTriple = sys::getDefaultTargetTriple();
     InitializeAllTargetInfos();
     InitializeAllTargets();
@@ -304,8 +343,15 @@ void BalancePackage::writePackageToBinary(std::string entrypointName) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    for (auto const &x : modules) {
-        BalanceModule * bmodule = x.second;
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+
+        if (verbose)
+        {
+            bmodule->module->print(llvm::errs(), nullptr);
+        }
+
         this->currentModule = bmodule;
         bmodule->module->setDataLayout(TargetMachine->createDataLayout());
         bmodule->module->setTargetTriple(TargetTriple);
@@ -338,17 +384,24 @@ void BalancePackage::writePackageToBinary(std::string entrypointName) {
     clang::DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
     clang::driver::Driver TheDriver(CLANGXX, TargetTriple, Diags);
 
-    std::vector<const char *> myArguments = { "-g" };
+    std::vector<std::string> clangArguments = {"-g"};
     std::vector<std::string> objectFilePaths;
-    for (auto const &x : modules) {
-        BalanceModule * bmodule = x.second;
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
         std::string objectFileName = bmodule->module->getSourceFileName() + ".o";
         objectFilePaths.push_back(objectFileName);
-        myArguments.push_back(objectFileName.c_str());
+        clangArguments.push_back(objectFileName);
     }
-    myArguments.push_back("-o");
-    myArguments.push_back(entrypointName.c_str());
-    auto args = ArrayRef<const char *>(myArguments);
+    clangArguments.push_back("-o");
+    clangArguments.push_back(entrypointName);
+
+    std::vector<const char *> clangArgumentsCString;
+    for (int i = 0; i < clangArguments.size(); ++i)
+    {
+        clangArgumentsCString.push_back(clangArguments[i].c_str());
+    }
+    auto args = ArrayRef<const char *>(clangArgumentsCString);
 
     std::unique_ptr<clang::driver::Compilation> C(TheDriver.BuildCompilation(args));
 
@@ -358,7 +411,8 @@ void BalancePackage::writePackageToBinary(std::string entrypointName) {
         TheDriver.ExecuteCompilation(*C, FailingCommands);
     }
 
-    for (std::string objectFilePath : objectFilePaths) {
+    for (std::string objectFilePath : objectFilePaths)
+    {
         remove(objectFilePath.c_str());
     }
 }

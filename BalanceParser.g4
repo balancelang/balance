@@ -103,7 +103,6 @@ argument
     | expression
     | functionCall
     | classInitializer
-    | IDENTIFIER
     ;
 
 functionCall

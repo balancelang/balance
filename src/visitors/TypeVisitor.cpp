@@ -1,59 +1,51 @@
 #include "../headers/TypeVisitor.h"
 
-#include "../headers/Visitor.h"
 #include "../headers/Package.h"
-#include "BalanceParserBaseVisitor.h"
+#include "../headers/Visitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
+#include "BalanceParserBaseVisitor.h"
 
-#include "clang/Driver/Driver.h"
+#include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Driver/Compilation.h"
 #include "clang/CodeGen/CodeGenAction.h"
+#include "clang/Driver/Compilation.h"
+#include "clang/Driver/Driver.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Value.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/IR/ValueSymbolTable.h"
-#include "antlr4-runtime.h"
 
 #include "config.h"
 
@@ -61,8 +53,8 @@
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
 
-#include <typeinfo>
 #include <typeindex>
+#include <typeinfo>
 
 using namespace antlrcpptest;
 
@@ -78,18 +70,17 @@ std::any TypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext
         importPath = ctx->IMPORT_PATH()->getText();
     }
 
-    BalanceModule * importedModule = currentPackage->modules[importPath];
+    BalanceModule *importedModule = currentPackage->modules[importPath];
 
-    for (BalanceParser::ImportDefinitionContext *parameter : ctx->importDefinitionList()->importDefinition())
-    {
+    for (BalanceParser::ImportDefinitionContext *parameter : ctx->importDefinitionList()->importDefinition()) {
         if (dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter)) {
-            BalanceParser::UnnamedImportDefinitionContext * import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
+            BalanceParser::UnnamedImportDefinitionContext *import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
             std::string importString = import->IDENTIFIER()->getText();
             if (importedModule->classes.find(importString) != importedModule->classes.end()) {
-                BalanceClass * bclass = importedModule->classes[importString];
+                BalanceClass *bclass = importedModule->classes[importString];
                 currentPackage->currentModule->importedClasses[importString] = bclass;
             } else if (importedModule->functions.find(importString) != importedModule->functions.end()) {
-                BalanceFunction * bfunction = importedModule->functions[importString];
+                BalanceFunction *bfunction = importedModule->functions[importString];
                 currentPackage->currentModule->importedFunctions[importString] = bfunction;
             } else if (importedModule->globals[importString] != nullptr) {
                 // TODO: Handle
@@ -104,7 +95,7 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     string text = ctx->getText();
     string className = ctx->className->getText();
 
-    BalanceClass * bclass = currentPackage->currentModule->classes[className];
+    BalanceClass *bclass = currentPackage->currentModule->classes[className];
     // If already finalized, skip
     if (bclass->finalized()) {
         return nullptr;
@@ -112,30 +103,23 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
 
     currentPackage->currentModule->currentClass = bclass;
 
-    StructType *structType = StructType::create(*currentPackage->currentModule->context, className);
-
     // Visit all class properties
-    for (auto const &x : ctx->classElement())
-    {
-        if (x->classProperty())
-        {
+    for (auto const &x : ctx->classElement()) {
+        if (x->classProperty()) {
             visit(x->classProperty());
         }
     }
 
     // Visit all class functions
-    for (auto const &x : ctx->classElement())
-    {
-        if (x->functionDefinition())
-        {
+    for (auto const &x : ctx->classElement()) {
+        if (x->functionDefinition()) {
             visit(x);
         }
     }
 
     vector<Type *> propertyTypes;
-    for (auto const &x : currentPackage->currentModule->currentClass->properties)
-    {
-        BalanceProperty * prop = x.second;
+    for (auto const &x : currentPackage->currentModule->currentClass->properties) {
+        BalanceProperty *prop = x.second;
         if (!prop->finalized()) {
             // If a property type is not yet known
             currentPackage->currentModule->currentClass = nullptr;
@@ -144,7 +128,11 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
         propertyTypes.push_back(prop->type);
     }
 
-    currentPackage->currentModule->currentClass->structType = structType;
+    if (currentPackage->currentModule->currentClass->structType == nullptr) {
+        StructType *structType = StructType::create(*currentPackage->currentModule->context, className);
+        currentPackage->currentModule->currentClass->structType = structType;
+    }
+
     ArrayRef<Type *> propertyTypesRef(propertyTypes);
     currentPackage->currentModule->currentClass->structType->setBody(propertyTypesRef, false);
     currentPackage->currentModule->currentClass->hasBody = true;
@@ -156,7 +144,7 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
 std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
 
-    BalanceFunction * bfunction;
+    BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentClass != nullptr) {
         bfunction = currentPackage->currentModule->currentClass->methods[functionName];
     } else {
@@ -169,7 +157,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
             if (type != nullptr) {
                 bparameter->type = type;
             } else {
-                BalanceClass * bclass = currentPackage->currentModule->getClass(bparameter->typeString);
+                BalanceClass *bclass = currentPackage->currentModule->getClass(bparameter->typeString);
                 if (bclass == nullptr) {
                     bclass = currentPackage->currentModule->getImportedClass(bparameter->typeString);
                     if (bclass == nullptr) {
@@ -181,8 +169,57 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
         }
     }
 
-    // TODO: Handle classes from this or other module
-    bfunction->returnType = getBuiltinType(bfunction->returnTypeString);
+    // If we have all types necessary to create function, do that.
+    if (bfunction->hasAllTypes()) {
+        vector<Type *> functionParameterTypes;
+        vector<std::string> functionParameterNames;
+        for (BalanceParameter *bparameter : bfunction->parameters) {
+            // If struct-type, make pointer to element
+            if (bparameter->type->isStructTy()) {
+                functionParameterTypes.push_back(bparameter->type->getPointerTo());
+            } else {
+                functionParameterTypes.push_back(bparameter->type);
+            }
+            functionParameterNames.push_back(bparameter->name);
+        }
+
+        // Check if we are parsing a class method
+        Function *function;
+        if (currentPackage->currentModule->currentClass != nullptr) {
+            PointerType *thisPointer = currentPackage->currentModule->currentClass->structType->getPointerTo();
+            functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
+            functionParameterNames.insert(functionParameterNames.begin(), "this");
+            std::string functionNameWithClass = currentPackage->currentModule->currentClass->name + "_" + functionName;
+            ArrayRef<Type *> parametersReference(functionParameterTypes);
+            // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
+            FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
+            function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+            currentPackage->currentModule->currentClass->methods[functionName]->function = function;
+        } else {
+            ArrayRef<Type *> parametersReference(functionParameterTypes);
+            FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
+            function = Function::Create(functionType, Function::ExternalLinkage, functionName, currentPackage->currentModule->module);
+            currentPackage->currentModule->functions[functionName]->function = function;
+        }
+
+        // Add parameter names
+        Function::arg_iterator args = function->arg_begin();
+        for (std::string parameterName : functionParameterNames) {
+            llvm::Value *x = args++;
+            x->setName(parameterName);
+            currentPackage->currentModule->setValue(parameterName, x);
+        }
+    }
+
+    if (bfunction->returnType == nullptr) {
+        bfunction->returnType = getBuiltinType(bfunction->returnTypeString);
+        if (bfunction->returnType == nullptr) {
+            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString)->structType;
+            if (bfunction->returnType == nullptr) {
+                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString)->structType;
+            }
+        }
+    }
 
     return nullptr;
 }
@@ -192,16 +229,15 @@ std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ct
     string typeString = ctx->type->getText();
     string name = ctx->name->getText();
 
-    BalanceProperty * bprop = currentPackage->currentModule->currentClass->properties[name];
+    BalanceProperty *bprop = currentPackage->currentModule->currentClass->properties[name];
     // If already finalized, skip
     if (bprop->finalized()) {
         return nullptr;
     }
 
     Type *typeValue = getBuiltinType(typeString);
-    if (typeValue == nullptr)
-    {
-        BalanceClass * bclass = currentPackage->currentModule->importedClasses[typeString];
+    if (typeValue == nullptr) {
+        BalanceClass *bclass = currentPackage->currentModule->importedClasses[typeString];
         if (bclass != nullptr && bclass->finalized()) {
             int count = currentPackage->currentModule->currentClass->properties.size();
             if (!bprop->finalized()) {

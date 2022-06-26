@@ -1,5 +1,5 @@
-#include "headers/Visitor.h"
-#include "headers/Package.h"
+#include "../headers/Visitor.h"
+#include "../headers/Package.h"
 
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
@@ -127,7 +127,7 @@ void createDefaultConstructor(StructType *classValue)
 
     ArrayRef<Type *> parametersReference{classValue->getPointerTo()};
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::InternalLinkage, constructorName, currentPackage->currentModule->module);
+    Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, currentPackage->currentModule->module);
     currentPackage->currentModule->currentClass->constructor = function;
 
     // Add parameter names
@@ -368,22 +368,23 @@ any BalanceVisitor::visitArgument(BalanceParser::ArgumentContext *ctx)
 {
     std::string text = ctx->getText();
     Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
-    if (ctx->IDENTIFIER())
-    {
-        // Argument is a variable
-        std::string variableName = ctx->IDENTIFIER()->getText();
-        llvm::Value *val = currentPackage->currentModule->getValue(variableName);
+    // if (ctx->expression())
+    // {
+    //     return visit(ctx->expression());
+        // // Argument is a variable
+        // std::string variableName = ctx->IDENTIFIER()->getText();
+        // llvm::Value *val = currentPackage->currentModule->getValue(variableName);
 
-        Type *type = val->getType();
+        // Type *type = val->getType();
 
-        if (isa<PointerType>(val->getType()))
-        {
-            llvm::Value *load = currentPackage->currentModule->builder->CreateLoad(val, variableName);
-            return load;
-        }
+        // if (isa<PointerType>(val->getType()))
+        // {
+        //     llvm::Value *load = currentPackage->currentModule->builder->CreateLoad(val, variableName);
+        //     return load;
+        // }
 
-        return (Value *)val;
-    }
+        // return (Value *)val;
+    // }
     return visitChildren(ctx);
 }
 
@@ -404,7 +405,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
         return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
     }
 
-    if (val->getType()->isPointerTy())
+    if (val->getType()->isPointerTy() && !val->getType()->getPointerElementType()->isStructTy())
     {
         return (Value *)currentPackage->currentModule->builder->CreateLoad(val);
     }
@@ -731,6 +732,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 // TODO: Check that it is actually struct
                 std::string className = PT->getElementType()->getStructName().str();
 
+                // Add "this" as first argument
                 functionArguments.push_back(accessedValue);
 
                 for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
@@ -740,16 +742,20 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     functionArguments.push_back(castVal);
                 }
 
-                BalanceClass *bClass = currentPackage->currentModule->classes[className];
+                BalanceClass *bClass = currentPackage->currentModule->getClass(className);
+                if (bClass == nullptr) {
+                    bClass = currentPackage->currentModule->getImportedClass(className);
+                    if (bClass == nullptr) {
+                        // TODO: Throw error.
+                    }
+                }
                 Function *function = bClass->methods[functionName]->function;
                 FunctionType *functionType = function->getFunctionType();
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
                 return (Value *)currentPackage->currentModule->builder->CreateCall(functionType, (Value *)function, argumentsReference);
-            }
-            else
-            {
-                // TODO: Handle invoking functions on non-structs
+            } else {
+                // TODO: Handle
             }
         }
 
@@ -790,7 +796,6 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
         else
         {
-            // FunctionCallee function = currentPackage->currentModule->module->getFunction(functionName);
             BalanceFunction * bfunction = currentPackage->currentModule->getFunction(functionName);
             if (bfunction == nullptr) {
                 bfunction = currentPackage->currentModule->getImportedFunction(functionName);
@@ -901,66 +906,17 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
 any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx)
 {
     std::string functionName = ctx->IDENTIFIER()->getText();
-    vector<Type *> functionParameterTypes;
-    vector<std::string> functionParameterNames;
-    for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter())
-    {
-        std::string parameterName = parameter->identifier->getText();
-        functionParameterNames.push_back(parameterName);
-        std::string typeString = parameter->type->getText();
-        Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
-        if (type == nullptr) {
-            llvm::Value * val = currentPackage->currentModule->getValue(typeString);
-            int i = 123;
-        }
-        functionParameterTypes.push_back(type);
-    }
+    BalanceFunction * bfunction;
 
-    // If we don't have a return type, assume none
-    Type *returnType;
-    if (ctx->returnType())
-    {
-        std::string functionReturnTypeString = ctx->returnType()->IDENTIFIER()->getText();
-        returnType = getBuiltinType(functionReturnTypeString); // TODO: Handle unknown type
-    }
-    else
-    {
-        returnType = getBuiltinType("None");
-    }
-
-    // Check if we are parsing a class method
-    Function *function;
-    if (currentPackage->currentModule->currentClass != nullptr)
-    {
-        PointerType *thisPointer = currentPackage->currentModule->currentClass->structType->getPointerTo();
-        functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
-        functionParameterNames.insert(functionParameterNames.begin(), "this");
-        std::string functionNameWithClass = currentPackage->currentModule->currentClass->name + "_" + functionName;
-        ArrayRef<Type *> parametersReference(functionParameterTypes);
-        FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-        function = Function::Create(functionType, Function::InternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-        currentPackage->currentModule->currentClass->methods[functionName]->function = function;
-    }
-    else
-    {
-        ArrayRef<Type *> parametersReference(functionParameterTypes);
-        FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-        function = Function::Create(functionType, Function::InternalLinkage, functionName, currentPackage->currentModule->module);
-        currentPackage->currentModule->functions[functionName]->function = function;
+    if (currentPackage->currentModule->currentClass != nullptr) {
+        bfunction = currentPackage->currentModule->currentClass->methods[functionName];
+    } else {
+        bfunction = currentPackage->currentModule->getFunction(functionName);
     }
 
     ScopeBlock *scope = currentPackage->currentModule->currentScope;
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, functionName + "_body", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, functionName + "_body", bfunction->function);
     currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
-
-    // Add parameter names
-    Function::arg_iterator args = function->arg_begin();
-    for (std::string parameterName : functionParameterNames)
-    {
-        llvm::Value *x = args++;
-        x->setName(parameterName);
-        currentPackage->currentModule->setValue(parameterName, x);
-    }
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -968,43 +924,20 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     visit(ctx->functionBlock());
 
-    if (returnType->isVoidTy())
+    if (bfunction->returnType->isVoidTy())
     {
         currentPackage->currentModule->builder->CreateRetVoid();
     }
 
-    bool hasError = verifyFunction(*function);
+    bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
+    if (hasError) {
+        // TODO: Throw error
+        std::cout << "Error verifying function: " << bfunction->name << std::endl;
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        exit(1);
+    }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
-    return nullptr;
-}
-
-any BalanceVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
-    std::string text = ctx->getText();
-
-    std::string importPath;
-    if (ctx->IDENTIFIER()) {
-        importPath = ctx->IDENTIFIER()->getText();
-    } else if (ctx->IMPORT_PATH()) {
-        importPath = ctx->IMPORT_PATH()->getText();
-    } else {
-        // TODO: Handle this with an error
-    }
-
-    BalanceModule * importModule = currentPackage->modules[importPath];
-
-    for (BalanceParser::ImportDefinitionContext *parameter : ctx->importDefinitionList()->importDefinition())
-    {
-        if (dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter)) {
-            BalanceParser::UnnamedImportDefinitionContext * import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
-            std::string importString = import->IDENTIFIER()->getText();
-            Value * val = importModule->getValue(importString);
-            // setValue(importString, val);
-        }
-    }
-
-    // TODO: We need to create the forward declarations in this module, given the type from the import func/class
-
     return nullptr;
 }

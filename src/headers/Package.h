@@ -40,6 +40,7 @@ public:
     BalanceModule * getNextElementOrNull();
     void buildTextualRepresentations();
     void buildStructures();
+    void buildForwardDeclarations();
 };
 
 #endif
