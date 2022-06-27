@@ -4,6 +4,7 @@
 #include "headers/PackageVisitor.h"
 #include "headers/StructureVisitor.h"
 #include "headers/ForwardDeclarationVisitor.h"
+#include "headers/ConstructorVisitor.h"
 #include "headers/TypeVisitor.h"
 #include "config.h"
 
@@ -54,7 +55,11 @@ void BalancePackage::populate()
         std::string entrypointValue = itr->value.GetString();
         this->entrypoints[entrypointName] = entrypointValue;
 
-        // TODO: Check if entrypointValue exists?
+        // Check if entrypointValue exists?
+        if (!fileExist(entrypointValue)) {
+            std::cout << "Entrypoint does not exist: " << entrypointValue << std::endl;
+            exit(1);
+        }
     }
 
     // Dependencies
@@ -66,6 +71,11 @@ bool BalancePackage::execute()
     this->load();
     this->populate();
 
+    return this->compileAndPersist();
+}
+
+bool BalancePackage::executeAsScript() {
+    this->entrypoints["default"] = this->entrypoint;
     return this->compileAndPersist();
 }
 
@@ -82,6 +92,9 @@ bool BalancePackage::compileAndPersist()
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();
 
+        // Make sure all classes have constructors (we need constructor function to make forward declaration)
+        this->buildConstructors();
+
         // Make sure all modules have forward declarations of imported classes etc.
         this->buildForwardDeclarations();
 
@@ -91,11 +104,39 @@ bool BalancePackage::compileAndPersist()
         // Persist modules as binary
         this->writePackageToBinary(entryPoint.first);
 
-        // TODO: For now we just build the first entrypoint
-        break;
+        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
+        this->reset();
     }
 
     return true;
+}
+
+void BalancePackage::buildConstructors() {
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+        ifstream inputStream;
+        inputStream.open(bmodule->filePath);
+
+        ANTLRInputStream stream(inputStream);
+        BalanceLexer lexer(&stream);
+        CommonTokenStream tokens(&lexer);
+
+        tokens.fill();
+
+        BalanceParser parser(&tokens);
+        tree::ParseTree *tree = parser.root();
+
+        if (verbose)
+        {
+            cout << tree->toStringTree(&parser, true) << endl;
+        }
+
+        // Visit entire tree
+        ConstructorVisitor visitor;
+        visitor.visit(tree);
+    }
 }
 
 void BalancePackage::buildStructures()

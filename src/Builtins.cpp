@@ -26,7 +26,7 @@ void create_array_type() {
 
 void createIntegerToStringMethod() {
     // string functionName = "toString()"
-    // // TODO: Implicit first argument is 'this' ? The integer
+    // TODO: Implicit first argument is 'this' ? The integer
     // vector<Type *> functionParameterTypes;
     // vector<string> functionParameterNames;
 
@@ -34,7 +34,7 @@ void createIntegerToStringMethod() {
 
     // ArrayRef<Type *> parametersReference(functionParameterTypes);
     // FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    // Function *function = Function::Create(functionType, Function::InternalLinkage, functionName, module);
+    // Function *function = Function::Create(functionType, Function::ExternalLinkage, functionName, module);
 
     // // Add parameter names
     // Function::arg_iterator args = function->arg_begin();
@@ -73,7 +73,7 @@ void createIntegerType() {
     // Type *returnType = getBuiltinType("String");
     // ArrayRef<Type *> parametersReference(functionParameterTypes);
     // FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    // Function *function = Function::Create(functionType, Function::InternalLinkage, functionName, module.get());
+    // Function *function = Function::Create(functionType, Function::ExternalLinkage, functionName, module.get());
 
     // Function::arg_iterator args = function->arg_begin();
     // Value * thisParameter = args++;

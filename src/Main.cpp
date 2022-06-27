@@ -91,7 +91,7 @@ void printHelp()
 }
 
 void createNewProject() {
-    if (file_exist("package.json"))
+    if (fileExist("package.json"))
     {
         cout << "This directory already contains a package.json" << endl;
         exit(1);
@@ -118,6 +118,12 @@ int main(int argc, char **argv)
     bool isTest = false;
     bool isHelp = false;
     bool isPrintVersion = false;
+    std::string entryPoint;
+
+    std::vector<std::string> arguments;
+    for (int i = 0; i < argc; i++) {
+        arguments.push_back(argv[i]);
+    }
 
     if (argc == 1)
     {
@@ -126,18 +132,39 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    // i = 1, skip balance executable
+    for (int i = 1; i < arguments.size(); i++)
+    {
+        std::string argument = arguments[i];
+        if (argument == "--test")
+        {
+            isTest = true;
+        }
+        else if (argument == "--version")
+        {
+            isPrintVersion = true;
+        }
+        else if (argument == "--help")
+        {
+            isHelp = true;
+        }
+        else if (argument == "--verbose")
+        {
+            verbose = true;
+        } else {
+            if (argument != "new" && argument != "run") {
+                entryPoint = argument;
+            }
+        }
+    }
+
     // TODO: Consider something like https://github.com/CLIUtils/CLI11 to parse arguments
     char *arg1 = argv[1];
     if (strcmp(arg1, "new") == 0) {
         createNewProject();
         return 0;
     } else if (strcmp(arg1, "run") == 0) {
-        std::string entryPoint;
-        if (argc > 2) {
-            entryPoint = argv[2];
-        }
-
-        if (!file_exist("package.json")) {
+        if (!fileExist("package.json")) {
             cout << "Found no package.json in current directory, exiting.." << endl;
             return 1;
         }
@@ -147,27 +174,6 @@ int main(int argc, char **argv)
         bool success = currentPackage->execute();
         return !success;
     } else {
-        for (int i = 0; i < argc; i++)
-        {
-            char *arg = argv[i];
-            if (strcmp(arg, "--test") == 0)
-            {
-                isTest = true;
-            }
-            else if (strcmp(arg, "--version") == 0)
-            {
-                isPrintVersion = true;
-            }
-            else if (strcmp(arg, "--help") == 0)
-            {
-                isHelp = true;
-            }
-            else if (strcmp(arg, "--verbose") == 0)
-            {
-                verbose = true;
-            }
-        }
-
         if (isPrintVersion)
         {
             printVersion();
@@ -184,14 +190,9 @@ int main(int argc, char **argv)
         }
         else
         {
-            // Module *mod = buildModuleFromPath(argv[1]);
-
-            // if (verbose)
-            // {
-            //     mod->print(llvm::errs(), nullptr);
-            // }
-            // // TODO: Get filename from argv[1] path
-            // writeModuleToFile("main", { mod });
+            currentPackage = new BalancePackage("", entryPoint);
+            bool success = currentPackage->executeAsScript();
+            return !success;
         }
     }
 

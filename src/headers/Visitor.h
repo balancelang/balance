@@ -61,6 +61,7 @@ using namespace std;
 class ScopeBlock;
 class BalanceClass;
 class BalanceFunction;
+class BalanceImportedFunction;
 class BalanceModule;
 class BalanceProperty;
 
@@ -171,13 +172,37 @@ public:
     }
 };
 
+class BalanceImportedFunction {
+public:
+    BalanceModule * module;                 // The module importing the function
+    BalanceFunction * bfunction;            // The source function
+    llvm::Function * function = nullptr;    // The re-declared function in the module
+
+    BalanceImportedFunction(BalanceModule * module, BalanceFunction * bfunction) {
+        this->module = module;
+        this->bfunction = bfunction;
+    }
+};
+
+class BalanceImportedConstructor {
+public:
+    BalanceModule * module;
+    BalanceClass * bclass;
+    llvm::Function * constructor = nullptr;
+
+    BalanceImportedConstructor(BalanceModule * module, BalanceClass * bclass) {
+        this->module = module;
+        this->bclass = bclass;
+    }
+};
+
 class BalanceClass
 {
 public:
     string name;
-    map<string, BalanceProperty *> properties;
-    map<string, BalanceFunction *> methods;
-    Function *constructor;
+    map<string, BalanceProperty *> properties = {};
+    map<string, BalanceFunction *> methods = {};
+    Function *constructor = nullptr;
     StructType *structType = nullptr;
     bool hasBody;
     BalanceModule *module;
@@ -214,6 +239,19 @@ public:
     }
 };
 
+class BalanceImportedClass {
+public:
+    BalanceModule * module;                                 // The module importing the function
+    BalanceClass * bclass;                                  // The source class
+    map<string, BalanceImportedFunction *> methods = {};    // The re-declared methods in the class
+    BalanceImportedConstructor * constructor = nullptr;
+
+    BalanceImportedClass(BalanceModule * module, BalanceClass * bclass) {
+        this->module = module;
+        this->bclass = bclass;
+    }
+};
+
 class BalanceModule
 {
 public:
@@ -231,8 +269,8 @@ public:
     map<string, llvm::Value *> globals = {};
 
     // Structures imported into this module
-    map<string, BalanceClass *> importedClasses = {};
-    map<string, BalanceFunction *> importedFunctions = {};
+    map<string, BalanceImportedClass *> importedClasses = {};
+    map<string, BalanceImportedFunction *> importedFunctions = {};
     map<string, llvm::Value *> importedGlobals = {};
 
     ScopeBlock *rootScope;
@@ -269,7 +307,8 @@ public:
 
         // Initialize module root scope
         FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
-        Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : "root", this->module);
+        std::string rootFunctionName = this->path + "_main";
+        Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : rootFunctionName, this->module);
         BasicBlock *entry = BasicBlock::Create(*this->context, "entrypoint", rootFunc);
         this->builder->SetInsertPoint(entry);
         this->rootScope = new ScopeBlock(entry, nullptr);
@@ -291,14 +330,14 @@ public:
         return nullptr;
     }
 
-    BalanceClass * getImportedClass(std::string className) {
+    BalanceImportedClass * getImportedClass(std::string className) {
         if (this->importedClasses.find(className) != this->importedClasses.end()) {
             return this->importedClasses[className];
         }
         return nullptr;
     }
 
-    BalanceFunction * getImportedFunction(std::string functionName) {
+    BalanceImportedFunction * getImportedFunction(std::string functionName) {
         if (this->importedFunctions.find(functionName) != this->importedFunctions.end())
         {
             return this->importedFunctions[functionName];

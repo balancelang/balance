@@ -117,77 +117,11 @@ Constant *geti8StrVal(Module &M, char const *str, Twine const &name)
     return strVal;
 }
 
-void createDefaultConstructor(StructType *classValue)
-{
-    std::string constructorName = classValue->getName().str() + "_constructor";
-    vector<Type *> functionParameterTypes;
-
-    // TODO: Constructor should return Type of class?
-    Type *returnType = getBuiltinType("None");
-
-    ArrayRef<Type *> parametersReference{classValue->getPointerTo()};
-    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, currentPackage->currentModule->module);
-    currentPackage->currentModule->currentClass->constructor = function;
-
-    // Add parameter names
-    Function::arg_iterator args = function->arg_begin();
-    llvm::Value *thisValue = args++;
-    thisValue->setName("this");
-
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, constructorName + "_body", function);
-    // Store current block so we can return to it after function declaration
-    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
-    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
-
-    for (auto const &x : currentPackage->currentModule->currentClass->properties)
-    {
-        BalanceProperty * property = x.second;
-        Type *propertyType = property->type;
-
-        Value *initialValue;
-        if (propertyType->isIntegerTy(1))
-        {
-            initialValue = ConstantInt::get(getBuiltinType("Bool"), 0, true);
-        }
-        else if (propertyType->isIntegerTy(32))
-        {
-            initialValue = ConstantInt::get(getBuiltinType("Int"), 0, true);
-        }
-        else if (propertyType->isFloatingPointTy())
-        {
-            initialValue = ConstantFP::get(getBuiltinType("Double"), 0.0);
-        }
-        // // TODO: Handle String and nullable types
-
-        int intIndex = property->index;
-        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
-        Type *structType = thisValue->getType()->getPointerElementType();
-
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
-        currentPackage->currentModule->builder->CreateStore(initialValue, ptr);
-    }
-
-    currentPackage->currentModule->builder->CreateRetVoid();
-
-    bool hasError = verifyFunction(*function);
-    if (hasError) {
-        // TODO: Throw error
-        std::cout << "Error verifying default constructor for class: " << classValue->getName().str() << std::endl;
-        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        exit(1);
-    }
-    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
 any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx)
 {
     std::string text = ctx->getText();
     std::string className = ctx->className->getText();
     currentPackage->currentModule->currentClass = currentPackage->currentModule->classes[className];
-
-    createDefaultConstructor(currentPackage->currentModule->currentClass->structType);
 
     // Visit all class functions
     for (auto const &x : ctx->classElement())
@@ -207,21 +141,21 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
     std::string text = ctx->getText();
     std::string className = ctx->classInitializer()->IDENTIFIER()->getText();
 
-    BalanceClass *type;
-    if (currentPackage->currentModule->classes.find(className) != currentPackage->currentModule->classes.end()) {
+    BalanceClass * bclass;
+    if (currentPackage->currentModule->getClass(className) != nullptr) {
         // Class is in current module
-        type = currentPackage->currentModule->classes[className];
-    } else if (currentPackage->currentModule->importedClasses.find(className) != currentPackage->currentModule->importedClasses.end()) {
+        bclass = currentPackage->currentModule->getClass(className);
+    } else if (currentPackage->currentModule->getImportedClass(className) != nullptr) {
         // Class is imported
-        type = currentPackage->currentModule->importedClasses[className];
+        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(className);
+        bclass = ibclass->bclass;
     } else {
         // TODO: throw error
     }
 
-    type = currentPackage->currentModule->classes[className];
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(type->structType);
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
     ArrayRef<Value *> argumentsReference{alloca};
-    currentPackage->currentModule->builder->CreateCall(type->constructor, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
     return (Value *)alloca;
 }
 
@@ -748,14 +682,18 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     functionArguments.push_back(castVal);
                 }
 
+                Function *function;
                 BalanceClass *bClass = currentPackage->currentModule->getClass(className);
                 if (bClass == nullptr) {
-                    bClass = currentPackage->currentModule->getImportedClass(className);
-                    if (bClass == nullptr) {
+                    BalanceImportedClass * ibClass = currentPackage->currentModule->getImportedClass(className);
+                    if (ibClass == nullptr) {
                         // TODO: Throw error.
+                    } else {
+                        function = ibClass->methods[functionName]->function;
                     }
+                } else {
+                    function = bClass->methods[functionName]->function;
                 }
-                Function *function = bClass->methods[functionName]->function;
                 FunctionType *functionType = function->getFunctionType();
 
                 ArrayRef<Value *> argumentsReference(functionArguments);
@@ -802,15 +740,20 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
         else
         {
+            FunctionCallee function;
+
             BalanceFunction * bfunction = currentPackage->currentModule->getFunction(functionName);
             if (bfunction == nullptr) {
-                bfunction = currentPackage->currentModule->getImportedFunction(functionName);
-                if (bfunction == nullptr) {
+                BalanceImportedFunction * ibfunction = currentPackage->currentModule->getImportedFunction(functionName);
+                if (ibfunction == nullptr) {
                     // TODO: Throw error
+                } else {
+                    function = ibfunction->function;
                 }
+            } else {
+                function = bfunction->function;
             }
 
-            FunctionCallee function = bfunction->function;
             vector<Value *> functionArguments;
 
             for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
@@ -873,7 +816,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
 
     ArrayRef<Type *> parametersReference(functionParameterTypes);
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::InternalLinkage, "", currentPackage->currentModule->module);
+    Function *function = Function::Create(functionType, Function::ExternalLinkage, "", currentPackage->currentModule->module);
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
@@ -929,6 +872,19 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     ScopeBlock *scope = currentPackage->currentModule->currentScope;
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, functionName + "_body", bfunction->function);
     currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
+
+    // Add function parameter names and insert in function scope
+    Function::arg_iterator args = bfunction->function->arg_begin();
+    if (currentPackage->currentModule->currentClass != nullptr) {
+        llvm::Value *thisPointer = args++;
+        currentPackage->currentModule->setValue("this", thisPointer);
+    }
+
+    for (BalanceParameter * parameter : bfunction->parameters) {
+        llvm::Value *x = args++;
+        x->setName(parameter->name);
+        currentPackage->currentModule->setValue(parameter->name, x);
+    }
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

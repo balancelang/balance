@@ -105,9 +105,39 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
                 ArrayRef<Type *> parametersReference(functionParameterTypes);
                 FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
 
-                Function::Create(functionType, Function::ExternalLinkage, bfunction->name, currentPackage->currentModule->module);
-            } else {
-                // TODO: Handle this
+                BalanceImportedFunction * ibfunction = currentPackage->currentModule->importedFunctions[importString];
+                ibfunction->function = Function::Create(functionType, Function::ExternalLinkage, ibfunction->bfunction->name, currentPackage->currentModule->module);
+            } else if (importedModule->getClass(importString) != nullptr) {
+                // If importing class, import all class methods TODO: Maybe this can optimized?
+                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(importString);
+
+                for (auto const &x : ibclass->methods) {
+                    BalanceImportedFunction * ibfunction = x.second;
+                    bfunction = ibfunction->bfunction;
+                    vector<Type *> functionParameterTypes;
+                    vector<std::string> functionParameterNames;
+
+                    PointerType *thisPointer = ibclass->bclass->structType->getPointerTo();
+                    functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
+                    functionParameterNames.insert(functionParameterNames.begin(), "this");
+
+                    for (BalanceParameter * bparameter : bfunction->parameters) {
+                        functionParameterTypes.push_back(bparameter->type);
+                        functionParameterNames.push_back(bparameter->name);
+                    }
+                    ArrayRef<Type *> parametersReference(functionParameterTypes);
+                    FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
+
+                    std::string functionNameWithClass = ibclass->bclass->name + "_" + ibfunction->bfunction->name;
+                    ibfunction->function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+                }
+
+                // Import constructor
+                std::string constructorName = ibclass->bclass->structType->getName().str() + "_constructor";
+                FunctionType *constructorType = ibclass->bclass->constructor->getFunctionType();
+                ibclass->constructor->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, currentPackage->currentModule->module);
+
+                // TODO: Handle class properties as well - maybe they dont need forward declaration?
             }
         }
     }

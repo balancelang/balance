@@ -113,6 +113,7 @@ add_executable(balance
                src/visitors/StructureVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
+               src/visitors/ConstructorVisitor.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

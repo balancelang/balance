@@ -29,7 +29,13 @@ public:
         this->entrypoint = entrypoint;
     }
 
+    void reset() {
+        this->modules = {};
+        this->currentModule = nullptr;
+    }
+
     bool execute();
+    bool executeAsScript();
     void load();
     void populate();
     void throwIfMissing(std::string property);
@@ -41,6 +47,7 @@ public:
     void buildTextualRepresentations();
     void buildStructures();
     void buildForwardDeclarations();
+    void buildConstructors();
 };
 
 #endif

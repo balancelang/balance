@@ -1,5 +1,0 @@
-from filaA import MyClass
-
-def someFunc(MyClass element) -> None {
-    print("Hello from fileB.bl")
-}

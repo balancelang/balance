@@ -6,6 +6,6 @@
 #include <cstdio>
 #include <fstream>
 
-bool file_exist(std::string fileName);
+bool fileExist(std::string fileName);
 
 #endif

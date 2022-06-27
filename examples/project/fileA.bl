@@ -1,8 +1,12 @@
+from fileB import someFunc
+
+// Notice that there's a cyclic import between fileA and fileB, and balance handles it
+
 class MyClass {
     Int a
 
-    def printA() -> None {
-        print("test")
+    def getA() -> Int {
+        return a
     }
 
     def setA(Int value) -> None {
@@ -11,3 +15,5 @@ class MyClass {
 }
 
 var cls = new MyClass()
+cls.setA(25)
+someFunc(cls)
