@@ -95,7 +95,7 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
 
             BalanceFunction * bfunction = importedModule->getFunction(importString);
             if (bfunction != nullptr) {
-                // We need to create the forward declarations in this module, given the type from the import func/class
+                // We need to create the forward declarations in this module, given the type from the import func
                 vector<Type *> functionParameterTypes;
                 vector<std::string> functionParameterNames;
                 for (BalanceParameter * bparameter : bfunction->parameters) {
@@ -109,9 +109,6 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
             } else {
                 // TODO: Handle this
             }
-
-            // Value * val = importedModule->getValue(importString);
-            // setValue(importString, val);
         }
     }
 

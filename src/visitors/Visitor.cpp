@@ -172,6 +172,12 @@ void createDefaultConstructor(StructType *classValue)
     currentPackage->currentModule->builder->CreateRetVoid();
 
     bool hasError = verifyFunction(*function);
+    if (hasError) {
+        // TODO: Throw error
+        std::cout << "Error verifying default constructor for class: " << classValue->getName().str() << std::endl;
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        exit(1);
+    }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
@@ -893,6 +899,12 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     }
 
     bool hasError = verifyFunction(*function);
+    if (hasError) {
+        // TODO: Throw error and give more context
+        std::cout << "Error verifying lambda expression: " << text << std::endl;
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        exit(1);
+    }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
