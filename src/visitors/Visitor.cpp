@@ -85,23 +85,23 @@ getBuiltinType(std::string typeString)
 {
     if (typeString == "Int")
     {
-        return Type::getInt32Ty(*currentPackage->currentModule->context);
+        return Type::getInt32Ty(*currentPackage->context);
     }
     else if (typeString == "Bool")
     {
-        return Type::getInt1Ty(*currentPackage->currentModule->context);
+        return Type::getInt1Ty(*currentPackage->context);
     }
     else if (typeString == "String")
     {
-        return Type::getInt8PtrTy(*currentPackage->currentModule->context);
+        return Type::getInt8PtrTy(*currentPackage->context);
     }
     else if (typeString == "Double")
     {
-        return Type::getDoubleTy(*currentPackage->currentModule->context);
+        return Type::getDoubleTy(*currentPackage->context);
     }
     else if (typeString == "None")
     {
-        return Type::getVoidTy(*currentPackage->currentModule->context);
+        return Type::getVoidTy(*currentPackage->context);
     }
 
     return nullptr;
@@ -142,20 +142,23 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
     std::string className = ctx->classInitializer()->IDENTIFIER()->getText();
 
     BalanceClass * bclass;
+    llvm::Function * constructor;
     if (currentPackage->currentModule->getClass(className) != nullptr) {
         // Class is in current module
         bclass = currentPackage->currentModule->getClass(className);
+        constructor = bclass->constructor;
     } else if (currentPackage->currentModule->getImportedClass(className) != nullptr) {
         // Class is imported
         BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(className);
         bclass = ibclass->bclass;
+        constructor = ibclass->constructor->constructor;
     } else {
         // TODO: throw error
     }
 
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
     ArrayRef<Value *> argumentsReference{alloca};
-    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(constructor, argumentsReference);
     return (Value *)alloca;
 }
 
@@ -181,9 +184,9 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
     Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     // Set up the 3 blocks we need: condition, loop-block and merge
-    BasicBlock *condBlock = BasicBlock::Create(*currentPackage->currentModule->context, "loopcond", function);
-    BasicBlock *loopBlock = BasicBlock::Create(*currentPackage->currentModule->context, "loop", function);
-    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->currentModule->context, "afterloop", function);
+    BasicBlock *condBlock = BasicBlock::Create(*currentPackage->context, "loopcond", function);
+    BasicBlock *loopBlock = BasicBlock::Create(*currentPackage->context, "loop", function);
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->context, "afterloop", function);
 
     // Jump to condition
     currentPackage->currentModule->builder->CreateBr(condBlock);
@@ -224,7 +227,7 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     any anyVal = visit(ctx->value);
     llvm::Value *value = anyToValue(anyVal);
 
-    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, valueIndex});
     currentPackage->currentModule->builder->CreateStore(value, ptr);
 
@@ -241,7 +244,7 @@ any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpress
     any anyValIndex = visit(ctx->index);
     llvm::Value *valueIndex = anyToValue(anyValIndex); // Should return i32 for now
 
-    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, valueIndex});
     return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
 }
@@ -261,10 +264,10 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx)
     auto arrayType = llvm::ArrayType::get(type, values.size());
 
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
-    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     for (int i = 0; i < values.size(); i++)
     {
-        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, i, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
         auto ptr = currentPackage->currentModule->builder->CreateGEP(alloca, {zero, index});
         currentPackage->currentModule->builder->CreateStore(values[i], ptr);
     }
@@ -279,9 +282,9 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
 
     any expressionResult = visit(ctx->expression());
     llvm::Value *expression = anyToValue(expressionResult);
-    BasicBlock *thenBlock = BasicBlock::Create(*currentPackage->currentModule->context, "then", function);
-    BasicBlock *elseBlock = BasicBlock::Create(*currentPackage->currentModule->context, "else");
-    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->currentModule->context, "ifcont");
+    BasicBlock *thenBlock = BasicBlock::Create(*currentPackage->context, "then", function);
+    BasicBlock *elseBlock = BasicBlock::Create(*currentPackage->context, "else");
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->context, "ifcont");
     currentPackage->currentModule->builder->CreateCondBr(expression, thenBlock, elseBlock);
 
     currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
@@ -336,8 +339,8 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
     {
         // TODO: Check if variableName is in currentClass->properties
         int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
-        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         Value *thisValue = currentPackage->currentModule->getValue("this");
         Type *structType = thisValue->getType()->getPointerElementType();
 
@@ -377,8 +380,8 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
     {
         // TODO: Check if variableName is in currentClass->properties
         int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
-        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         Value *thisValue = currentPackage->currentModule->getValue("this");
         Type *structType = thisValue->getType()->getPointerElementType();
 
@@ -556,7 +559,7 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
 any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx)
 {
     std::string value = ctx->DECIMAL_INTEGER()->getText();
-    Type *i32_type = IntegerType::getInt32Ty(*currentPackage->currentModule->context);
+    Type *i32_type = IntegerType::getInt32Ty(*currentPackage->context);
     int intValue = stoi(value);
     return (Value *)ConstantInt::get(i32_type, intValue, true);
 }
@@ -601,14 +604,14 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             llvm::Value *value = anyToValue(anyVal);
             if (PointerType *PT = dyn_cast<PointerType>(value->getType()))
             {
-                if (PT == Type::getInt8PtrTy(*currentPackage->currentModule->context, PT->getPointerAddressSpace()))
+                if (PT == Type::getInt8PtrTy(*currentPackage->context, PT->getPointerAddressSpace()))
                 {
                     auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%s\n", "args"), value};
                     return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                 }
                 else if (PT->getElementType()->isArrayTy())
                 {
-                    auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
+                    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                     auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
                     (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
                     int numElements = PT->getElementType()->getArrayNumElements();
@@ -616,7 +619,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     // Also, make a function that does this, which takes value, type and whether to linebreak?
                     for (int i = 0; i < numElements; i++)
                     {
-                        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, i, true));
+                        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
                         auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
                         llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
                         if (i < numElements - 1)
@@ -827,7 +830,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
         currentPackage->currentModule->setValue(parameterName, x);
     }
 
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, "", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, "", function);
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
@@ -870,7 +873,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     }
 
     ScopeBlock *scope = currentPackage->currentModule->currentScope;
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, functionName + "_body", bfunction->function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", bfunction->function);
     currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
 
     // Add function parameter names and insert in function scope
@@ -908,4 +911,21 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
     return nullptr;
+}
+
+
+
+void BalanceModule::initializeModule()
+{
+    this->builder = new IRBuilder<>(*currentPackage->context);
+    this->module = new Module(this->path, *currentPackage->context);
+
+    // Initialize module root scope
+    FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
+    std::string rootFunctionName = this->path + "_main";
+    Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : rootFunctionName, this->module);
+    BasicBlock *entry = BasicBlock::Create(*currentPackage->context, "entrypoint", rootFunc);
+    this->builder->SetInsertPoint(entry);
+    this->rootScope = new ScopeBlock(entry, nullptr);
+    this->currentScope = this->rootScope;
 }

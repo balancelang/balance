@@ -1,4 +1,5 @@
 #include "CompileTests.h"
+#include "../src/headers/Package.h"
 #include "../src/headers/Main.h"
 #include "../src/headers/Visitor.h"
 #include "ASTTests.h"
@@ -89,13 +90,10 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
-    // BalanceModule * bmodule = new BalanceModule("")
-    // Module * module = buildModuleFromString(program);
-    // std::vector<Module *> modules;
-    // modules.push_back(module);
-    // writeModuleToFile("main", modules);
+    // BalancePackage * package = new BalancePackage("", "");
+    // bool success = package->executeString(program);
     // return exec("./main");
-    return ""; // TODO: FIX
+    return "";
 }
 
 void createPrintInt() {

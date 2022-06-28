@@ -23,10 +23,12 @@ public:
     std::map<std::string, std::string> entrypoints = {};
     std::map<std::string, BalanceModule *> modules = {};
     BalanceModule *currentModule = nullptr;
+    LLVMContext *context;
 
     BalancePackage(std::string packageJsonPath, std::string entrypoint) {
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
+        this->context = new LLVMContext();
     }
 
     void reset() {
@@ -36,6 +38,7 @@ public:
 
     bool execute();
     bool executeAsScript();
+    bool executeString(std::string program);
     void load();
     void populate();
     void throwIfMissing(std::string property);

@@ -141,7 +141,7 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     }
 
     if (currentPackage->currentModule->currentClass->structType == nullptr) {
-        StructType *structType = StructType::create(*currentPackage->currentModule->context, className);
+        StructType *structType = StructType::create(*currentPackage->context, className);
         currentPackage->currentModule->currentClass->structType = structType;
     }
 

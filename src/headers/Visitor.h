@@ -59,12 +59,14 @@ using namespace llvm;
 using namespace std;
 
 class ScopeBlock;
+class BalancePackage;
 class BalanceClass;
 class BalanceFunction;
 class BalanceImportedFunction;
 class BalanceModule;
 class BalanceProperty;
 
+extern BalancePackage *currentPackage;
 llvm::Value *anyToValue(any anyVal);
 Type *getBuiltinType(string typeString);
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name);
@@ -255,7 +257,6 @@ public:
 class BalanceModule
 {
 public:
-    LLVMContext *context;
     IRBuilder<> *builder;
 
     string path;
@@ -279,6 +280,9 @@ public:
 
     llvm::Module *module;
 
+    // The AST of the module
+    antlr4::tree::ParseTree *tree = nullptr;
+
     bool finishedDiscovery;
 
     BalanceModule(string path, bool isEntrypoint)
@@ -299,21 +303,7 @@ public:
         this->initializeModule();
     }
 
-    void initializeModule()
-    {
-        this->context = new LLVMContext();
-        this->builder = new IRBuilder<>(*this->context);
-        this->module = new Module(this->path, *this->context);
-
-        // Initialize module root scope
-        FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
-        std::string rootFunctionName = this->path + "_main";
-        Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : rootFunctionName, this->module);
-        BasicBlock *entry = BasicBlock::Create(*this->context, "entrypoint", rootFunc);
-        this->builder->SetInsertPoint(entry);
-        this->rootScope = new ScopeBlock(entry, nullptr);
-        this->currentScope = this->rootScope;
-    }
+    void initializeModule();
 
     BalanceClass * getClass(std::string className) {
         if (this->classes.find(className) != this->classes.end()) {

@@ -8,7 +8,7 @@ extern BalancePackage *currentPackage;
 
 void create_function_print()
 {
-    llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->currentModule->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->currentModule->context), 0), true);
+    llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), true);
     llvm::FunctionCallee printfFunc = currentPackage->currentModule->module->getOrInsertFunction("printf", functionType);
 }
 

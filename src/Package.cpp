@@ -128,11 +128,6 @@ void BalancePackage::buildConstructors() {
         BalanceParser parser(&tokens);
         tree::ParseTree *tree = parser.root();
 
-        if (verbose)
-        {
-            cout << tree->toStringTree(&parser, true) << endl;
-        }
-
         // Visit entire tree
         ConstructorVisitor visitor;
         visitor.visit(tree);
@@ -166,11 +161,6 @@ void BalancePackage::buildStructures()
 
         BalanceParser parser(&tokens);
         tree::ParseTree *tree = parser.root();
-
-        if (verbose)
-        {
-            cout << tree->toStringTree(&parser, true) << endl;
-        }
 
         // Visit entire tree
         TypeVisitor visitor;
@@ -211,11 +201,6 @@ void BalancePackage::buildForwardDeclarations()
         BalanceParser parser(&tokens);
         tree::ParseTree *tree = parser.root();
 
-        if (verbose)
-        {
-            cout << tree->toStringTree(&parser, true) << endl;
-        }
-
         // Visit entire tree
         ForwardDeclarationVisitor visitor;
         visitor.visit(tree);
@@ -240,10 +225,6 @@ void BalancePackage::buildTextualRepresentations()
         BalanceParser parser(&tokens);
         tree::ParseTree *tree = parser.root();
 
-        if (verbose)
-        {
-            cout << tree->toStringTree(&parser, true) << endl;
-        }
 
         // Visit entire tree
         StructureVisitor visitor;
@@ -262,11 +243,6 @@ void buildModuleFromStream(BalanceModule *bmodule, ANTLRInputStream stream)
     BalanceParser parser(&tokens);
     tree::ParseTree *tree = parser.root();
 
-    if (verbose)
-    {
-        cout << tree->toStringTree(&parser, true) << endl;
-    }
-
     create_functions();
 
     // Visit entire tree
@@ -274,7 +250,7 @@ void buildModuleFromStream(BalanceModule *bmodule, ANTLRInputStream stream)
     visitor.visit(tree);
 
     // Return 0
-    currentPackage->currentModule->builder->CreateRet(ConstantInt::get(*currentPackage->currentModule->context, APInt(32, 0)));
+    currentPackage->currentModule->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
 }
 
 void buildModuleFromString(BalanceModule *bmodule, std::string program)

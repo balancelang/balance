@@ -15,6 +15,7 @@
     - while loops (+)
     - for loops
     - Pattern matching
+    - comments
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
@@ -26,8 +27,9 @@
     - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"
     - extension methods on types
-    - forward references - e.g. extend a class defined later in the same file
+    - forward references - e.g. extend a class defined later in the same file (+)
     - Not compile classes/functions not imported?
+    - Cyclic dependencies (+)
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits

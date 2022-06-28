@@ -87,7 +87,7 @@ void createDefaultConstructor(StructType *classValue)
     llvm::Value *thisValue = args++;
     thisValue->setName("this");
 
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->currentModule->context, constructorName + "_body", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, constructorName + "_body", function);
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
@@ -113,8 +113,8 @@ void createDefaultConstructor(StructType *classValue)
         // // TODO: Handle String and nullable types
 
         int intIndex = property->index;
-        auto zero = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*currentPackage->currentModule->context, llvm::APInt(32, intIndex, true));
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         Type *structType = thisValue->getType()->getPointerElementType();
 
         auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
