@@ -4,6 +4,8 @@
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
+#include "Utilities.h"
+
 #include "clang/Driver/Driver.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Compilation.h"
@@ -281,6 +283,10 @@ public:
     llvm::Module *module;
 
     // The AST of the module
+    antlr4::ANTLRInputStream * antlrStream = nullptr;
+    antlr4::CommonTokenStream * tokenStream = nullptr;
+    BalanceLexer * lexer = nullptr;
+    BalanceParser * parser = nullptr;
     antlr4::tree::ParseTree *tree = nullptr;
 
     bool finishedDiscovery;
@@ -304,6 +310,32 @@ public:
     }
 
     void initializeModule();
+
+    void generateASTFromStream(antlr4::ANTLRInputStream * stream) {
+        this->antlrStream = stream;
+        this->lexer = new BalanceLexer(this->antlrStream);
+        this->tokenStream = new antlr4::CommonTokenStream(this->lexer);
+        this->tokenStream->fill();
+        this->parser = new BalanceParser(this->tokenStream);
+        this->tree = this->parser->root();
+    }
+
+    void generateASTFromPath(std::string filePath) {
+        if (!fileExist(filePath)) {
+            cout << "Input file doesn't exist: " << filePath << endl;
+            exit(1);
+        }
+
+        ifstream inputStream;
+        inputStream.open(filePath);
+        this->antlrStream = new antlr4::ANTLRInputStream(inputStream);
+        this->generateASTFromStream(antlrStream);
+    }
+
+    void generateASTFromString(std::string program) {
+        this->antlrStream = new antlr4::ANTLRInputStream(program);
+        this->generateASTFromStream(antlrStream);
+    }
 
     BalanceClass * getClass(std::string className) {
         if (this->classes.find(className) != this->classes.end()) {

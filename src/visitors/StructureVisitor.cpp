@@ -70,8 +70,8 @@ using namespace std;
 extern BalancePackage *currentPackage;
 
 std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
-    string text = ctx->getText();
     string className = ctx->className->getText();
+    string text = ctx->getText();
 
     BalanceClass * bclass = new BalanceClass(className);
     currentPackage->currentModule->currentClass = bclass;

@@ -111,26 +111,41 @@ bool BalancePackage::compileAndPersist()
     return true;
 }
 
+// TODO: Combine this function and the above
+bool BalancePackage::executeString(std::string program) {
+    currentPackage = this;
+    modules["program"] = new BalanceModule("program", true);
+    modules["program"]->generateASTFromString(program);
+    this->currentModule = modules["program"];
+
+    // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
+    this->buildTextualRepresentations();
+
+    // Run loop that builds LLVM functions and handles cycles
+    this->buildStructures();
+
+    // Make sure all classes have constructors (we need constructor function to make forward declaration)
+    this->buildConstructors();
+
+    // Make sure all modules have forward declarations of imported classes etc.
+    this->buildForwardDeclarations();
+
+    // (Visitor.cpp) Compile everything, now that functions, classes etc exist
+    this->compile();
+
+    // Persist modules as binary
+    this->writePackageToBinary("program");
+}
+
 void BalancePackage::buildConstructors() {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
         this->currentModule = bmodule;
-        ifstream inputStream;
-        inputStream.open(bmodule->filePath);
-
-        ANTLRInputStream stream(inputStream);
-        BalanceLexer lexer(&stream);
-        CommonTokenStream tokens(&lexer);
-
-        tokens.fill();
-
-        BalanceParser parser(&tokens);
-        tree::ParseTree *tree = parser.root();
 
         // Visit entire tree
         ConstructorVisitor visitor;
-        visitor.visit(tree);
+        visitor.visit(bmodule->tree);
     }
 }
 
@@ -150,21 +165,9 @@ void BalancePackage::buildStructures()
         this->currentModule = bmodule;
         queue.pop();
 
-        ifstream inputStream;
-        inputStream.open(bmodule->filePath);
-
-        ANTLRInputStream stream(inputStream);
-        BalanceLexer lexer(&stream);
-        CommonTokenStream tokens(&lexer);
-
-        tokens.fill();
-
-        BalanceParser parser(&tokens);
-        tree::ParseTree *tree = parser.root();
-
         // Visit entire tree
         TypeVisitor visitor;
-        visitor.visit(tree);
+        visitor.visit(bmodule->tree);
 
         bool isFinalized = bmodule->finalized();
         if (!isFinalized)
@@ -189,21 +192,10 @@ void BalancePackage::buildForwardDeclarations()
     {
         BalanceModule *bmodule = x.second;
         this->currentModule = bmodule;
-        ifstream inputStream;
-        inputStream.open(bmodule->filePath);
-
-        ANTLRInputStream stream(inputStream);
-        BalanceLexer lexer(&stream);
-        CommonTokenStream tokens(&lexer);
-
-        tokens.fill();
-
-        BalanceParser parser(&tokens);
-        tree::ParseTree *tree = parser.root();
 
         // Visit entire tree
         ForwardDeclarationVisitor visitor;
-        visitor.visit(tree);
+        visitor.visit(bmodule->tree);
     }
 }
 
@@ -211,69 +203,29 @@ void BalancePackage::buildTextualRepresentations()
 {
     for (auto const &x : modules)
     {
-        BalanceModule *balanceModule = x.second;
-        this->currentModule = balanceModule;
-        ifstream inputStream;
-        inputStream.open(balanceModule->filePath);
-
-        ANTLRInputStream stream(inputStream);
-        BalanceLexer lexer(&stream);
-        CommonTokenStream tokens(&lexer);
-
-        tokens.fill();
-
-        BalanceParser parser(&tokens);
-        tree::ParseTree *tree = parser.root();
-
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
 
         // Visit entire tree
         StructureVisitor visitor;
-        visitor.visit(tree);
+        visitor.visit(this->currentModule->tree);
     }
-}
-
-void buildModuleFromStream(BalanceModule *bmodule, ANTLRInputStream stream)
-{
-    currentPackage->currentModule = bmodule;
-    BalanceLexer lexer(&stream);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
-    create_functions();
-
-    // Visit entire tree
-    BalanceVisitor visitor;
-    visitor.visit(tree);
-
-    // Return 0
-    currentPackage->currentModule->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
-}
-
-void buildModuleFromString(BalanceModule *bmodule, std::string program)
-{
-    ANTLRInputStream input(program);
-    return buildModuleFromStream(bmodule, input);
-}
-
-void buildModule(BalanceModule *bmodule)
-{
-    ifstream inputStream;
-    inputStream.open(bmodule->filePath);
-
-    ANTLRInputStream input(inputStream);
-    buildModuleFromStream(bmodule, input);
 }
 
 void BalancePackage::compile()
 {
     for (auto const &x : modules)
     {
-        BalanceModule *balanceModule = x.second;
-        buildModule(balanceModule);
+        BalanceModule *bmodule = x.second;
+        currentPackage->currentModule = bmodule;
+        create_functions();
+
+        // Visit entire tree
+        BalanceVisitor visitor;
+        visitor.visit(bmodule->tree);
+
+        // Return 0
+        currentPackage->currentModule->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
     }
 }
 
@@ -295,21 +247,10 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
     std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
     modules[rootPathWithoutExtension] = new BalanceModule(rootPathWithoutExtension, true);
     this->currentModule = modules[rootPathWithoutExtension];
-    ifstream inputStream;
-    inputStream.open(rootPath);
-
-    ANTLRInputStream input(inputStream);
-    BalanceLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
+    this->currentModule->generateASTFromPath(rootPath);
     modules[rootPathWithoutExtension]->finishedDiscovery = true;
     PackageVisitor visitor;
-    visitor.visit(tree);
+    visitor.visit(this->currentModule->tree);
 
     if (modules.size() > 1)
     {
@@ -317,18 +258,8 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
         while (module != nullptr)
         {
             this->currentModule = module;
-            ifstream inputStream;
-            inputStream.open(module->filePath);
-
-            ANTLRInputStream input(inputStream);
-            BalanceLexer lexer(&input);
-            CommonTokenStream tokens(&lexer);
-
-            tokens.fill();
-
-            BalanceParser parser(&tokens);
-            tree::ParseTree *tree = parser.root();
-            visitor.visit(tree);
+            this->currentModule->generateASTFromPath(module->filePath);
+            visitor.visit(module->tree);
             module->finishedDiscovery = true;
             module = getNextElementOrNull();
         }
