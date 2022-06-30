@@ -120,10 +120,16 @@ void examplesFunctionsTest() {
     assertEqual("80\nBecause this returns 'None', we can ommit '-> None'\n", result, "Functions");
 }
 
+void examplesLambdasTest() {
+    string result = runExample("../examples/lambdas.bl");
+    assertEqual("Hello world\n55\n88\n", result, "Lambdas");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
     examplesHelloWorldTest();
     examplesVariablesTest();
     examplesFunctionsTest();
+    examplesLambdasTest();
 }

@@ -1,6 +1,6 @@
 from fileB import someFunc
 
-// Notice that there's a cyclic import between fileA and fileB, and balance handles it
+// Notice that there's a cyclic dependency between fileA and fileB, and balance handles it
 
 class MyClass {
     Int a

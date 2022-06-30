@@ -1,0 +1,16 @@
+var lambda1 = () -> None {
+    print("Hello world")
+}
+
+var lambda2 = (Int a) -> None {
+    print(a)
+}
+
+// Implicit return None
+var lambda3 = (Int a) {
+    print(a)
+}
+
+lambda1()
+lambda2(55)
+lambda3(88)

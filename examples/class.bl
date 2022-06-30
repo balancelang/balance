@@ -1,3 +1,10 @@
+var cls = new MyClass()
+cls.setA(25)
+print(cls.getA())
+// outputs 25
+
+
+// We can reference the class both before and after its declaration
 class MyClass {
     Int a
 
@@ -9,8 +16,3 @@ class MyClass {
         a = value
     }
 }
-
-var cls = new MyClass()
-cls.setA(25)
-print(cls.getA())
-// outputs 25
