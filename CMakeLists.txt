@@ -1,5 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
-project(Balance VERSION 0.0.3)
+project(Balance VERSION 0.0.4)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -17,6 +17,8 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+
+include("rapidjson")
 
 macro(find_program_or_die OUTPUT_VAR PROG_NAME DOCSTRING)
   find_program(${OUTPUT_VAR}
@@ -36,6 +38,8 @@ endmacro()
 find_package(Clang REQUIRED)
 find_program_or_die( CLANGXX "clang++-12" "clang++ binary")
 execute_process(COMMAND "${CLANGXX}" "--version" OUTPUT_VARIABLE LLVM_CLANGXX_VERSION RESULT_VARIABLE CLANGXX_RES)
+
+include_directories(${RAPIDJSON_INCLUDE_DIR})
 
 configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.h.in.cmake ${CMAKE_BINARY_DIR}/generated/config.h )
 include_directories( ${CMAKE_BINARY_DIR}/generated/ )
@@ -101,9 +105,15 @@ include_directories(${ANTLR_BalanceGrammarParser_OUTPUT_DIR})
 # add generated grammar to the binary target
 add_executable(balance
                src/Main.cpp
-               src/Builder.cpp
                src/Builtins.cpp
-               src/Visitor.cpp
+               src/Package.cpp
+               src/Utilities.cpp
+               src/visitors/Visitor.cpp
+               src/visitors/PackageVisitor.cpp
+               src/visitors/StructureVisitor.cpp
+               src/visitors/TypeVisitor.cpp
+               src/visitors/ForwardDeclarationVisitor.cpp
+               src/visitors/ConstructorVisitor.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
@@ -118,3 +128,4 @@ llvm_map_components_to_libnames(llvm_libs support core irreader mc target ${LLVM
 target_link_libraries(balance antlr4_static)
 target_link_libraries(balance Threads::Threads)
 target_link_libraries(balance LLVM clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)
+add_dependencies(balance rapidjson)

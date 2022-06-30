@@ -1,6 +1,7 @@
 #include "CompileTests.h"
+#include "../src/headers/Package.h"
 #include "../src/headers/Main.h"
-#include "../src/headers/Builder.h"
+#include "../src/headers/Visitor.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -89,9 +90,9 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
-    Module * module = buildModuleFromString(program);
-    writeModuleToFile(module);
-    return exec("./main");
+    BalancePackage * package = new BalancePackage("", "");
+    bool success = package->executeString(program);
+    return exec("./program");
 }
 
 void createPrintInt() {

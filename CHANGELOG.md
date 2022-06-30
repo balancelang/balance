@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.0.4]
+### Added
+- Project structure (package.json) and import functionality
+- Support for cyclic dependencies
+
 ## [0.0.3]
 ### Added
 - Classes

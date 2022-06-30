@@ -1,6 +1,6 @@
 #include "CompileTests.h"
 #include "../src/headers/Main.h"
-#include "../src/headers/Builder.h"
+#include "../src/headers/Package.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -89,31 +89,34 @@ string execExample(const char* cmd) {
     return result;
 }
 
+string runExample(string filePath) {
+    ifstream inputStream;
+    inputStream.open(filePath);
+    stringstream strStream;
+    strStream << inputStream.rdbuf();
+
+    BalancePackage * package = new BalancePackage("", "");
+    bool success = package->executeString(strStream.str());
+    return execExample("./program");
+}
+
 void examplesClassTest() {
-    Module * module = buildModuleFromPath("../examples/class.bl");
-    writeModuleToFile(module);
-    string result = execExample("./main");
+    string result = runExample("../examples/class.bl");
     assertEqual("25\n", result, "Class test");
 }
 
 void examplesHelloWorldTest() {
-    Module * module = buildModuleFromPath("../examples/helloWorld.bl");
-    writeModuleToFile(module);
-    string result = execExample("./main");
+    string result = runExample("../examples/helloWorld.bl");
     assertEqual("Hello world!\n", result, "Hello world");
 }
 
 void examplesVariablesTest() {
-    Module * module = buildModuleFromPath("../examples/variables.bl");
-    writeModuleToFile(module);
-    string result = execExample("./main");
+    string result = runExample("../examples/variables.bl");
     assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {
-    Module * module = buildModuleFromPath("../examples/functions.bl");
-    writeModuleToFile(module);
-    string result = execExample("./main");
+    string result = runExample("../examples/functions.bl");
     assertEqual("80\nBecause this returns 'None', we can ommit '-> None'\n", result, "Functions");
 }
 

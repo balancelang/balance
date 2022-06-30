@@ -1,21 +1,15 @@
 #include "headers/Builtins.h"
-#include "headers/Visitor.h"
+#include "headers/Package.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
-using namespace std;
-
-extern std::unique_ptr<LLVMContext> context;
-extern std::unique_ptr<Module> module;
-extern std::unique_ptr<IRBuilder<>> builder;
-extern ScopeBlock *currentScope;
-extern vector<BalanceType> types;
+extern BalancePackage *currentPackage;
 
 void create_function_print()
 {
-    FunctionType * functionType = FunctionType::get(IntegerType::getInt32Ty(*context), PointerType::get(Type::getInt8Ty(*context), 0), true);
-    FunctionCallee printfFunc = module->getOrInsertFunction("printf", functionType);
+    llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), true);
+    llvm::FunctionCallee printfFunc = currentPackage->currentModule->module->getOrInsertFunction("printf", functionType);
 }
 
 void create_functions() {
@@ -30,9 +24,9 @@ void create_array_type() {
     // StructType::create(types, typeName, false);
 }
 
-void createIntegerToStringMethod(BalanceType * type) {
+void createIntegerToStringMethod() {
     // string functionName = "toString()"
-    // // TODO: Implicit first argument is 'this' ? The integer
+    // TODO: Implicit first argument is 'this' ? The integer
     // vector<Type *> functionParameterTypes;
     // vector<string> functionParameterNames;
 
@@ -40,7 +34,7 @@ void createIntegerToStringMethod(BalanceType * type) {
 
     // ArrayRef<Type *> parametersReference(functionParameterTypes);
     // FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    // Function *function = Function::Create(functionType, Function::InternalLinkage, functionName, module);
+    // Function *function = Function::Create(functionType, Function::ExternalLinkage, functionName, module);
 
     // // Add parameter names
     // Function::arg_iterator args = function->arg_begin();
@@ -79,7 +73,7 @@ void createIntegerType() {
     // Type *returnType = getBuiltinType("String");
     // ArrayRef<Type *> parametersReference(functionParameterTypes);
     // FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    // Function *function = Function::Create(functionType, Function::InternalLinkage, functionName, module.get());
+    // Function *function = Function::Create(functionType, Function::ExternalLinkage, functionName, module.get());
 
     // Function::arg_iterator args = function->arg_begin();
     // Value * thisParameter = args++;

@@ -1,7 +1,8 @@
 #include "headers/Main.h"
-#include "headers/Builder.h"
 #include "headers/Builtins.h"
 #include "headers/Visitor.h"
+#include "headers/Package.h"
+#include "headers/Utilities.h"
 
 #include <iostream>
 #include <cstdio>
@@ -72,102 +73,8 @@ using namespace llvm;
 using namespace antlr4;
 using namespace std;
 
-LLVMContext *context;
-Module *module;
-IRBuilder<> *builder;
-vector<BalanceType> types;
-ScopeBlock *currentScope = nullptr;
 bool verbose = false;
-
-bool file_exist(string fileName)
-{
-    ifstream infile(fileName);
-    return infile.good();
-}
-
-void initializeModule()
-{
-    context = new LLVMContext();
-    module = new Module("main", *context);
-    builder = new IRBuilder<>(*context);
-    currentScope = nullptr;
-}
-
-Module *buildModuleFromStream(ANTLRInputStream stream)
-{
-    initializeModule();
-    BalanceLexer lexer(&stream);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
-    if (verbose)
-    {
-        cout << tree->toStringTree(&parser, true) << endl;
-    }
-
-    create_functions();
-    create_types();
-
-    FunctionType *funcType = FunctionType::get(builder->getInt32Ty(), false);
-    Function *mainFunc = Function::Create(funcType, Function::ExternalLinkage, "main", module);
-    BasicBlock *entry = BasicBlock::Create(*context, "entrypoint", mainFunc);
-
-    // Set insert point to end of (start of) main block
-    builder->SetInsertPoint(entry);
-    currentScope = new ScopeBlock(entry, nullptr);
-    BalanceVisitor visitor;
-
-    // Visit entire tree
-    visitor.visit(tree);
-
-    // Return 0
-    builder->CreateRet(ConstantInt::get(*context, APInt(32, 0)));
-    return module;
-}
-
-tree::ParseTree *buildASTFromString(string program)
-{
-    ANTLRInputStream input(program);
-    BalanceLexer lexer(&input);
-    CommonTokenStream tokens(&lexer);
-
-    tokens.fill();
-
-    BalanceParser parser(&tokens);
-    tree::ParseTree *tree = parser.root();
-
-    if (verbose)
-    {
-        cout << tree->toStringTree(&parser, true) << endl;
-    }
-    return tree;
-}
-
-Module *buildModuleFromString(string program)
-{
-    ANTLRInputStream input(program);
-    return buildModuleFromStream(input);
-}
-
-Module *buildModuleFromPath(string filePath)
-{
-    if (!file_exist(filePath))
-    {
-        cout << "Input file doesn't exist: " << filePath << endl;
-        exit(1);
-    }
-
-    ifstream inputStream;
-    inputStream.open(filePath);
-
-
-    ANTLRInputStream input(inputStream);
-    return buildModuleFromStream(input);
-}
+BalancePackage *currentPackage = nullptr;
 
 void printVersion()
 {
@@ -183,11 +90,40 @@ void printHelp()
     cout << "'./balance --verbose' to have verbose output" << endl;
 }
 
+void createNewProject() {
+    if (fileExist("package.json"))
+    {
+        cout << "This directory already contains a package.json" << endl;
+        exit(1);
+    }
+
+    std::ofstream  dst("package.json",   std::ios::binary);
+
+    dst << ""
+"{"
+"\"name\": \"\",\n"
+"\"version\": \"0.0.0\",\n"
+"\"entrypoints\": {\n"
+"\"default\": \"[REPLACE WITH DEFAULT PROGRAM]\"\n"
+"},\n"
+"\"dependencies\": {\n"
+"}\n"
+"}\n";
+
+    cout << "Created new project." << endl;
+}
+
 int main(int argc, char **argv)
 {
     bool isTest = false;
     bool isHelp = false;
     bool isPrintVersion = false;
+    std::string entryPoint;
+
+    std::vector<std::string> arguments;
+    for (int i = 0; i < argc; i++) {
+        arguments.push_back(argv[i]);
+    }
 
     if (argc == 1)
     {
@@ -196,50 +132,68 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    for (int i = 0; i < argc; i++)
+    // i = 1, skip balance executable
+    for (int i = 1; i < arguments.size(); i++)
     {
-        char *arg = argv[i];
-        if (strcmp(arg, "--test") == 0)
+        std::string argument = arguments[i];
+        if (argument == "--test")
         {
             isTest = true;
         }
-        else if (strcmp(arg, "--version") == 0)
+        else if (argument == "--version")
         {
             isPrintVersion = true;
         }
-        else if (strcmp(arg, "--help") == 0)
+        else if (argument == "--help")
         {
             isHelp = true;
         }
-        else if (strcmp(arg, "--verbose") == 0)
+        else if (argument == "--verbose")
         {
             verbose = true;
+        } else {
+            if (argument != "new" && argument != "run") {
+                entryPoint = argument;
+            }
         }
     }
 
-    if (isPrintVersion)
-    {
-        printVersion();
-    }
-    else if (isHelp)
-    {
-        printHelp();
-    }
-    else if (isTest)
-    {
-        runASTTestSuite();
-        runCompileTestSuite();
-        runExamplesTestSuite();
-    }
-    else
-    {
-        Module *mod = buildModuleFromPath(argv[1]);
+    // TODO: Consider something like https://github.com/CLIUtils/CLI11 to parse arguments
+    char *arg1 = argv[1];
+    if (strcmp(arg1, "new") == 0) {
+        createNewProject();
+        return 0;
+    } else if (strcmp(arg1, "run") == 0) {
+        if (!fileExist("package.json")) {
+            cout << "Found no package.json in current directory, exiting.." << endl;
+            return 1;
+        }
 
-        if (verbose)
+        // TODO: One day we might allow executing from a different directory
+        currentPackage = new BalancePackage("package.json", entryPoint);
+        bool success = currentPackage->execute();
+        return !success;
+    } else {
+        if (isPrintVersion)
         {
-            module->print(llvm::errs(), nullptr);
+            printVersion();
         }
-        writeModuleToFile(module);
+        else if (isHelp)
+        {
+            printHelp();
+        }
+        else if (isTest)
+        {
+            runASTTestSuite();
+            runCompileTestSuite();
+            runExamplesTestSuite();
+        }
+        else
+        {
+            currentPackage = new BalancePackage("", entryPoint);
+            bool success = currentPackage->executeAsScript();
+            return !success;
+        }
     }
 
     return 0;

@@ -1,0 +1,8 @@
+{
+    "name": "exampleProject",
+    "version": "1.2.3",
+    "entrypoints": {
+        "default": "fileA.bl"
+    },
+    "dependencies": {}
+}

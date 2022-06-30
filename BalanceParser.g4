@@ -15,6 +15,7 @@ rootBlock
 
 lineStatement
     : statement (LINE_BREAK | EOF)
+    | importStatement (LINE_BREAK | EOF)
     | LINE_BREAK
     ;
 
@@ -27,6 +28,19 @@ statement
     | ifStatement
     | whileStatement
     | returnStatement
+    ;
+
+importStatement
+    : FROM (IMPORT_PATH | IDENTIFIER) IMPORT importDefinitionList
+    ;
+
+importDefinitionList
+    : importDefinition (COMMA importDefinition)*
+    ;
+
+importDefinition
+    : IDENTIFIER                                                        # UnnamedImportDefinition
+    // | IDENTIFIER AS name=IDENTIFIER                                     # NamedImportDefinition
     ;
 
 whileStatement
@@ -89,7 +103,6 @@ argument
     | expression
     | functionCall
     | classInitializer
-    | IDENTIFIER
     ;
 
 functionCall

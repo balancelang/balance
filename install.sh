@@ -9,6 +9,10 @@ sudo apt update
 sudo apt install kitware-archive-keyring
 sudo rm /etc/apt/trusted.gpg.d/kitware.gpg
 
+sudo apt install cmake
+sudo apt install uuid-dev
+sudo apt install ninja-build
+
 
 # LLVM-12
 printf "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-12 main" |sudo tee /etc/apt/sources.list.d/llvm-toolchain-xenial-12.list

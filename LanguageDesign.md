@@ -7,6 +7,7 @@
         but not:
             var a = myFunc();
     - favor x.y().z().q() over q(z(y(x)))
+    - use "from X import Y", rather than "import Y from X", since intellisense can't guess Y before knowing X.
     - variable def: 'var a = 2' or 'Int a = 2'. Favor this over 'var a: Int = 2' since this requires both 'var', 'a', and 'Int'.
 - Features
     - If statements (+)
@@ -14,17 +15,21 @@
     - while loops (+)
     - for loops
     - Pattern matching
-    - checked exceptions
+    - comments
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
-    - Java-like "throws" keyword
+    - Java-like "throws" keyword - checked exceptions
     - Classes (+)
     - interfaces
     - builtin serialization (JSON, XML, YAML)
     - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"
+    - extension methods on types
+    - forward references - e.g. extend a class defined later in the same file (+)
+    - Not compile classes/functions not imported?
+    - Cyclic dependencies (+)
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits
@@ -36,9 +41,9 @@
 - Builtin types
     - Int (+), Float, Double (+), Bool (+), Any, None (+), Array (+), List, Dict, Optional
 - CLI
+    - package.json determines version
     - updater built in, e.g. "balance --update" to upgrade to latest version
-    - set version, e.g. "balance --set-version 3.5"
-    - create project
+    - create project "balance new"
         - eventually wizard options for use-cases
 - Formatter
 

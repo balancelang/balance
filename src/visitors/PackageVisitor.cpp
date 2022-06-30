@@ -1,4 +1,11 @@
-#include "llvm/IR/Module.h"
+#include "../headers/PackageVisitor.h"
+
+#include "../headers/Visitor.h"
+#include "../headers/Package.h"
+#include "BalanceParserBaseVisitor.h"
+#include "BalanceLexer.h"
+#include "BalanceParser.h"
+
 #include "clang/Driver/Driver.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Driver/Compilation.h"
@@ -21,7 +28,6 @@
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/MC/MCTargetOptions.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/Host.h"
@@ -47,5 +53,37 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/IR/ValueSymbolTable.h"
+#include "antlr4-runtime.h"
 
-void writeModuleToFile(llvm::Module *module);
+#include "config.h"
+
+#include "BalanceLexer.h"
+#include "BalanceParser.h"
+#include "BalanceParserBaseVisitor.h"
+
+#include <typeinfo>
+#include <typeindex>
+
+using namespace antlrcpptest;
+using namespace std;
+
+extern BalancePackage *currentPackage;
+extern BalanceModule *currentModule;
+
+std::any PackageVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
+    std::string text = ctx->getText();
+
+    std::string importPath;
+    if (ctx->IDENTIFIER()) {
+        importPath = ctx->IDENTIFIER()->getText();
+    } else if (ctx->IMPORT_PATH()) {
+        importPath = ctx->IMPORT_PATH()->getText();
+    }
+
+    map<string, BalanceModule *>::iterator it = currentPackage->modules.find(importPath);
+    if (currentPackage->modules.end() == it) {
+        currentPackage->modules[importPath] = new BalanceModule(importPath, false);
+    }
+
+    return nullptr;
+}
