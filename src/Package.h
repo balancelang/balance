@@ -1,7 +1,7 @@
 #ifndef PACKAGE_H
 #define PACKAGE_H
 
-#include "Visitor.h"
+#include "visitors/Visitor.h"
 #include "Builtins.h"
 
 #include <string>
@@ -22,6 +22,7 @@ public:
     std::string version;
     std::map<std::string, std::string> entrypoints = {};
     std::map<std::string, BalanceModule *> modules = {};
+    BalanceModule * builtins = nullptr;
     BalanceModule *currentModule = nullptr;
     LLVMContext *context;
 
@@ -51,6 +52,7 @@ public:
     void buildStructures();
     void buildForwardDeclarations();
     void buildConstructors();
+    void addBuiltinsToModules();
 };
 
 #endif

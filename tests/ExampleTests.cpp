@@ -1,6 +1,6 @@
 #include "CompileTests.h"
-#include "../src/headers/Main.h"
-#include "../src/headers/Package.h"
+#include "../src/Main.h"
+#include "../src/Package.h"
 #include "ASTTests.h"
 
 #include <cstdio>

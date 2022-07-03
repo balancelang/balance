@@ -1,2 +1,2 @@
 cd build
-gdb --args balance ../src/testFile.bl
+gdb --args balance ../testFile.bl

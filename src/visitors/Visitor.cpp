@@ -1,5 +1,6 @@
-#include "../headers/Visitor.h"
-#include "../headers/Package.h"
+#include "Visitor.h"
+#include "../Package.h"
+#include "../models/BalanceClass.h"
 
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
@@ -66,9 +67,7 @@
 using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
-
-// Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
-llvm::Value *accessedValue;
+extern llvm::Value *accessedValue;
 
 void LogError(std::string errorMessage)
 {
@@ -201,18 +200,18 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
 
     // Set insert point to the loop-block so we can populate it
     currentPackage->currentModule->builder->SetInsertPoint(loopBlock);
-    currentPackage->currentModule->currentScope = new ScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
 
     // Visit the while-block statements
     visit(ctx->ifBlock());
 
-    currentPackage->currentModule->currentScope = new ScopeBlock(condBlock, currentPackage->currentModule->currentScope->parent);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(condBlock, currentPackage->currentModule->currentScope->parent);
     // At the end of while-block, jump back to the condition which may jump to mergeBlock or reiterate
     currentPackage->currentModule->builder->CreateBr(condBlock);
 
     // Make sure new code is added to "block" after while statement
     currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
-    currentPackage->currentModule->currentScope = new ScopeBlock(mergeBlock, currentPackage->currentModule->currentScope->parent); // TODO: Store scope in beginning of this function, and restore here?
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(mergeBlock, currentPackage->currentModule->currentScope->parent); // TODO: Store scope in beginning of this function, and restore here?
     return any();
 }
 
@@ -277,7 +276,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx)
 any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
 {
     std::string text = ctx->getText();
-    ScopeBlock *scope = currentPackage->currentModule->currentScope;
+    BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
     Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     any expressionResult = visit(ctx->expression());
@@ -288,13 +287,13 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
     currentPackage->currentModule->builder->CreateCondBr(expression, thenBlock, elseBlock);
 
     currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
-    currentPackage->currentModule->currentScope = new ScopeBlock(thenBlock, scope);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(thenBlock, scope);
     visit(ctx->ifblock);
     currentPackage->currentModule->builder->CreateBr(mergeBlock);
     thenBlock = currentPackage->currentModule->builder->GetInsertBlock();
     function->getBasicBlockList().push_back(elseBlock);
     currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
-    currentPackage->currentModule->currentScope = new ScopeBlock(elseBlock, scope);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(elseBlock, scope);
     if (ctx->elseblock)
     {
         visit(ctx->elseblock);
@@ -596,7 +595,8 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     // TODO: Make a search through scope, parent scopes, builtins etc.
     if (accessedValue == nullptr && functionName == "print")
     {
-        FunctionCallee printfFunc = currentPackage->currentModule->module->getFunction("printf");   // TODO: Move this to separate module
+        // FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
+        FunctionCallee printfFunc = currentPackage->currentModule->getImportedFunction("print")->function;
         vector<Value *> functionArguments;
         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
         {
@@ -662,6 +662,35 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             break;
         }
     }
+    else if (accessedValue == nullptr && functionName == "open") {
+        Function * fopenFunc = currentPackage->builtins->module->getFunction("fopen");   // TODO: Move this to separate module
+        vector<Value *> functionArguments;
+        for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
+        {
+            any anyVal = visit(argument);
+            llvm::Value *value = anyToValue(anyVal);
+            functionArguments.push_back(value);
+        }
+        auto args = ArrayRef<Value *>(functionArguments);
+        Value * filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
+
+        // Create File struct which holds this and return pointer to the struct
+        BalanceClass * bclass = currentPackage->builtins->classes["File"];
+        AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
+        ArrayRef<Value *> argumentsReference{alloca};
+        // currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference); // TODO: should it have a constructor?
+
+        // Get reference to 0th property (filePointer) and assign
+        int intIndex = bclass->properties["filePointer"]->index;
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
+
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {zero, index});
+        currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
+        // return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
+
+        return (Value *)alloca;
+    }
     else
     {
         if (accessedValue != nullptr)
@@ -686,16 +715,22 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 }
 
                 Function *function;
-                BalanceClass *bClass = currentPackage->currentModule->getClass(className);
-                if (bClass == nullptr) {
+                // TODO: Make a function that does this search and else returns nullptr
+                BalanceClass *bclass = currentPackage->currentModule->getClass(className);
+                if (bclass == nullptr) {
                     BalanceImportedClass * ibClass = currentPackage->currentModule->getImportedClass(className);
                     if (ibClass == nullptr) {
-                        // TODO: Throw error.
+                        bclass = currentPackage->builtins->getClass(className);
+                        if (bclass == nullptr) {
+                            // TODO: Throw error.
+                        } else {
+                            function = bclass->methods[functionName]->function;
+                        }
                     } else {
                         function = ibClass->methods[functionName]->function;
                     }
                 } else {
-                    function = bClass->methods[functionName]->function;
+                    function = bclass->methods[functionName]->function;
                 }
                 FunctionType *functionType = function->getFunctionType();
 
@@ -834,8 +869,8 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
-    ScopeBlock *scope = currentPackage->currentModule->currentScope;
-    currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
+    BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(functionBody, scope);
 
     visit(ctx->lambda()->functionBlock());
 
@@ -844,12 +879,12 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
         currentPackage->currentModule->builder->CreateRetVoid();
     }
 
-    bool hasError = verifyFunction(*function);
+    bool hasError = verifyFunction(*function, &llvm::errs());
     if (hasError) {
         // TODO: Throw error and give more context
         std::cout << "Error verifying lambda expression: " << text << std::endl;
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        exit(1);
+        // exit(1);
     }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
@@ -872,9 +907,9 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }
 
-    ScopeBlock *scope = currentPackage->currentModule->currentScope;
+    BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", bfunction->function);
-    currentPackage->currentModule->currentScope = new ScopeBlock(functionBody, scope);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(functionBody, scope);
 
     // Add function parameter names and insert in function scope
     Function::arg_iterator args = bfunction->function->arg_begin();
@@ -905,27 +940,10 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
         // TODO: Throw error
         std::cout << "Error verifying function: " << bfunction->name << std::endl;
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        exit(1);
+        // exit(1);
     }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
     return nullptr;
-}
-
-
-
-void BalanceModule::initializeModule()
-{
-    this->builder = new IRBuilder<>(*currentPackage->context);
-    this->module = new Module(this->path, *currentPackage->context);
-
-    // Initialize module root scope
-    FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
-    std::string rootFunctionName = this->path + "_main";
-    Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : rootFunctionName, this->module);
-    BasicBlock *entry = BasicBlock::Create(*currentPackage->context, "entrypoint", rootFunc);
-    this->builder->SetInsertPoint(entry);
-    this->rootScope = new ScopeBlock(entry, nullptr);
-    this->currentScope = this->rootScope;
 }

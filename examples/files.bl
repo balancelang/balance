@@ -1,0 +1,8 @@
+var f = open("test.txt", "w")
+f.write("0123456789")
+f.close()
+
+var fr = open("test.txt", "r")
+var str = fr.read()
+fr.close()
+print(str)

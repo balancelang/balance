@@ -1,8 +1,8 @@
-#include "headers/Main.h"
-#include "headers/Builtins.h"
-#include "headers/Visitor.h"
-#include "headers/Package.h"
-#include "headers/Utilities.h"
+#include "Main.h"
+#include "Builtins.h"
+#include "visitors/Visitor.h"
+#include "Package.h"
+#include "Utilities.h"
 
 #include <iostream>
 #include <cstdio>
@@ -75,6 +75,9 @@ using namespace std;
 
 bool verbose = false;
 BalancePackage *currentPackage = nullptr;
+
+// Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
+llvm::Value *accessedValue;
 
 void printVersion()
 {

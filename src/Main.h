@@ -1,7 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "Visitor.h"
+#include "visitors/Visitor.h"
 
 #include "llvm/IR/Module.h"
 #include "antlr4-runtime.h"

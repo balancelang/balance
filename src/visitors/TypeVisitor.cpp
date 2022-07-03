@@ -1,7 +1,7 @@
-#include "../headers/TypeVisitor.h"
+#include "TypeVisitor.h"
 
-#include "../headers/Package.h"
-#include "../headers/Visitor.h"
+#include "../Package.h"
+#include "Visitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
@@ -77,23 +77,11 @@ std::any TypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext
             BalanceParser::UnnamedImportDefinitionContext *import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
             std::string importString = import->IDENTIFIER()->getText();
             if (importedModule->classes.find(importString) != importedModule->classes.end()) {
-                BalanceClass *bclass = importedModule->classes[importString];
-                BalanceImportedClass *ibclass = new BalanceImportedClass(currentPackage->currentModule, bclass);
-                currentPackage->currentModule->importedClasses[importString] = ibclass;
-
-                // Create BalanceImportedFunction for each class method
-                for (auto const &x : bclass->methods) {
-                    BalanceFunction * bfunction = x.second;
-                    BalanceImportedFunction * ibfunction = new BalanceImportedFunction(currentPackage->currentModule, bfunction);
-                    ibclass->methods[bfunction->name] = ibfunction;
-                }
-
-                // And for constructor
-                ibclass->constructor = new BalanceImportedConstructor(currentPackage->currentModule, bclass);
+                BalanceClass *bclass = importedModule->getClass(importString);
+                createImportedClass(currentPackage->currentModule, bclass);
             } else if (importedModule->functions.find(importString) != importedModule->functions.end()) {
-                BalanceFunction *bfunction = importedModule->functions[importString];
-                BalanceImportedFunction * ibfunction = new BalanceImportedFunction(currentPackage->currentModule, bfunction);
-                currentPackage->currentModule->importedFunctions[importString] = ibfunction;
+                BalanceFunction *bfunction = importedModule->getFunction(importString);
+                createImportedFunction(currentPackage->currentModule, bfunction);
             } else if (importedModule->globals[importString] != nullptr) {
                 // TODO: Handle
             }

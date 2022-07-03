@@ -108,12 +108,18 @@ add_executable(balance
                src/Builtins.cpp
                src/Package.cpp
                src/Utilities.cpp
+               src/models/BalanceClass.cpp
+               src/models/BalanceFunction.cpp
+               src/models/BalanceModule.cpp
+               src/models/BalanceParameter.cpp
+               src/models/BalanceProperty.cpp
                src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
+               src/builtins/File.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

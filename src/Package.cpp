@@ -1,11 +1,11 @@
-#include "headers/Package.h"
-#include "headers/Main.h"
-#include "headers/Utilities.h"
-#include "headers/PackageVisitor.h"
-#include "headers/StructureVisitor.h"
-#include "headers/ForwardDeclarationVisitor.h"
-#include "headers/ConstructorVisitor.h"
-#include "headers/TypeVisitor.h"
+#include "Package.h"
+#include "Main.h"
+#include "Utilities.h"
+#include "visitors/PackageVisitor.h"
+#include "visitors/StructureVisitor.h"
+#include "visitors/ForwardDeclarationVisitor.h"
+#include "visitors/ConstructorVisitor.h"
+#include "visitors/TypeVisitor.h"
 #include "config.h"
 
 #include <map>
@@ -83,8 +83,13 @@ bool BalancePackage::compileAndPersist()
 {
     for (auto const &entryPoint : this->entrypoints)
     {
+        createBuiltins();
+
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
+
+        // Add builtins to modules
+        this->addBuiltinsToModules();
 
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->buildTextualRepresentations();
@@ -116,6 +121,10 @@ bool BalancePackage::executeString(std::string program) {
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
     modules["program"]->generateASTFromString(program);
+
+    createBuiltins();
+    this->addBuiltinsToModules();
+
     this->currentModule = modules["program"];
 
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
@@ -199,6 +208,31 @@ void BalancePackage::buildForwardDeclarations()
     }
 }
 
+
+void BalancePackage::addBuiltinsToModules() {
+    BalanceModule * builtinsModule = this->builtins;
+
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        for (auto const &x : builtinsModule->functions) {
+            BalanceFunction * bfunction = x.second;
+            createImportedFunction(bmodule, bfunction);
+            BalanceImportedFunction * ibfunction = bmodule->getImportedFunction(bfunction->name);
+            importFunctionToModule(ibfunction, bmodule);
+        }
+
+        for (auto const &x : builtinsModule->classes) {
+            BalanceClass * bclass = x.second;
+            createImportedClass(bmodule, bclass);
+            BalanceImportedClass * ibclass = bmodule->getImportedClass(bclass->name);
+            importClassToModule(ibclass, bmodule);
+        }
+    }
+}
+
 void BalancePackage::buildTextualRepresentations()
 {
     for (auto const &x : modules)
@@ -218,7 +252,6 @@ void BalancePackage::compile()
     {
         BalanceModule *bmodule = x.second;
         currentPackage->currentModule = bmodule;
-        create_functions();
 
         // Visit entire tree
         BalanceVisitor visitor;
@@ -266,14 +299,8 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
     }
 }
 
-void BalancePackage::writePackageToBinary(std::string entrypointName)
-{
+void writeModuleToBinary(BalanceModule * bmodule) {
     auto TargetTriple = sys::getDefaultTargetTriple();
-    InitializeAllTargetInfos();
-    InitializeAllTargets();
-    InitializeAllTargetMCs();
-    InitializeAllAsmParsers();
-    InitializeAllAsmPrinters();
 
     std::string Error;
     auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
@@ -291,39 +318,50 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    for (auto const &x : modules)
+    if (verbose)
+    {
+        bmodule->module->print(llvm::errs(), nullptr);
+    }
+
+    bmodule->module->setDataLayout(TargetMachine->createDataLayout());
+    bmodule->module->setTargetTriple(TargetTriple);
+
+    std::string objectFileName = bmodule->module->getSourceFileName() + ".o";
+    std::error_code EC;
+    raw_fd_ostream dest(objectFileName, EC, sys::fs::OF_None);
+
+    if (EC)
+    {
+        errs() << "Could not open file: " << EC.message();
+        return;
+    }
+
+    legacy::PassManager pass;
+    auto FileType = CGFT_ObjectFile;
+
+    if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType))
+    {
+        errs() << "TargetMachine can't emit a file of this type";
+        return;
+    }
+    pass.run(*bmodule->module);
+    dest.flush();
+}
+
+void BalancePackage::writePackageToBinary(std::string entrypointName)
+{
+    auto TargetTriple = sys::getDefaultTargetTriple();
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    writeModuleToBinary(this->builtins);
+    for (auto const &x : this->modules)
     {
         BalanceModule *bmodule = x.second;
-
-        if (verbose)
-        {
-            bmodule->module->print(llvm::errs(), nullptr);
-        }
-
-        this->currentModule = bmodule;
-        bmodule->module->setDataLayout(TargetMachine->createDataLayout());
-        bmodule->module->setTargetTriple(TargetTriple);
-
-        std::string objectFileName = bmodule->module->getSourceFileName() + ".o";
-        std::error_code EC;
-        raw_fd_ostream dest(objectFileName, EC, sys::fs::OF_None);
-
-        if (EC)
-        {
-            errs() << "Could not open file: " << EC.message();
-            return;
-        }
-
-        legacy::PassManager pass;
-        auto FileType = CGFT_ObjectFile;
-
-        if (TargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType))
-        {
-            errs() << "TargetMachine can't emit a file of this type";
-            return;
-        }
-        pass.run(*bmodule->module);
-        dest.flush();
+        writeModuleToBinary(bmodule);
     }
 
     IntrusiveRefCntPtr<clang::DiagnosticOptions> DiagOpts = new clang::DiagnosticOptions;
@@ -334,6 +372,11 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
 
     std::vector<std::string> clangArguments = {"-g"};
     std::vector<std::string> objectFilePaths;
+
+    // Add builtins
+    objectFilePaths.push_back("builtins.o");
+    clangArguments.push_back("builtins.o");
+
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
