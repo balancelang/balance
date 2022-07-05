@@ -92,7 +92,7 @@ getBuiltinType(std::string typeString)
     }
     else if (typeString == "String")
     {
-        return Type::getInt8PtrTy(*currentPackage->context);
+        return currentPackage->builtins->getClass("String")->structType->getPointerTo();
     }
     else if (typeString == "Double")
     {
@@ -583,9 +583,30 @@ any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx)
 
 any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
 {
-    // TODO: is CreateGlobalStringPtr the best solution?
     std::string text = ctx->STRING()->getText();
-    return (Value *)currentPackage->currentModule->builder->CreateGlobalStringPtr(text);
+    int stringSize = text.size();
+
+    BalanceClass * bclass = currentPackage->builtins->getClass("String");
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
+    ArrayRef<Value *> argumentsReference{alloca};
+    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
+
+    int pointerIndex = bclass->properties["stringPointer"]->index;
+    auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+
+    Value * arrayValue = currentPackage->currentModule->builder->CreateGlobalStringPtr(text);
+    currentPackage->currentModule->builder->CreateStore(arrayValue, pointerGEP);
+
+    int sizeIndex = bclass->properties["stringSize"]->index;
+    auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
+    Value * sizeValue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), stringSize, true);
+    currentPackage->currentModule->builder->CreateStore(sizeValue, sizeGEP);
+
+    return (Value *)alloca;
 }
 
 any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
@@ -596,7 +617,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     if (accessedValue == nullptr && functionName == "print")
     {
         // FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
-        FunctionCallee printfFunc = currentPackage->currentModule->getImportedFunction("print")->function;
+        FunctionCallee printFunc = currentPackage->currentModule->getImportedFunction("print")->function;
         vector<Value *> functionArguments;
         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
         {
@@ -604,39 +625,43 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             llvm::Value *value = anyToValue(anyVal);
             if (PointerType *PT = dyn_cast<PointerType>(value->getType()))
             {
-                if (PT == Type::getInt8PtrTy(*currentPackage->context, PT->getPointerAddressSpace()))
-                {
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%s\n", "args"), value};
-                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                if (PT->getPointerElementType()->isStructTy()) {
+                    StringRef structName = PT->getPointerElementType()->getStructName();
+                    if (structName == "String") {
+                        auto args = ArrayRef<Value *>{ value };
+                        return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, args);
+                    } else {
+                        // invoke .toString() on it
+                    }
                 }
                 else if (PT->getElementType()->isArrayTy())
                 {
-                    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
-                    (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
-                    int numElements = PT->getElementType()->getArrayNumElements();
-                    // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
-                    // Also, make a function that does this, which takes value, type and whether to linebreak?
-                    for (int i = 0; i < numElements; i++)
-                    {
-                        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
-                        auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
-                        llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
-                        if (i < numElements - 1)
-                        {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
-                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                        }
-                        else
-                        {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
-                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                        }
-                    }
-                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
-                    (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
+                    // auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                    // auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
+                    // (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
+                    // int numElements = PT->getElementType()->getArrayNumElements();
+                    // // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
+                    // // Also, make a function that does this, which takes value, type and whether to linebreak?
+                    // for (int i = 0; i < numElements; i++)
+                    // {
+                    //     auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
+                    //     auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
+                    //     llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
+                    //     if (i < numElements - 1)
+                    //     {
+                    //         auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
+                    //         (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                    //     }
+                    //     else
+                    //     {
+                    //         auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
+                    //         (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                    //     }
+                    // }
+                    // auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
+                    // (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
 
-                    return any();
+                    // return any();
                 }
             }
             else if (IntegerType *IT = dyn_cast<IntegerType>(value->getType()))
@@ -644,26 +669,27 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 int width = value->getType()->getIntegerBitWidth();
                 if (width == 1)
                 {
-                    // Figure out how to print 'true' or 'false' when we know runtime value
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
-                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                    FunctionCallee printBooleanFunc = currentPackage->currentModule->getImportedFunction("printBoolean")->function;
+                    auto args = ArrayRef<Value *>{value};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printBooleanFunc, args);
                 }
-                else
-                {
-                    auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
-                    return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                }
+                // else
+                // {
+                //     auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
+                //     return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                // }
             }
             else if (value->getType()->isFloatingPointTy())
             {
-                auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%g\n", "args"), value};
-                return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                // auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%g\n", "args"), value};
+                // return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
             }
             break;
         }
     }
     else if (accessedValue == nullptr && functionName == "open") {
         Function * fopenFunc = currentPackage->builtins->module->getFunction("fopen");   // TODO: Move this to separate module
+        BalanceClass * stringClass = currentPackage->builtins->getClass("String");
         vector<Value *> functionArguments;
         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument())
         {
@@ -671,7 +697,15 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             llvm::Value *value = anyToValue(anyVal);
             functionArguments.push_back(value);
         }
-        auto args = ArrayRef<Value *>(functionArguments);
+
+        Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
+        Value * pathPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[0], {zero, stringPointerIndex});
+        Value * pathValue = currentPackage->currentModule->builder->CreateLoad(pathPointerValue);
+        Value * modePointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[1], {zero, stringPointerIndex});
+        Value * modeValue = currentPackage->currentModule->builder->CreateLoad(modePointerValue);
+
+        auto args = ArrayRef<Value *>({ pathValue, modeValue });
         Value * filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
 
         // Create File struct which holds this and return pointer to the struct
@@ -682,7 +716,6 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
 
         // Get reference to 0th property (filePointer) and assign
         int intIndex = bclass->properties["filePointer"]->index;
-        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
 
         auto ptr = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {zero, index});
