@@ -176,6 +176,109 @@ void createFunction__printBoolean() {
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
+void createFunction__printDouble() {
+    // Create forward declaration of snprintf
+    ArrayRef<Type *> snprintfArguments({
+        llvm::Type::getInt8PtrTy(*currentPackage->context),
+        llvm::IntegerType::getInt32Ty(*currentPackage->context),
+        llvm::Type::getInt8PtrTy(*currentPackage->context)
+    });
+    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), snprintfArguments, true);
+    FunctionCallee snprintfFunction = currentPackage->currentModule->module->getOrInsertFunction("snprintf", snprintfFunctionType);
+
+    BalanceParameter * valueParameter = new BalanceParameter("Double", "value");
+    valueParameter->type = getBuiltinType("Double");
+
+    // Create BalanceFunction
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction("printDouble", parameters, "None");
+    currentPackage->currentModule->functions["printDouble"] = bfunction;
+
+    // Create llvm::Function
+    ArrayRef<Type *> parametersReference({
+        valueParameter->type
+    });
+
+    Type * returnType = llvm::Type::getVoidTy(*currentPackage->context);
+    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
+
+    llvm::Function * printDoubleFunc = Function::Create(functionType, Function::ExternalLinkage, "printDouble", currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, "printDouble_body", printDoubleFunc);
+
+    bfunction->function = printDoubleFunc;
+    bfunction->returnType = getBuiltinType("None");
+
+    // Store current block so we can return to it after function declaration
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    Function::arg_iterator args = printDoubleFunc->arg_begin();
+    llvm::Value * intValue = args++;
+
+    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print")->function;
+    // BEFORE
+
+    BalanceClass * bclass = currentPackage->builtins->getClass("String");
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
+    ArrayRef<Value *> argumentsReference{alloca};
+    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
+    int pointerIndex = bclass->properties["stringPointer"]->index;
+    auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+    int sizeIndex = bclass->properties["stringSize"]->index;
+    auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
+
+    // Calculate length of string with int length = snprintf(NULL, 0,"%d",42);
+    ArrayRef<Value *> sizeArguments({
+        ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
+        ConstantInt::get(*currentPackage->context, APInt(32, 0)),
+        geti8StrVal(*currentPackage->currentModule->module, "%lf", "args"),
+        intValue
+    });
+    Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
+    currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
+
+    ArrayType * arrayType = llvm::ArrayType::get(llvm::Type::getInt8Ty(*currentPackage->context), 50);
+    Value * arrayAlloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
+    currentPackage->currentModule->builder->CreateStore(arrayAlloca, pointerGEP);
+    currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
+
+    Value * gepValue = currentPackage->currentModule->builder->CreateLoad(pointerGEP);
+
+    // int snprintf ( char * s, size_t n, const char * format, ... );
+    ArrayRef<Value *> arguments({
+        gepValue, //pointerGEP,
+        ConstantInt::get(*currentPackage->context, APInt(32, 50)),
+        geti8StrVal(*currentPackage->currentModule->module, "%lf", "args"),
+        intValue
+    });
+
+    currentPackage->currentModule->builder->CreateCall(snprintfFunction, arguments);
+
+    // Now call print with the String
+    ArrayRef<Value *> printArguments({
+        alloca,
+    });
+    currentPackage->currentModule->builder->CreateCall(printFunc, printArguments);
+
+    currentPackage->currentModule->builder->CreateRetVoid();
+
+    bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
+    if (hasError) {
+        // TODO: Throw error
+        std::cout << "Error verifying function: " << bfunction->name << std::endl;
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        // exit(1);
+    }
+
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+}
+
 void createFunction__printInt() {
     // Create forward declaration of snprintf
     ArrayRef<Type *> snprintfArguments({
@@ -290,6 +393,7 @@ void createFunctions() {
     createFunction__print();
     createFunction__printBoolean();
     createFunction__printInt();
+    createFunction__printDouble();
     createFunction__open();
 }
 
