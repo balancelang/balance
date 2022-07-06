@@ -673,11 +673,12 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                     auto args = ArrayRef<Value *>{value};
                     return (Value *)currentPackage->currentModule->builder->CreateCall(printBooleanFunc, args);
                 }
-                // else
-                // {
-                //     auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d\n", "args"), value};
-                //     return (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                // }
+                else
+                {
+                    FunctionCallee printIntFunc = currentPackage->currentModule->getImportedFunction("printInt")->function;
+                    auto args = ArrayRef<Value *>{value};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printIntFunc, args);
+                }
             }
             else if (value->getType()->isFloatingPointTy())
             {

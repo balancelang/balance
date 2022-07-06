@@ -120,6 +120,7 @@ add_executable(balance
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/builtins/File.cpp
+               src/builtins/String.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
