@@ -69,9 +69,11 @@ void importClassToModule(BalanceImportedClass *ibclass, BalanceModule *bmodule) 
     }
 
     // Import constructor
-    std::string constructorName = ibclass->bclass->structType->getName().str() + "_constructor";
-    FunctionType *constructorType = ibclass->bclass->constructor->getFunctionType();
-    ibclass->constructor->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+    if (ibclass->bclass->structType != nullptr) {
+        std::string constructorName = ibclass->bclass->structType->getName().str() + "_constructor";
+        FunctionType *constructorType = ibclass->bclass->constructor->getFunctionType();
+        ibclass->constructor->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+    }
 
     // TODO: Handle class properties as well - maybe they dont need forward declaration?
 }
