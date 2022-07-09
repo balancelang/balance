@@ -112,7 +112,7 @@ void examplesHelloWorldTest() {
 
 void examplesVariablesTest() {
     string result = runExample("../examples/variables.bl");
-    assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Variables");
+    assertEqual("true\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n[1, 2, 3, 4]\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {

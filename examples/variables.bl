@@ -19,3 +19,7 @@ var a = "This is a multiline string
 that started on the previous line
 and is now on the 3rd line"
 print(a)
+
+// Arrays
+var myArray = [1,2,3,4]
+print(myArray)

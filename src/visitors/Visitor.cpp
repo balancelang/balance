@@ -612,32 +612,34 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 }
                 else if (PT->getElementType()->isArrayTy())
                 {
-                    // auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-                    // auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
-                    // (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
-                    // int numElements = PT->getElementType()->getArrayNumElements();
-                    // // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
-                    // // Also, make a function that does this, which takes value, type and whether to linebreak?
-                    // for (int i = 0; i < numElements; i++)
-                    // {
-                    //     auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
-                    //     auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
-                    //     llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
-                    //     if (i < numElements - 1)
-                    //     {
-                    //         auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
-                    //         (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                    //     }
-                    //     else
-                    //     {
-                    //         auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
-                    //         (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-                    //     }
-                    // }
-                    // auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
-                    // (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
+                    // TODO: Implement Array.toString() and invoke that instead of directly calling printf
+                    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
+                    FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
+                    (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
+                    int numElements = PT->getElementType()->getArrayNumElements();
+                    // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
+                    // Also, make a function that does this, which takes value, type and whether to linebreak?
+                    for (int i = 0; i < numElements; i++)
+                    {
+                        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
+                        auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
+                        llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
+                        if (i < numElements - 1)
+                        {
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
+                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                        }
+                        else
+                        {
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
+                            (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
+                        }
+                    }
+                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
+                    (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
 
-                    // return any();
+                    return any();
                 }
             }
             else if (IntegerType *IT = dyn_cast<IntegerType>(value->getType()))
