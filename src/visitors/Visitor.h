@@ -72,7 +72,6 @@ public:
     any visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) override;
     any visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) override;
     any visitIfStatement(BalanceParser::IfStatementContext *ctx) override;
-    any visitArgument(BalanceParser::ArgumentContext *ctx) override;
     any visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) override;
     any visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) override;
     any visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) override;

@@ -104,7 +104,7 @@ void createPrintInt() {
 void createPrintBool() {
     string program = "var a = true\nprint(a)";
     string result = run(program);
-    assertEqual("1\n", result, program);
+    assertEqual("true\n", result, program);
 }
 
 void createPrintDouble() {

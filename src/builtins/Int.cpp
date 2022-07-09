@@ -74,6 +74,7 @@ void createMethod_Int_toString() {
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 
+    // TODO: Don't hardcode a size 50 like this - malloc?
     ArrayType * arrayType = llvm::ArrayType::get(llvm::Type::getInt8Ty(*currentPackage->context), 50);
     Value * arrayAlloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);

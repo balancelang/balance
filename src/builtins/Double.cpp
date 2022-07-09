@@ -68,7 +68,7 @@ void createMethod_Double_toString() {
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
         ConstantInt::get(*currentPackage->context, APInt(32, 0)),
-        geti8StrVal(*currentPackage->currentModule->module, "%lf", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%g", "args"),
         intValue
     });
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
@@ -87,7 +87,7 @@ void createMethod_Double_toString() {
     ArrayRef<Value *> arguments({
         gepValue,
         ConstantInt::get(*currentPackage->context, APInt(32, 50)),
-        geti8StrVal(*currentPackage->currentModule->module, "%lf", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%g", "args"),
         intValue
     });
 

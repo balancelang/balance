@@ -306,30 +306,6 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
     return any();
 }
 
-any BalanceVisitor::visitArgument(BalanceParser::ArgumentContext *ctx)
-{
-    std::string text = ctx->getText();
-    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
-    // if (ctx->expression())
-    // {
-    //     return visit(ctx->expression());
-        // // Argument is a variable
-        // std::string variableName = ctx->IDENTIFIER()->getText();
-        // llvm::Value *val = currentPackage->currentModule->getValue(variableName);
-
-        // Type *type = val->getType();
-
-        // if (isa<PointerType>(val->getType()))
-        // {
-        //     llvm::Value *load = currentPackage->currentModule->builder->CreateLoad(val, variableName);
-        //     return load;
-        // }
-
-        // return (Value *)val;
-    // }
-    return visitChildren(ctx);
-}
-
 any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx)
 {
     std::string variableName = ctx->variable()->IDENTIFIER()->getText();
@@ -586,23 +562,23 @@ any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
     std::string text = ctx->STRING()->getText();
     int stringSize = text.size();
 
-    BalanceClass * bclass = currentPackage->builtins->getClass("String");
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
+    BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass("String");
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(ibclass->bclass->structType);
     ArrayRef<Value *> argumentsReference{alloca};
-    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(ibclass->constructor->constructor, argumentsReference);
 
-    int pointerIndex = bclass->properties["stringPointer"]->index;
+    int pointerIndex = ibclass->bclass->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
 
     Value * arrayValue = currentPackage->currentModule->builder->CreateGlobalStringPtr(text);
     currentPackage->currentModule->builder->CreateStore(arrayValue, pointerGEP);
 
-    int sizeIndex = bclass->properties["stringSize"]->index;
+    int sizeIndex = ibclass->bclass->properties["stringSize"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
     Value * sizeValue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), stringSize, true);
     currentPackage->currentModule->builder->CreateStore(sizeValue, sizeGEP);
 
