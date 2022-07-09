@@ -669,22 +669,34 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 int width = value->getType()->getIntegerBitWidth();
                 if (width == 1)
                 {
-                    FunctionCallee printBooleanFunc = currentPackage->currentModule->getImportedFunction("printBoolean")->function;
+                    BalanceImportedClass * boolClass = currentPackage->currentModule->getImportedClass("Bool");
+                    BalanceImportedFunction * boolToStringFunc = boolClass->methods["toString"];
                     auto args = ArrayRef<Value *>{value};
-                    return (Value *)currentPackage->currentModule->builder->CreateCall(printBooleanFunc, args);
+                    Value * stringValue = currentPackage->currentModule->builder->CreateCall(boolToStringFunc->function, args);
+
+                    auto printArgs = ArrayRef<Value *>{stringValue};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 }
                 else
                 {
-                    FunctionCallee printIntFunc = currentPackage->currentModule->getImportedFunction("printInt")->function;
+                    BalanceImportedClass * intClass = currentPackage->currentModule->getImportedClass("Int");
+                    BalanceImportedFunction * intToStringFunc = intClass->methods["toString"];
                     auto args = ArrayRef<Value *>{value};
-                    return (Value *)currentPackage->currentModule->builder->CreateCall(printIntFunc, args);
+                    Value * stringValue = currentPackage->currentModule->builder->CreateCall(intToStringFunc->function, args);
+
+                    auto printArgs = ArrayRef<Value *>{stringValue};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 }
             }
             else if (value->getType()->isFloatingPointTy())
             {
-                FunctionCallee printDoubleFunc = currentPackage->currentModule->getImportedFunction("printDouble")->function;
+                BalanceImportedClass * doubleClass = currentPackage->currentModule->getImportedClass("Double");
+                BalanceImportedFunction * doubleToStringFunc = doubleClass->methods["toString"];
                 auto args = ArrayRef<Value *>{value};
-                return (Value *)currentPackage->currentModule->builder->CreateCall(printDoubleFunc, args);
+                Value * stringValue = currentPackage->currentModule->builder->CreateCall(doubleToStringFunc->function, args);
+
+                auto printArgs = ArrayRef<Value *>{stringValue};
+                return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
             }
             break;
         }

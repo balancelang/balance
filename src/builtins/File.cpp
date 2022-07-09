@@ -121,7 +121,6 @@ void createMethod_write() {
     });
     currentPackage->currentModule->builder->CreateCall(fwriteFunc, arguments);
     currentPackage->currentModule->builder->CreateRetVoid();
-
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 

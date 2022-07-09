@@ -121,6 +121,9 @@ add_executable(balance
                src/visitors/ConstructorVisitor.cpp
                src/builtins/File.cpp
                src/builtins/String.cpp
+               src/builtins/Int.cpp
+               src/builtins/Double.cpp
+               src/builtins/Bool.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
