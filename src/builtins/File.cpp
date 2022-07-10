@@ -56,6 +56,155 @@ void createMethod_close() {
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
+void createMethod_read() {
+    // Make sure there's a declaration for fread
+    // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
+    ArrayRef<Type *> freadParams({
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
+        llvm::Type::getInt32Ty(*currentPackage->context),
+        llvm::Type::getInt32Ty(*currentPackage->context),
+        llvm::Type::getInt32PtrTy(*currentPackage->context)
+    });
+    llvm::FunctionType * freadDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), freadParams, false);
+    currentPackage->currentModule->module->getOrInsertFunction("fread", freadDeclarationType);
+
+    // fseek
+    // int fseek(FILE *stream, long int offset, int whence)
+    ArrayRef<Type *> fseekParams({
+        llvm::Type::getInt32PtrTy(*currentPackage->context),
+        llvm::Type::getInt64Ty(*currentPackage->context),
+        llvm::Type::getInt32Ty(*currentPackage->context)
+    });
+    llvm::FunctionType * fseekDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), fseekParams, false);
+    currentPackage->currentModule->module->getOrInsertFunction("fseek", fseekDeclarationType);
+
+    // ftell
+    // long int ftell(FILE *stream)
+    ArrayRef<Type *> ftellParams({
+        llvm::Type::getInt32PtrTy(*currentPackage->context)
+    });
+    llvm::FunctionType * ftellDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), ftellParams, false);
+    currentPackage->currentModule->module->getOrInsertFunction("ftell", ftellDeclarationType);
+
+    // malloc
+    // void *malloc(size_t size)
+    ArrayRef<Type *> mallocParams({
+        llvm::Type::getInt32Ty(*currentPackage->context)
+    });
+    llvm::FunctionType * mallocDeclarationType = llvm::FunctionType::get(llvm::Type::getInt8PtrTy(*currentPackage->context), mallocParams, false);
+    currentPackage->currentModule->module->getOrInsertFunction("malloc", mallocDeclarationType);
+
+    std::string functionName = "read";
+    std::string functionNameWithClass = "File_" + functionName;
+    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+
+    ArrayRef<Type *> parametersReference({
+        currentPackage->currentModule->currentClass->structType->getPointerTo()  // File "this" argument
+    });
+
+    Type * returnType = stringClass->structType->getPointerTo();
+    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
+
+    llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
+
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "String");
+    currentPackage->currentModule->currentClass->methods[functionName]->function = closeFunc;
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
+
+    // Store current block so we can return to it after function declaration
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    Function::arg_iterator args = closeFunc->arg_begin();
+    llvm::Value *thisPointer = args++;
+
+    int intIndex = currentPackage->currentModule->currentClass->properties["filePointer"]->index;
+    Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    Value * index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
+
+    Type * fileStructType = thisPointer->getType()->getPointerElementType();
+    Value * ptr = currentPackage->currentModule->builder->CreateGEP(fileStructType, thisPointer, {zero, index});
+    Value * filePtr  = currentPackage->currentModule->builder->CreateLoad(ptr);
+
+    // fseek(f, 0, SEEK_END);
+    Function * fseekFunc = currentPackage->currentModule->module->getFunction("fseek");
+    ArrayRef<Value *> fseekEndArguments({
+        filePtr,
+        ConstantInt::get(*currentPackage->context, llvm::APInt(64, 0, true)),
+        ConstantInt::get(*currentPackage->context, llvm::APInt(32, 2, true)), // SEEK_END = 2
+    });
+    currentPackage->currentModule->builder->CreateCall(fseekFunc, fseekEndArguments);
+
+    // long fsize = ftell(f);
+    Function * ftellFunc = currentPackage->currentModule->module->getFunction("ftell");
+    ArrayRef<Value *> ftellArguments({
+        filePtr
+    });
+
+    Value * fileSizeValue = currentPackage->currentModule->builder->CreateCall(ftellFunc, ftellArguments);
+
+    // fseek(f, 0, SEEK_SET);
+    ArrayRef<Value *> fseekSetArguments({
+        filePtr,
+        ConstantInt::get(*currentPackage->context, llvm::APInt(64, 0, true)),
+        ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true)), // SEEK_SET = 0
+    });
+    currentPackage->currentModule->builder->CreateCall(fseekFunc, fseekSetArguments);
+
+    // Add 1 for null-terminated string
+    Value * fileSizePlusOneValue = currentPackage->currentModule->builder->CreateAdd(fileSizeValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
+
+    // char *string = malloc(fsize + 1);
+    ArrayRef<Value *> mallocArguments({
+        fileSizePlusOneValue
+    });
+    Function * mallocFunc = currentPackage->currentModule->module->getFunction("malloc");
+    Value * memoryPointer = currentPackage->currentModule->builder->CreateCall(mallocFunc, mallocArguments);
+
+    // fread(string, fsize, 1, f);
+    ArrayRef<Value *> freadArguments({
+        memoryPointer,
+        fileSizeValue,
+        ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)),
+        filePtr
+    });
+    Function * freadFunc = currentPackage->currentModule->module->getFunction("fread");
+    currentPackage->currentModule->builder->CreateCall(freadFunc, freadArguments);
+
+    // null-terminate string
+    auto nullGEPValue = currentPackage->currentModule->builder->CreateGEP(memoryPointer, {fileSizeValue});
+    auto zeroConstant = ConstantInt::get(*currentPackage->context, llvm::APInt(8, 0, true));
+    currentPackage->currentModule->builder->CreateStore(zeroConstant, nullGEPValue);
+
+    // Create string and set pointer + size
+    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(stringClass->structType);
+    ArrayRef<Value *> argumentsReference{alloca};
+    currentPackage->currentModule->builder->CreateCall(stringClass->constructor, argumentsReference);
+
+    int pointerIndex = stringClass->properties["stringPointer"]->index;
+    auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+
+    currentPackage->currentModule->builder->CreateStore(memoryPointer, pointerGEP);
+
+    int sizeIndex = stringClass->properties["stringSize"]->index;
+    auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {sizeZeroValue, sizeIndexValue});
+    currentPackage->currentModule->builder->CreateStore(fileSizeValue, sizeGEP);
+
+    currentPackage->currentModule->builder->CreateRet(alloca);
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+
+    bool hasError = verifyFunction(*closeFunc, &llvm::errs());
+    if (hasError) {
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        // exit(1);
+    }
+}
+
 void createMethod_write() {
     // Make sure there's a declaration for fwrite
     // size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -83,9 +232,9 @@ void createMethod_write() {
     llvm::Function * writeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", writeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "Int");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "None");
     currentPackage->currentModule->currentClass->methods[functionName]->function = writeFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("None");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -147,6 +296,9 @@ void createType__File() {
 
     // Create write method
     createMethod_write();
+
+    // Create read method
+    createMethod_read();
 
     currentPackage->currentModule->currentClass = nullptr;
 }

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.0.5]
+### Added
+- Opening files for writing, reading, closing
+- toString methods for bool, int, double
+
 ## [0.0.4]
 ### Added
 - Project structure (package.json) and import functionality
