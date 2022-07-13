@@ -20,3 +20,10 @@ bool BalanceClass::finalized() {
 
     return true;
 }
+
+BalanceProperty * BalanceClass::getProperty(std::string propertyName) {
+    if (this->properties.find(propertyName) != this->properties.end()) {
+        return this->properties[propertyName];
+    }
+    return nullptr;
+}

@@ -41,6 +41,7 @@ void createMethod_Bool_toString() {
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
 
+    // TODO: malloc
     BalanceClass * bclass = currentPackage->builtins->getClass("String");
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
     ArrayRef<Value *> argumentsReference{alloca};
@@ -49,7 +50,7 @@ void createMethod_Bool_toString() {
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
-    int sizeIndex = bclass->properties["stringSize"]->index;
+    int sizeIndex = bclass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
     auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});

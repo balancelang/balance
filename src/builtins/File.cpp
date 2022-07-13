@@ -61,8 +61,8 @@ void createMethod_read() {
     // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     ArrayRef<Type *> freadParams({
         llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
-        llvm::Type::getInt32Ty(*currentPackage->context),
-        llvm::Type::getInt32Ty(*currentPackage->context),
+        llvm::Type::getInt64Ty(*currentPackage->context),
+        llvm::Type::getInt64Ty(*currentPackage->context),
         llvm::Type::getInt32PtrTy(*currentPackage->context)
     });
     llvm::FunctionType * freadDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), freadParams, false);
@@ -78,21 +78,21 @@ void createMethod_read() {
     llvm::FunctionType * fseekDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), fseekParams, false);
     currentPackage->currentModule->module->getOrInsertFunction("fseek", fseekDeclarationType);
 
-    // ftell
+    // ftell  TODO: This should be 64bit
     // long int ftell(FILE *stream)
     ArrayRef<Type *> ftellParams({
         llvm::Type::getInt32PtrTy(*currentPackage->context)
     });
-    llvm::FunctionType * ftellDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), ftellParams, false);
+    llvm::FunctionType * ftellDeclarationType = llvm::FunctionType::get(llvm::Type::getInt64Ty(*currentPackage->context), ftellParams, false);
     currentPackage->currentModule->module->getOrInsertFunction("ftell", ftellDeclarationType);
 
     // malloc
     // void *malloc(size_t size)
-    ArrayRef<Type *> mallocParams({
-        llvm::Type::getInt32Ty(*currentPackage->context)
-    });
-    llvm::FunctionType * mallocDeclarationType = llvm::FunctionType::get(llvm::Type::getInt8PtrTy(*currentPackage->context), mallocParams, false);
-    currentPackage->currentModule->module->getOrInsertFunction("malloc", mallocDeclarationType);
+    // ArrayRef<Type *> mallocParams({
+    //     llvm::Type::getInt64Ty(*currentPackage->context)
+    // });
+    // llvm::FunctionType * mallocDeclarationType = llvm::FunctionType::get(llvm::Type::getInt8PtrTy(*currentPackage->context), mallocParams, false);
+    // currentPackage->currentModule->module->getOrInsertFunction("malloc", mallocDeclarationType);
 
     std::string functionName = "read";
     std::string functionNameWithClass = "File_" + functionName;
@@ -153,20 +153,24 @@ void createMethod_read() {
     currentPackage->currentModule->builder->CreateCall(fseekFunc, fseekSetArguments);
 
     // Add 1 for null-terminated string
-    Value * fileSizePlusOneValue = currentPackage->currentModule->builder->CreateAdd(fileSizeValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
+    Value * fileSizePlusOneValue = currentPackage->currentModule->builder->CreateAdd(fileSizeValue, ConstantInt::get(*currentPackage->context, llvm::APInt(64, 1, true)));
 
-    // char *string = malloc(fsize + 1);
-    ArrayRef<Value *> mallocArguments({
-        fileSizePlusOneValue
-    });
-    Function * mallocFunc = currentPackage->currentModule->module->getFunction("malloc");
-    Value * memoryPointer = currentPackage->currentModule->builder->CreateCall(mallocFunc, mallocArguments);
+    auto memoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),   // input type?
+        llvm::Type::getInt8Ty(*currentPackage->context),    // output type, which we get pointer to?
+        fileSizePlusOneValue,                               // size, matches input type?
+        nullptr,
+        nullptr,
+        ""
+    );
+    currentPackage->currentModule->builder->Insert(memoryPointer);
 
     // fread(string, fsize, 1, f);
     ArrayRef<Value *> freadArguments({
         memoryPointer,
         fileSizeValue,
-        ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)),
+        ConstantInt::get(*currentPackage->context, llvm::APInt(64, 1, true)),
         filePtr
     });
     Function * freadFunc = currentPackage->currentModule->module->getFunction("fread");
@@ -178,24 +182,34 @@ void createMethod_read() {
     currentPackage->currentModule->builder->CreateStore(zeroConstant, nullGEPValue);
 
     // Create string and set pointer + size
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(stringClass->structType);
-    ArrayRef<Value *> argumentsReference{alloca};
-    currentPackage->currentModule->builder->CreateCall(stringClass->constructor, argumentsReference);
+    auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+        stringClass->structType,                                    // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringClass->structType),           // size, matches input type?
+        nullptr,
+        nullptr,
+        ""
+    );
+
+    currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     int pointerIndex = stringClass->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
 
     currentPackage->currentModule->builder->CreateStore(memoryPointer, pointerGEP);
 
-    int sizeIndex = stringClass->properties["stringSize"]->index;
+    int sizeIndex = stringClass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {sizeZeroValue, sizeIndexValue});
-    currentPackage->currentModule->builder->CreateStore(fileSizeValue, sizeGEP);
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
 
-    currentPackage->currentModule->builder->CreateRet(alloca);
+    Value * bitcastedFileSizeValue = currentPackage->currentModule->builder->CreateIntCast(fileSizeValue, llvm::Type::getInt32Ty(*currentPackage->context), false);
+    currentPackage->currentModule->builder->CreateStore(bitcastedFileSizeValue, sizeGEP);
+
+    currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 
     bool hasError = verifyFunction(*closeFunc, &llvm::errs());
@@ -254,18 +268,18 @@ void createMethod_write() {
 
     // Pull out string pointer and string size
     Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    Value * stringSizeIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringSize"]->index, true));
+    Value * stringLengthIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
     Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringPointer, {zero, stringPointerIndex});
-    Value * stringSizeValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringPointer, {zero, stringSizeIndex});
+    Value * stringLengthValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringPointer, {zero, stringLengthIndex});
     Value * loadedPointerValue = currentPackage->currentModule->builder->CreateLoad(stringPointerValue);
-    Value * loadedStringSizeValue = currentPackage->currentModule->builder->CreateLoad(stringSizeValue);
+    Value * loadedStringLengthValue = currentPackage->currentModule->builder->CreateLoad(stringLengthValue);
 
     // CreateCall to fwrite with filePtr as argument.
     Function * fwriteFunc = currentPackage->currentModule->module->getFunction("fwrite");
     ArrayRef<Value *> arguments({
         loadedPointerValue,                                                                 // const void *ptr      (string pointer)
         ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)),               // size_t size
-        loadedStringSizeValue,              // size_t nmemb     TODO: currently hardcoded to 10
+        loadedStringLengthValue,              // size_t nmemb     TODO: currently hardcoded to 10
         filePtr                                                                             // FILE *stream
     });
     currentPackage->currentModule->builder->CreateCall(fwriteFunc, arguments);

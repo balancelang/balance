@@ -51,6 +51,7 @@ void createMethod_Int_toString() {
     llvm::Value * intValue = args++;
 
     BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    // TODO: Malloc
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(stringClass->structType);
 
     ArrayRef<Value *> argumentsReference{alloca};
@@ -59,7 +60,7 @@ void createMethod_Int_toString() {
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {pointerZeroValue, pointerIndexValue});
-    int sizeIndex = stringClass->properties["stringSize"]->index;
+    int sizeIndex = stringClass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
     auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {sizeZeroValue, sizeIndexValue});

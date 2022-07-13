@@ -155,6 +155,7 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
         // TODO: throw error
     }
 
+    // TODO: Malloc
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
     ArrayRef<Value *> argumentsReference{alloca};
     currentPackage->currentModule->builder->CreateCall(constructor, argumentsReference);
@@ -262,6 +263,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx)
     Type *type = values[0]->getType();
     auto arrayType = llvm::ArrayType::get(type, values.size());
 
+    // TODO: Malloc
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     for (int i = 0; i < values.size(); i++)
@@ -309,6 +311,41 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx)
 any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx)
 {
     std::string variableName = ctx->variable()->IDENTIFIER()->getText();
+
+    if (accessedValue != nullptr) {
+        if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType())) {
+            if (PT->getPointerElementType()->isStructTy()) {
+                // get struct type
+                std::string className = PT->getPointerElementType()->getStructName().str();
+                // TODO: Make a function that does this search
+                BalanceClass *bclass = currentPackage->currentModule->getClass(className);
+                if (bclass == nullptr) {
+                    BalanceImportedClass * ibClass = currentPackage->currentModule->getImportedClass(className);
+                    if (ibClass == nullptr) {
+                        // TODO: Throw error.
+                    } else {
+                        bclass = ibClass->bclass;
+                    }
+                }
+
+                // check if it is a public property
+                BalanceProperty * bproperty = bclass->getProperty(variableName);
+                if (bproperty == nullptr) {
+                    // TODO: Handle property not existing
+                }
+
+                if (!bproperty->isPublic) {
+                    // TODO: Handle property not being public (e.g. accessible from Balance)
+                }
+
+                Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                Value * propertyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
+                Value * propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(bclass->structType, accessedValue, {zero, propertyIndex});
+                return (Value *)currentPackage->currentModule->builder->CreateLoad(propertyPointerValue);
+            }
+        }
+    }
+
     Value *val = currentPackage->currentModule->getValue(variableName);
     if (val == nullptr && currentPackage->currentModule->currentClass != nullptr)
     {
@@ -336,8 +373,10 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     std::string variableName = ctx->IDENTIFIER()->getText();
     any expressionResult = visit(ctx->expression());
     Value *value = anyToValue(expressionResult);
-    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->getType(), nullptr);
-    Value *store = currentPackage->currentModule->builder->CreateStore(value, alloca);
+
+    // TODO: Malloc?
+    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->getType());
+    currentPackage->currentModule->builder->CreateStore(value, alloca);
     currentPackage->currentModule->setValue(variableName, alloca);
     return alloca;
 }
@@ -560,29 +599,42 @@ any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx)
 any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
 {
     std::string text = ctx->STRING()->getText();
-    int stringSize = text.size();
+    int stringLength = text.size();
 
     BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass("String");
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(ibclass->bclass->structType);
-    ArrayRef<Value *> argumentsReference{alloca};
+
+    auto structSize = ConstantExpr::getSizeOf(ibclass->bclass->structType);
+    // TODO: Verify this
+    auto pointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        ibclass->bclass->structType->getPointerTo(),
+        ibclass->bclass->structType,
+        structSize,
+        nullptr,
+        nullptr,
+        ""
+    );
+    currentPackage->currentModule->builder->Insert(pointer);
+
+    ArrayRef<Value *> argumentsReference{pointer};
     currentPackage->currentModule->builder->CreateCall(ibclass->constructor->constructor, argumentsReference);
 
     int pointerIndex = ibclass->bclass->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, pointer, {pointerZeroValue, pointerIndexValue});
 
     Value * arrayValue = currentPackage->currentModule->builder->CreateGlobalStringPtr(text);
     currentPackage->currentModule->builder->CreateStore(arrayValue, pointerGEP);
 
-    int sizeIndex = ibclass->bclass->properties["stringSize"]->index;
+    int sizeIndex = ibclass->bclass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
-    Value * sizeValue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), stringSize, true);
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(ibclass->bclass->structType, pointer, {sizeZeroValue, sizeIndexValue});
+    Value * sizeValue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), stringLength, true);
     currentPackage->currentModule->builder->CreateStore(sizeValue, sizeGEP);
 
-    return (Value *)alloca;
+    return (Value *) pointer;
 }
 
 any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
@@ -701,20 +753,31 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         Value * filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
 
         // Create File struct which holds this and return pointer to the struct
-        BalanceClass * bclass = currentPackage->builtins->classes["File"];
-        AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
-        ArrayRef<Value *> argumentsReference{alloca};
-        // currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference); // TODO: should it have a constructor?
+        BalanceClass * fileClass = currentPackage->builtins->classes["File"];
+
+        auto structSize = ConstantExpr::getSizeOf(fileClass->structType);
+        auto pointer = llvm::CallInst::CreateMalloc(
+            currentPackage->currentModule->builder->GetInsertBlock(),
+            fileClass->structType->getPointerTo(),
+            fileClass->structType,
+            structSize,
+            nullptr,
+            nullptr,
+            ""
+        );
+        currentPackage->currentModule->builder->Insert(pointer);
+
+        ArrayRef<Value *> argumentsReference{pointer};
+        currentPackage->currentModule->builder->CreateCall(fileClass->constructor, argumentsReference); // TODO: should it have a constructor?
 
         // Get reference to 0th property (filePointer) and assign
-        int intIndex = bclass->properties["filePointer"]->index;
+        int intIndex = fileClass->properties["filePointer"]->index;
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
 
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {zero, index});
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->structType, pointer, {zero, index});
         currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
-        // return (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
 
-        return (Value *)alloca;
+        return (Value *)pointer;
     }
     else
     {
@@ -916,7 +979,8 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     currentPackage->currentModule->currentScope = scope;
 
     // Create alloca so we can return it as expression
-    llvm::Value *p = currentPackage->currentModule->builder->CreateAlloca(function->getType(), nullptr, "");
+    // TODO: Create malloc?
+    llvm::Value *p = currentPackage->currentModule->builder->CreateAlloca(function->getType());
     currentPackage->currentModule->builder->CreateStore(function, p, false);
     return (llvm::Value *)currentPackage->currentModule->builder->CreateLoad(p);
 }

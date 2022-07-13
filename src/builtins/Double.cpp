@@ -50,6 +50,7 @@ void createMethod_Double_toString() {
     Function::arg_iterator args = doubleToStringFunc->arg_begin();
     llvm::Value * intValue = args++;
 
+    // TODO: malloc
     BalanceClass * stringClass = currentPackage->builtins->getClass("String");
     AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(stringClass->structType);
 
@@ -59,7 +60,7 @@ void createMethod_Double_toString() {
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {pointerZeroValue, pointerIndexValue});
-    int sizeIndex = stringClass->properties["stringSize"]->index;
+    int sizeIndex = stringClass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
     auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, alloca, {sizeZeroValue, sizeIndexValue});
@@ -75,6 +76,7 @@ void createMethod_Double_toString() {
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 
     ArrayType * arrayType = llvm::ArrayType::get(llvm::Type::getInt8Ty(*currentPackage->context), 50);
+    // TODO: malloc
     Value * arrayAlloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 

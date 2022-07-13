@@ -30,6 +30,7 @@ public:
     }
 
     bool finalized();
+    BalanceProperty * getProperty(std::string propertyName);
 };
 
 class BalanceImportedClass {
