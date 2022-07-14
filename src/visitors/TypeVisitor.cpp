@@ -210,9 +210,9 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
     if (bfunction->returnType == nullptr) {
         bfunction->returnType = getBuiltinType(bfunction->returnTypeString);
         if (bfunction->returnType == nullptr) {
-            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString)->structType;
+            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString)->structType->getPointerTo();
             if (bfunction->returnType == nullptr) {
-                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString)->bclass->structType;
+                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString)->bclass->structType->getPointerTo();
             }
         }
     }

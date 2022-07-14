@@ -41,22 +41,29 @@ void createMethod_Bool_toString() {
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
 
-    // TODO: malloc
-    BalanceClass * bclass = currentPackage->builtins->getClass("String");
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(bclass->structType);
-    ArrayRef<Value *> argumentsReference{alloca};
-    currentPackage->currentModule->builder->CreateCall(bclass->constructor, argumentsReference);
-    int pointerIndex = bclass->properties["stringPointer"]->index;
+    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+
+    auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
+        stringClass->structType,                                // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringClass->structType),       // size, matches input type?
+        nullptr, nullptr, "");
+    currentPackage->currentModule->builder->Insert(stringMemoryPointer);
+
+    ArrayRef<Value *> argumentsReference{stringMemoryPointer};
+    currentPackage->currentModule->builder->CreateCall(stringClass->constructor, argumentsReference);
+    int pointerIndex = stringClass->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {pointerZeroValue, pointerIndexValue});
-    int sizeIndex = bclass->properties["length"]->index;
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
+    int sizeIndex = stringClass->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(bclass->structType, alloca, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
 
     ArrayRef<Value *> arguments({
-        alloca,
+        stringMemoryPointer,
     });
 
     // Create if-statement to print 'true' or 'false'
@@ -91,7 +98,7 @@ void createMethod_Bool_toString() {
     elseBlock = currentPackage->currentModule->builder->GetInsertBlock();
 
     currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
-    currentPackage->currentModule->builder->CreateRet(alloca);
+    currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 

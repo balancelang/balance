@@ -125,6 +125,11 @@ void examplesLambdasTest() {
     assertEqual("Hello world\n55\n88\n", result, "Lambdas");
 }
 
+void examplesFilesTest() {
+    string result = runExample("../examples/files.bl");
+    assertEqual("0123456789\n", result, "Files");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
@@ -132,4 +137,5 @@ void runExamplesTestSuite() {
     examplesVariablesTest();
     examplesFunctionsTest();
     examplesLambdasTest();
+    examplesFilesTest();
 }

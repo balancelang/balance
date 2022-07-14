@@ -191,7 +191,6 @@ void createMethod_read() {
         nullptr,
         ""
     );
-
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     int pointerIndex = stringClass->properties["stringPointer"]->index;
