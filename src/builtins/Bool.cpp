@@ -43,7 +43,7 @@ void createMethod_Bool_toString() {
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
@@ -105,7 +105,7 @@ void createMethod_Bool_toString() {
 }
 
 void createType__Bool() {
-    BalanceClass * bclass = new BalanceClass("Bool");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Bool"));
     currentPackage->currentModule->classes["Bool"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

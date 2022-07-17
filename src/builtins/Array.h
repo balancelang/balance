@@ -1,5 +1,7 @@
 #ifndef ARRAY_H
 #define ARRAY_H
-    void createType__Array();
+    #include "../models/BalanceTypeString.h"
+
+    void createType__Array(BalanceTypeString * typeString);
 #endif
 

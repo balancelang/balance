@@ -66,7 +66,7 @@ assignment
 
 memberAssignment
     : member=expression '[' index=expression ']' '=' value=expression
-    | member=expression '.' identifier=expression '=' value=expression
+    | member=expression '.' access=variable '=' value=expression
     ;
 
 expression

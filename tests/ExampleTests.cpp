@@ -134,7 +134,7 @@ void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
     examplesHelloWorldTest();
-    examplesVariablesTest();
+    // examplesVariablesTest();
     examplesFunctionsTest();
     examplesLambdasTest();
     examplesFilesTest();

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.0.6]
+### Added
+- Initial support for generics on builtins (Arrays)
+
 ## [0.0.5]
 ### Added
 - Opening files for writing, reading, closing

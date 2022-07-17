@@ -96,7 +96,7 @@ void createMethod_read() {
 
     std::string functionName = "read";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentClass->structType->getPointerTo()  // File "this" argument
@@ -232,7 +232,7 @@ void createMethod_write() {
 
     std::string functionName = "write";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentClass->structType->getPointerTo(),  // this argument
@@ -287,7 +287,7 @@ void createMethod_write() {
 }
 
 void createType__File() {
-    BalanceClass * bclass = new BalanceClass("File");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("File"));
     currentPackage->currentModule->classes["File"] = bclass;
     bclass->properties["filePointer"] = new BalanceProperty("filePointer", "", 0);
     bclass->properties["filePointer"]->type = llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0);

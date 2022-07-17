@@ -113,6 +113,7 @@ add_executable(balance
                src/models/BalanceModule.cpp
                src/models/BalanceParameter.cpp
                src/models/BalanceProperty.cpp
+               src/models/BalanceTypeString.cpp
                src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp

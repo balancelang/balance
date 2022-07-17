@@ -77,7 +77,7 @@ std::any TypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext
             BalanceParser::UnnamedImportDefinitionContext *import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
             std::string importString = import->IDENTIFIER()->getText();
             if (importedModule->classes.find(importString) != importedModule->classes.end()) {
-                BalanceClass *bclass = importedModule->getClass(importString);
+                BalanceClass *bclass = importedModule->getClassFromBaseName(importString);
                 createImportedClass(currentPackage->currentModule, bclass);
             } else if (importedModule->functions.find(importString) != importedModule->functions.end()) {
                 BalanceFunction *bfunction = importedModule->getFunction(importString);
@@ -157,9 +157,9 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
             if (type != nullptr) {
                 bparameter->type = type;
             } else {
-                BalanceClass *bclass = currentPackage->currentModule->getClass(bparameter->balanceTypeString->base);
+                BalanceClass *bclass = currentPackage->currentModule->getClass(bparameter->balanceTypeString);
                 if (bclass == nullptr) {
-                    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString->base);
+                    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString);
                     if (ibclass == nullptr) {
                         // TODO: Throw error
                     } else {
@@ -192,7 +192,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
             PointerType *thisPointer = currentPackage->currentModule->currentClass->structType->getPointerTo();
             functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
             functionParameterNames.insert(functionParameterNames.begin(), "this");
-            std::string functionNameWithClass = currentPackage->currentModule->currentClass->name + "_" + functionName;
+            std::string functionNameWithClass = currentPackage->currentModule->currentClass->name->toString() + "_" + functionName;
             ArrayRef<Type *> parametersReference(functionParameterTypes);
             // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
             FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
@@ -210,9 +210,9 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
     if (bfunction->returnType == nullptr) {
         bfunction->returnType = getBuiltinType(bfunction->returnTypeString);
         if (bfunction->returnType == nullptr) {
-            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString->base)->structType->getPointerTo();
+            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString)->structType->getPointerTo();
             if (bfunction->returnType == nullptr) {
-                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString->base)->bclass->structType->getPointerTo();
+                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString)->bclass->structType->getPointerTo();
             }
         }
     }
@@ -223,6 +223,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
     string typeString = ctx->type->getText();
+    BalanceTypeString * btypeString = new BalanceTypeString(typeString); // TODO: Parse generics
     string name = ctx->name->getText();
 
     BalanceProperty *bprop = currentPackage->currentModule->currentClass->properties[name];
@@ -231,16 +232,25 @@ std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ct
         return nullptr;
     }
 
-    Type *typeValue = getBuiltinType(new BalanceTypeString(typeString));
+    Type *typeValue = getBuiltinType(btypeString);
     if (typeValue == nullptr) {
-        BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(typeString);
-
-        // TODO: Check if class exists above?
-        BalanceClass * bclass = ibclass->bclass;
-        if (bclass != nullptr && bclass->finalized()) {
-            int count = currentPackage->currentModule->currentClass->properties.size();
-            if (!bprop->finalized()) {
-                bprop->type = typeValue;
+        BalanceClass * bclass = currentPackage->currentModule->getClass(btypeString);
+        if (bclass == nullptr) {
+            BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(btypeString);
+            if (ibclass == nullptr) {
+                // TODO: Throw error
+            } else {
+                if (ibclass->bclass->finalized()) {
+                    if (!bprop->finalized()) {
+                        bprop->type = ibclass->bclass->structType->getPointerTo();
+                    }
+                }
+            }
+        } else {
+            if (bclass->finalized()) {
+                if (!bprop->finalized()) {
+                    bprop->type = bclass->structType->getPointerTo();
+                }
             }
         }
     } else {

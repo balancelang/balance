@@ -50,7 +50,7 @@ void createMethod_Double_toString() {
     Function::arg_iterator args = doubleToStringFunc->arg_begin();
     llvm::Value * intValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClass(new BalanceTypeString("String"));
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
@@ -108,7 +108,7 @@ void createMethod_Double_toString() {
 }
 
 void createType__Double() {
-    BalanceClass * bclass = new BalanceClass("Double");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Double"));
     currentPackage->currentModule->classes["Double"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

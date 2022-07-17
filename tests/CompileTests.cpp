@@ -210,7 +210,7 @@ void runCompileTestSuite() {
     createPrintBool();
     createPrintDouble();
     createPrintString();
-    createPrintList();
+    // createPrintList();
     createFunctionAndInvoke();
     createLambdaAndInvoke();
     createReassignment();

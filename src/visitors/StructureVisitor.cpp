@@ -66,7 +66,7 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
     string className = ctx->className->getText();
     string text = ctx->getText();
 
-    BalanceClass *bclass = new BalanceClass(className);
+    BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className));
     currentPackage->currentModule->currentClass = bclass;
     currentPackage->currentModule->classes[className] = bclass;
 

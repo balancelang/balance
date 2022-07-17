@@ -50,7 +50,7 @@ void createMethod_Int_toString() {
     Function::arg_iterator args = intToStringFunc->arg_begin();
     llvm::Value * intValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
@@ -108,7 +108,7 @@ void createMethod_Int_toString() {
 }
 
 void createType__Int() {
-    BalanceClass * bclass = new BalanceClass("Int");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Int"));
     currentPackage->currentModule->classes["Int"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

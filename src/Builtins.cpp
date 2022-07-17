@@ -52,7 +52,7 @@ void createFunction__print()
     Function::arg_iterator args = printFunc->arg_begin();
     llvm::Value *stringStructPointer = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClass(new BalanceTypeString("String"));
     Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
     Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringStructPointer, {zero, stringPointerIndex});
@@ -101,7 +101,7 @@ void createTypes() {
     createType__Bool();
     createType__Double();
     createType__File();
-    createType__Array();
+    // createType__Array(); // Arrays are lazily created with their generic types
 }
 
 void createBuiltins() {

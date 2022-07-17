@@ -22,7 +22,7 @@ void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) 
 
 void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
     BalanceImportedClass *ibclass = new BalanceImportedClass(bmodule, bclass);
-    bmodule->importedClasses[bclass->name] = ibclass;
+    bmodule->importedClasses[bclass->name->toString()] = ibclass;
 
     // Create BalanceImportedFunction for each class method
     for (auto const &x : bclass->methods) {
@@ -67,7 +67,7 @@ void importClassToModule(BalanceImportedClass *ibclass, BalanceModule *bmodule) 
         ArrayRef<Type *> parametersReference(functionParameterTypes);
         FunctionType *functionType = FunctionType::get(ibfunction->bfunction->returnType, parametersReference, false);
 
-        std::string functionNameWithClass = ibclass->bclass->name + "_" + ibfunction->bfunction->name;
+        std::string functionNameWithClass = ibclass->bclass->name->toString() + "_" + ibfunction->bfunction->name;
         ibfunction->function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, bmodule->module);
     }
 
@@ -103,26 +103,34 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    for (auto const &x : currentPackage->currentModule->currentClass->properties) {
+    for (auto const &x : bclass->properties) {
         BalanceProperty *property = x.second;
         Type *propertyType = property->type;
 
-        Value *initialValue;
+        Value *initialValue = nullptr;
         if (propertyType->isIntegerTy(1)) {
             initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Bool")), 0, true);
         } else if (propertyType->isIntegerTy(32)) {
             initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Int")), 0, true);
         } else if (propertyType->isFloatingPointTy()) {
             initialValue = ConstantFP::get(getBuiltinType(new BalanceTypeString("Double")), 0.0);
-        } else if (propertyType->isPointerTy()) {
+        } else if (PointerType *PT = dyn_cast<PointerType>(propertyType)) {
             if (propertyType->getPointerElementType()->isIntegerTy(32)) {
                 initialValue = ConstantPointerNull::get(Type::getInt32PtrTy(*currentPackage->context));
             } else if (propertyType->getPointerElementType()->isIntegerTy(8)) {
                 // Only used for builtins (e.g. File::filePointer) // TODO: Maybe removed and instead use i32*
                 initialValue = ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context));
+            } else if (propertyType->getPointerElementType()->isStructTy()) {
+                // TODO: Does it suffice if we do this for all pointer types? (e.g remove the two above)
+                initialValue = ConstantPointerNull::get(PT);
             }
         }
-        // // TODO: Handle String and nullable types
+
+        // TODO: Handle String and nullable types
+        if (initialValue == nullptr) {
+            std::cout << "Unhandled initial value for type: " << propertyType << std::endl;
+            exit(1);
+        }
 
         int intIndex = property->index;
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
@@ -143,4 +151,29 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
         exit(1);
     }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+}
+
+bool balanceTypeStringsEqual(BalanceTypeString * a, BalanceTypeString * b) {
+    if (a->base != b->base) {
+        return false;
+    }
+
+    if (a->generics.size() != b->generics.size()) {
+        return false;
+    }
+
+    for (int i = 0; i < a->generics.size(); i++) {
+        BalanceTypeString * ai = a->generics[i];
+        BalanceTypeString * bi = b->generics[i];
+
+        if (ai->base != bi->base) {
+            return false;
+        }
+        bool subResult = balanceTypeStringsEqual(ai, bi);
+        if (!subResult) {
+            return false;
+        }
+    }
+
+    return true;
 }

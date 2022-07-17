@@ -10,7 +10,7 @@ extern BalancePackage *currentPackage;
 
 void createType__String() {
     // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
-    BalanceClass * bclass = new BalanceClass("String");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("String"));
     currentPackage->currentModule->classes["String"] = bclass;
     bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", "", 0, false);
     bclass->properties["stringPointer"]->type = llvm::Type::getInt8PtrTy(*currentPackage->context);

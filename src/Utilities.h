@@ -20,5 +20,5 @@ void importFunctionToModule(BalanceImportedFunction * bfunction, BalanceModule *
 void importClassToModule(BalanceImportedClass * bclass, BalanceModule * bmodule);
 
 void createDefaultConstructor(BalanceModule * bmodule, BalanceClass * bclass);
-
+bool balanceTypeStringsEqual(BalanceTypeString * a, BalanceTypeString * b);
 #endif

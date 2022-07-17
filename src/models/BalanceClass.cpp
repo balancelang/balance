@@ -1,7 +1,10 @@
 #include "BalanceClass.h"
 
 bool BalanceClass::finalized() {
-    bool empty = this->properties.empty();
+    if (!this->name->finalized()) {
+        return false;
+    }
+
     for (auto const &x : this->properties) {
         if (!x.second->finalized()) {
             return false;

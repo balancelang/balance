@@ -73,10 +73,16 @@ public:
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath(std::string filePath);
     void generateASTFromString(std::string program);
-    BalanceClass * getClass(std::string className);
+    BalanceClass * getClass(BalanceTypeString * className);
+    BalanceClass * getClassFromStructName(std::string structName);
+    BalanceClass * getClassFromBaseName(std::string baseName);
+    BalanceImportedClass * getImportedClass(BalanceTypeString * className);
+    BalanceImportedClass * getImportedClassFromStructName(std::string structName);
+    BalanceImportedClass * getImportedClassFromBaseName(std::string baseName);
+
     BalanceFunction * getFunction(std::string functionName);
-    BalanceImportedClass * getImportedClass(std::string className);
     BalanceImportedFunction * getImportedFunction(std::string functionName);
+
     llvm::Value *getValue(std::string variableName);
     void setValue(std::string variableName, llvm::Value *value);
     bool finalized();
