@@ -1,6 +1,6 @@
 #include <iostream>
 #include "ASTTests.h"
-#include "../src/headers/Main.h"
+#include "../src/Main.h"
 
 using namespace std;
 

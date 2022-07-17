@@ -1,7 +1,8 @@
-#include "../headers/ConstructorVisitor.h"
+#include "ConstructorVisitor.h"
 
-#include "../headers/Visitor.h"
-#include "../headers/Package.h"
+#include "Visitor.h"
+#include "../Utilities.h"
+#include "../Package.h"
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -69,70 +70,6 @@ using namespace std;
 
 extern BalancePackage *currentPackage;
 
-void createDefaultConstructor(StructType *classValue)
-{
-    std::string constructorName = classValue->getName().str() + "_constructor";
-    vector<Type *> functionParameterTypes;
-
-    // TODO: Constructor should return Type of class?
-    Type *returnType = getBuiltinType("None");
-
-    ArrayRef<Type *> parametersReference{classValue->getPointerTo()};
-    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-    Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, currentPackage->currentModule->module);
-    currentPackage->currentModule->currentClass->constructor = function;
-
-    // Add parameter names
-    Function::arg_iterator args = function->arg_begin();
-    llvm::Value *thisValue = args++;
-    thisValue->setName("this");
-
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, constructorName + "_body", function);
-    // Store current block so we can return to it after function declaration
-    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
-    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
-
-    for (auto const &x : currentPackage->currentModule->currentClass->properties)
-    {
-        BalanceProperty * property = x.second;
-        Type *propertyType = property->type;
-
-        Value *initialValue;
-        if (propertyType->isIntegerTy(1))
-        {
-            initialValue = ConstantInt::get(getBuiltinType("Bool"), 0, true);
-        }
-        else if (propertyType->isIntegerTy(32))
-        {
-            initialValue = ConstantInt::get(getBuiltinType("Int"), 0, true);
-        }
-        else if (propertyType->isFloatingPointTy())
-        {
-            initialValue = ConstantFP::get(getBuiltinType("Double"), 0.0);
-        }
-        // // TODO: Handle String and nullable types
-
-        int intIndex = property->index;
-        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
-        Type *structType = thisValue->getType()->getPointerElementType();
-
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
-        currentPackage->currentModule->builder->CreateStore(initialValue, ptr);
-    }
-
-    currentPackage->currentModule->builder->CreateRetVoid();
-
-    bool hasError = verifyFunction(*function);
-    if (hasError) {
-        // TODO: Throw error
-        std::cout << "Error verifying default constructor for class: " << classValue->getName().str() << std::endl;
-        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        exit(1);
-    }
-    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
 // Creates default empty argument constructor
 std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     string text = ctx->getText();
@@ -142,7 +79,7 @@ std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinition
     currentPackage->currentModule->currentClass = bclass;
 
     if (bclass->constructor == nullptr) {
-        createDefaultConstructor(currentPackage->currentModule->currentClass->structType);
+        createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentClass);
     }
 
     currentPackage->currentModule->currentClass = nullptr;

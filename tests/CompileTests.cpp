@@ -1,7 +1,7 @@
 #include "CompileTests.h"
-#include "../src/headers/Package.h"
-#include "../src/headers/Main.h"
-#include "../src/headers/Visitor.h"
+#include "../src/Package.h"
+#include "../src/Main.h"
+#include "../src/visitors/Visitor.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -104,7 +104,7 @@ void createPrintInt() {
 void createPrintBool() {
     string program = "var a = true\nprint(a)";
     string result = run(program);
-    assertEqual("1\n", result, program);
+    assertEqual("true\n", result, program);
 }
 
 void createPrintDouble() {

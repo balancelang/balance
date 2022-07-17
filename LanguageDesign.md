@@ -30,6 +30,10 @@
     - forward references - e.g. extend a class defined later in the same file (+)
     - Not compile classes/functions not imported?
     - Cyclic dependencies (+)
+    - Garbage collection
+    - Sockets
+    - File handles
+    - overloads
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits

@@ -12,7 +12,8 @@
 void create_function_print();
 
 // All
-void create_functions();
-void create_types();
+void createFunctions();
+void createTypes();
+void createBuiltins();
 
 #endif

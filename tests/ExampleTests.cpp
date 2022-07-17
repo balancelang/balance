@@ -1,6 +1,6 @@
 #include "CompileTests.h"
-#include "../src/headers/Main.h"
-#include "../src/headers/Package.h"
+#include "../src/Main.h"
+#include "../src/Package.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -112,7 +112,7 @@ void examplesHelloWorldTest() {
 
 void examplesVariablesTest() {
     string result = runExample("../examples/variables.bl");
-    assertEqual("1\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n", result, "Variables");
+    assertEqual("true\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n[1, 2, 3, 4]\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {
@@ -125,6 +125,11 @@ void examplesLambdasTest() {
     assertEqual("Hello world\n55\n88\n", result, "Lambdas");
 }
 
+void examplesFilesTest() {
+    string result = runExample("../examples/files.bl");
+    assertEqual("0123456789\n", result, "Files");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
@@ -132,4 +137,5 @@ void runExamplesTestSuite() {
     examplesVariablesTest();
     examplesFunctionsTest();
     examplesLambdasTest();
+    examplesFilesTest();
 }
