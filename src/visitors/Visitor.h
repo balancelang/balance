@@ -6,6 +6,7 @@
 #include "BalanceParser.h"
 #include "../Utilities.h"
 #include "../models/BalanceProperty.h"
+#include "../models/BalanceTypeString.h"
 
 #include "clang/Driver/Driver.h"
 #include "clang/Basic/Diagnostic.h"
@@ -60,7 +61,7 @@ using namespace llvm;
 using namespace std;
 
 llvm::Value *anyToValue(any anyVal);
-Type *getBuiltinType(string typeString);
+Type *getBuiltinType(BalanceTypeString * typeString);
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name);
 void LogError(string errorMessage);
 

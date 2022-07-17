@@ -22,9 +22,9 @@ void createMethod_close() {
     llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "Int");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("Int"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = closeFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("None");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("None"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -108,7 +108,7 @@ void createMethod_read() {
     llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = closeFunc;
     currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 
@@ -245,7 +245,7 @@ void createMethod_write() {
     llvm::Function * writeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", writeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "None");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("None"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = writeFunc;
     currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 

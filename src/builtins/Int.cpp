@@ -21,8 +21,8 @@ void createMethod_Int_toString() {
     std::string functionName = "toString";
     std::string functionNameWithClass = "Int_" + functionName;
 
-    BalanceParameter * valueParameter = new BalanceParameter("Int", "value");
-    valueParameter->type = getBuiltinType("Int");
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Int"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("Int"));
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -31,17 +31,17 @@ void createMethod_Int_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType("Int")
+        getBuiltinType(new BalanceTypeString("Int"))
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType("String"), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
 
     llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = intToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("String");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

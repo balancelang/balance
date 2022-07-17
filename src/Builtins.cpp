@@ -5,7 +5,9 @@
 #include "builtins/String.h"
 #include "builtins/Bool.h"
 #include "builtins/Double.h"
+#include "builtins/Array.h"
 
+#include "models/BalanceTypeString.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
@@ -19,14 +21,14 @@ void createFunction__print()
     FunctionCallee printfFunction = currentPackage->currentModule->module->getOrInsertFunction("printf", printfFunctionType);
 
     // TODO: One day we might change this to "Any" and then do toString on it
-    BalanceParameter * contentParameter = new BalanceParameter("String", "content");
-    contentParameter->type = getBuiltinType("String");
+    BalanceParameter * contentParameter = new BalanceParameter(new BalanceTypeString("String"), "content");
+    contentParameter->type = getBuiltinType(new BalanceTypeString("String"));
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
         contentParameter
     };
-    BalanceFunction * bfunction = new BalanceFunction("print", parameters, "None");
+    BalanceFunction * bfunction = new BalanceFunction("print", parameters, new BalanceTypeString("None"));
     currentPackage->currentModule->functions["print"] = bfunction;
 
     // Create llvm::Function
@@ -41,7 +43,7 @@ void createFunction__print()
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, "print_body", printFunc);
 
     bfunction->function = printFunc;
-    bfunction->returnType = getBuiltinType("None");
+    bfunction->returnType = getBuiltinType(new BalanceTypeString("None"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -99,6 +101,7 @@ void createTypes() {
     createType__Bool();
     createType__Double();
     createType__File();
+    createType__Array();
 }
 
 void createBuiltins() {

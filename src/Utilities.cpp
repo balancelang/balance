@@ -1,6 +1,7 @@
 #include "Utilities.h"
 #include "Package.h"
 #include "visitors/Visitor.h"
+#include "models/BalanceTypeString.h"
 
 #include <cstdio>
 #include <fstream>
@@ -85,7 +86,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
     vector<Type *> functionParameterTypes;
 
     // TODO: Constructor should return Type of class?
-    Type *returnType = getBuiltinType("None");
+    Type *returnType = getBuiltinType(new BalanceTypeString("None"));
 
     ArrayRef<Type *> parametersReference{bclass->structType->getPointerTo()};
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
@@ -108,11 +109,11 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
 
         Value *initialValue;
         if (propertyType->isIntegerTy(1)) {
-            initialValue = ConstantInt::get(getBuiltinType("Bool"), 0, true);
+            initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Bool")), 0, true);
         } else if (propertyType->isIntegerTy(32)) {
-            initialValue = ConstantInt::get(getBuiltinType("Int"), 0, true);
+            initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Int")), 0, true);
         } else if (propertyType->isFloatingPointTy()) {
-            initialValue = ConstantFP::get(getBuiltinType("Double"), 0.0);
+            initialValue = ConstantFP::get(getBuiltinType(new BalanceTypeString("Double")), 0.0);
         } else if (propertyType->isPointerTy()) {
             if (propertyType->getPointerElementType()->isIntegerTy(32)) {
                 initialValue = ConstantPointerNull::get(Type::getInt32PtrTy(*currentPackage->context));

@@ -153,13 +153,13 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 
     for (BalanceParameter *bparameter : bfunction->parameters) {
         if (bparameter->type == nullptr) {
-            Type *type = getBuiltinType(bparameter->typeString);
+            Type *type = getBuiltinType(bparameter->balanceTypeString);
             if (type != nullptr) {
                 bparameter->type = type;
             } else {
-                BalanceClass *bclass = currentPackage->currentModule->getClass(bparameter->typeString);
+                BalanceClass *bclass = currentPackage->currentModule->getClass(bparameter->balanceTypeString->base);
                 if (bclass == nullptr) {
-                    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->typeString);
+                    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString->base);
                     if (ibclass == nullptr) {
                         // TODO: Throw error
                     } else {
@@ -210,9 +210,9 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
     if (bfunction->returnType == nullptr) {
         bfunction->returnType = getBuiltinType(bfunction->returnTypeString);
         if (bfunction->returnType == nullptr) {
-            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString)->structType->getPointerTo();
+            bfunction->returnType = currentPackage->currentModule->getClass(bfunction->returnTypeString->base)->structType->getPointerTo();
             if (bfunction->returnType == nullptr) {
-                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString)->bclass->structType->getPointerTo();
+                bfunction->returnType = currentPackage->currentModule->getImportedClass(bfunction->returnTypeString->base)->bclass->structType->getPointerTo();
             }
         }
     }
@@ -231,7 +231,7 @@ std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ct
         return nullptr;
     }
 
-    Type *typeValue = getBuiltinType(typeString);
+    Type *typeValue = getBuiltinType(new BalanceTypeString(typeString));
     if (typeValue == nullptr) {
         BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(typeString);
 

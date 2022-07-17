@@ -18,6 +18,8 @@ public:
     std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
     std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
     std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
+    std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
+    std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
 };
 
 #endif

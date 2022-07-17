@@ -2,6 +2,8 @@
 #include "../Builtins.h"
 #include "../Package.h"
 
+#include "../models/BalanceTypeString.h"
+
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
@@ -9,8 +11,8 @@ extern BalancePackage *currentPackage;
 extern llvm::Value *accessedValue;
 
 void createMethod_Bool_toString() {
-    BalanceParameter * valueParameter = new BalanceParameter("Bool", "value");
-    valueParameter->type = getBuiltinType("Bool");
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Bool"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("Bool"));
 
     std::string functionName = "toString";
     std::string functionNameWithClass = "Bool_" + functionName;
@@ -22,17 +24,17 @@ void createMethod_Bool_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType("Bool")
+        getBuiltinType(new BalanceTypeString("Bool"))
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType("String"), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
 
     llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = boolToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("String");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

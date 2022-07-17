@@ -124,6 +124,7 @@ add_executable(balance
                src/builtins/Int.cpp
                src/builtins/Double.cpp
                src/builtins/Bool.cpp
+               src/builtins/Array.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
