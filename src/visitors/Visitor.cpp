@@ -79,18 +79,22 @@ Type *getBuiltinType(BalanceTypeString * typeString) {
     } else if (typeString->base == "None") {
         return Type::getVoidTy(*currentPackage->context);
     } else if (typeString->base == "Array") {
-        BalanceClass * bclass = currentPackage->builtins->getClass(typeString);
-        if (bclass == nullptr) {
+        BalanceClass * arrayClass = currentPackage->builtins->getClass(typeString);
+        if (arrayClass == nullptr) {
             // TODO: Try to push this out of Visitor.cpp and make it a pass before this step
             BalanceTypeString * genericTypeString = typeString->generics[0];
             if (!genericTypeString->finalized()) {
                 genericTypeString->populateTypes();
             }
             createType__Array(typeString);
-            bclass = currentPackage->builtins->getClass(typeString);
-            // TODO: Import class?
+
+            // Import class into module
+            arrayClass = currentPackage->builtins->getClass(typeString);
+            createImportedClass(currentPackage->currentModule, arrayClass);
+            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(arrayClass->name);
+            importClassToModule(ibclass, currentPackage->currentModule);
         }
-        return bclass->structType->getPointerTo();
+        return arrayClass->structType->getPointerTo();
     }
 
     return nullptr;
@@ -294,13 +298,13 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
 
     BalanceClass *arrayClass = currentPackage->builtins->getClass(arrayClassString);
     auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
-    auto allocize = llvm::ConstantExpr::getMul(elementSize, arrayLength);
+    auto allocSize = llvm::ConstantExpr::getMul(elementSize, arrayLength);
 
     auto memoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
         type,                                                       // output type, which we get pointer to?
-        allocize,                                                   // size, matches input type?
+        allocSize,                                                  // size, matches input type?
         nullptr,
         nullptr,
         ""
@@ -316,7 +320,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     auto arrayMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        arrayClass->structType,                         // output type, which we get pointer to?
+        arrayClass->structType,                                 // output type, which we get pointer to?
         ConstantExpr::getSizeOf(arrayClass->structType),        // size, matches input type?
         nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(arrayMemoryPointer);
