@@ -108,7 +108,10 @@ void createMethod_Int_toString() {
 }
 
 void createType__Int() {
-    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Int"));
+    auto typeString = new BalanceTypeString("Int");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Int"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

@@ -86,7 +86,9 @@ Type *getBuiltinType(BalanceTypeString * typeString) {
             if (!genericTypeString->finalized()) {
                 genericTypeString->populateTypes();
             }
+            BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
             createType__Array(typeString);
+            currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 
             // Import class into module
             arrayClass = currentPackage->builtins->getClass(typeString);
@@ -296,7 +298,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
 
     // TODO: Figure out how we get BalanceTypeString from the type
 
-    BalanceClass *arrayClass = currentPackage->builtins->getClass(arrayClassString);
+    BalanceImportedClass *arrayClass = currentPackage->currentModule->getImportedClass(arrayClassString);
     auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
     auto allocSize = llvm::ConstantExpr::getMul(elementSize, arrayLength);
 
@@ -319,24 +321,24 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
 
     auto arrayMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
-        llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        arrayClass->structType,                                 // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(arrayClass->structType),        // size, matches input type?
+        llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+        arrayClass->bclass->structType,                             // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(arrayClass->bclass->structType),    // size, matches input type?
         nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(arrayMemoryPointer);
     ArrayRef<Value *> constructorArguments{arrayMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(arrayClass->constructor, constructorArguments);
+    currentPackage->currentModule->builder->CreateCall(arrayClass->constructor->constructor, constructorArguments);
 
     // length
     auto lengthZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["length"]->index, true));
-    auto lengthGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->structType, arrayMemoryPointer, {lengthZeroValue, lengthIndexValue});
+    auto lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->bclass->properties["length"]->index, true));
+    auto lengthGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->bclass->structType, arrayMemoryPointer, {lengthZeroValue, lengthIndexValue});
     currentPackage->currentModule->builder->CreateStore(arrayLength, lengthGEP);
 
     // memorypointer
     auto memoryPointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["memoryPointer"]->index, true));
-    auto memoryPointerGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->structType, arrayMemoryPointer, {memoryPointerZeroValue, memoryPointerIndexValue});
+    auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->bclass->properties["memoryPointer"]->index, true));
+    auto memoryPointerGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->bclass->structType, arrayMemoryPointer, {memoryPointerZeroValue, memoryPointerIndexValue});
     currentPackage->currentModule->builder->CreateStore(memoryPointer, memoryPointerGEP);
 
     return (Value *)arrayMemoryPointer;
@@ -761,8 +763,8 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         // Create File struct which holds this and return pointer to the struct
         BalanceClass *fileClass = currentPackage->builtins->classes["File"];
 
-        auto structSize = ConstantExpr::getSizeOf(fileClass->structType);
-        auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->structType->getPointerTo(), fileClass->structType, structSize, nullptr, nullptr, "");
+        auto structSize = ConstantExpr::getSizeOf(fileClass->type);
+        auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->type->getPointerTo(), fileClass->type, structSize, nullptr, nullptr, "");
         currentPackage->currentModule->builder->Insert(pointer);
 
         ArrayRef<Value *> argumentsReference{pointer};
@@ -772,7 +774,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         int intIndex = fileClass->properties["filePointer"]->index;
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
 
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->structType, pointer, {zero, index});
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->type, pointer, {zero, index});
         currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
 
         return (Value *)pointer;

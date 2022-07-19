@@ -22,6 +22,7 @@ public:
     map<string, BalanceFunction *> methods = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;
+    llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)
     bool hasBody;
     BalanceModule *module;
     BalanceClass(BalanceTypeString * name)
