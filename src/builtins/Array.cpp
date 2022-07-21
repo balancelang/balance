@@ -53,12 +53,12 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     currentPackage->builtins->builder->SetInsertPoint(functionBody);
 
     Function::arg_iterator args = arrayToStringFunc->arg_begin();
-    llvm::Value * arrayValue = args++;
+    Value * arrayValue = args++;
 
     // Get length (N)
-    auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["length"]->index, true));
-    auto lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, lengthIndexValue});
+    ConstantInt * zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    ConstantInt * lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["length"]->index, true));
+    Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, lengthIndexValue});
     Value * lengthValue = currentPackage->builtins->builder->CreateLoad(lengthPointerGEP);
 
     auto elementSize = ConstantExpr::getSizeOf(stringClass->structType->getPointerTo());
@@ -77,12 +77,12 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // Create count variable
     Value * countVariable = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    Value * countVariablePtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context));
+    Value * countVariablePtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context), nullptr, "elementIndex");
     currentPackage->builtins->builder->CreateStore(countVariable, countVariablePtr);
 
     // Create sum variable, to hold the sum length of all strings
     Value * totalLengthVariable = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    Value * totalLengthVariablePtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context));
+    Value * totalLengthVariablePtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context), nullptr, "totalLength");
     currentPackage->builtins->builder->CreateStore(totalLengthVariable, totalLengthVariablePtr);
 
     // Set up branches similar to while loop, where condition is that count variable < lengthValue
@@ -107,12 +107,11 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Set insert point to the loop-block so we can populate it
     currentPackage->builtins->builder->SetInsertPoint(loopBlock);
 
-    // TODO: load the generic type
     auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["memoryPointer"]->index, true));
     auto memoryPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, memoryPointerIndexValue});
     Value * memoryPointerValue = currentPackage->builtins->builder->CreateLoad(memoryPointerGEP);
 
-    // TODO: get the correct toString-function for the generic type
+    // Get the correct toString-function for the generic type
     Function * genericToStringFunction = nullptr;
     Type * genericType = nullptr;
     BalanceClass * bclass = currentPackage->currentModule->getClass(arrayClass->name->generics[0]);
@@ -165,13 +164,13 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Make sure new code is added to "block" after while statement
     currentPackage->builtins->builder->SetInsertPoint(mergeBlock);
 
-    // Calculate total length including brackets, commas and whitespace (+ 2 + 2*(N - 1))
+    // Calculate total length including brackets, commas and whitespace (+ 2 + 2*(N))
     Value * totalSum = currentPackage->builtins->builder->CreateLoad(totalLengthVariablePtr);
-    auto nMinusOne = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
+    // auto nMinusOne = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
     Value * twoValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 2, true));
-    auto twoTimesNMinusOne = currentPackage->builtins->builder->CreateMul(twoValue, nMinusOne);
-    // auto plusBrackets = currentPackage->builtins->builder->CreateAdd(twoTimesNMinusOne, twoValue);       // TODO: add brackets
-    Value * finalSum = currentPackage->builtins->builder->CreateAdd(totalSum, twoTimesNMinusOne);
+    auto twoTimesNMinusOne = currentPackage->builtins->builder->CreateMul(twoValue, lengthValue);
+    auto plusBrackets = currentPackage->builtins->builder->CreateAdd(twoTimesNMinusOne, twoValue);       // TODO: add brackets
+    Value * finalSum = currentPackage->builtins->builder->CreateAdd(totalSum, plusBrackets);
 
     // Calculate string length + null terminator
     Value * stringLengthWithNullTerminator = currentPackage->builtins->builder->CreateAdd(finalSum, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
@@ -181,18 +180,24 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
         currentPackage->builtins->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),                               // input type?
         llvm::Type::getInt8Ty(*currentPackage->context),                                // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(llvm::Type::getInt8Ty(*currentPackage->context)),       // size, matches input type?
+        stringLengthWithNullTerminator,                                                 // size, matches input type?
         nullptr, nullptr);
     currentPackage->builtins->builder->Insert(finalStringMemory);
 
+    // Insert opening bracket (ASCII 91)
+    Value * openingBracket = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 91, true));
+    Value * destinationOpeningBracket = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {zeroValue});
+    currentPackage->builtins->builder->CreateStore(openingBracket, destinationOpeningBracket);
+
     // Copy strings into final string memory
+
     // Create new index variable = 0
     auto memcpyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     Value * memcpyIndexPtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context));
     currentPackage->builtins->builder->CreateStore(memcpyIndex, memcpyIndexPtr);
 
-    // Create new currentByteOffset variable = 0
-    auto currentByteOffset = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    // Create new currentByteOffset variable = 1 (since we already have opening bracket)
+    auto currentByteOffset = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
     Value * currentByteOffsetPtr = currentPackage->builtins->builder->CreateAlloca(Type::getInt32Ty(*currentPackage->context));
     currentPackage->builtins->builder->CreateStore(currentByteOffset, currentByteOffsetPtr);
 
@@ -239,35 +244,41 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Value * currentStringMemoryValue = currentPackage->builtins->builder->CreateLoad(currentStringMemoryGEP);
 
     // Calculate destination address + byteOffset
-    Value * destinationAddress = currentPackage->builtins->builder->CreateAdd(finalStringMemory, existingByteOffsetInLoop);
+    Value * destinationAddress = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {existingByteOffsetInLoop});
 
     // Create call to memcpy with destination (with offset), source and num
     // void * memcpy ( void * destination, const void * source, size_t num );
     ArrayRef<Value *> memcpyArguments {destinationAddress, currentStringMemoryValue, currentStringLengthValue};
     Function * memcpyFunc = currentPackage->builtins->module->getFunction("memcpy");
-    // currentPackage->builtins->builder->CreateCall(memcpyFunc, memcpyArguments);
+    currentPackage->builtins->builder->CreateCall(memcpyFunc, memcpyArguments);
 
     // Update byteOffset as current byteOffset + current string length
-    Value * byteOffsetPlusStringLength = currentPackage->builtins->builder->CreateAdd(existingByteOffsetInLoop, currentStringLengthValue);
+    Value * byteOffsetPlusString = currentPackage->builtins->builder->CreateAdd(existingByteOffsetInLoop, currentStringLengthValue);
 
-    // Add ", "
-    // Value * commaWhiteSpace = geti8StrVal(*currentPackage->currentModule->module, ", ", "newline");
-    // Value * destinationCommaAddress = currentPackage->builtins->builder->CreateAdd(finalStringMemory, byteOffsetPlusStringLength);
-    // ArrayRef<Value *> memcpyCommaArguments {destinationCommaAddress, commaWhiteSpace, twoValue};
-    // currentPackage->builtins->builder->CreateCall(memcpyFunc, memcpyCommaArguments);
+    // Add "," (44)
+    Value * comma = ConstantInt::get(*currentPackage->context, llvm::APInt(8, 44, true));
+    Value * destinationComma = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {byteOffsetPlusString});
+    currentPackage->builtins->builder->CreateStore(comma, destinationComma);
 
-    // Update byteOffset as current byteOffset + 2 (comma + whitespace)
-    // Value * byteOffsetPlusComma = currentPackage->builtins->builder->CreateAdd(byteOffsetPlusStringLength, twoValue);
+    Value * oneValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
+    Value * byteOffsetPlusComma = currentPackage->builtins->builder->CreateAdd(byteOffsetPlusString, oneValue);
+
+    // Add " " (32)
+    Value * whiteSpace = ConstantInt::get(*currentPackage->context, llvm::APInt(8, 32, true));
+    Value * destinationwhiteSpace = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {byteOffsetPlusComma});
+    currentPackage->builtins->builder->CreateStore(whiteSpace, destinationwhiteSpace);
+
+    Value * byteOffsetPlusWhiteSpace = currentPackage->builtins->builder->CreateAdd(byteOffsetPlusComma, oneValue);
 
     // Store new byteoffset
-    currentPackage->builtins->builder->CreateStore(byteOffsetPlusStringLength, currentByteOffsetPtr);
+    currentPackage->builtins->builder->CreateStore(byteOffsetPlusWhiteSpace, currentByteOffsetPtr);
+
+    FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
 
     // Increment index + 1
     Value * incrementedMemcpyIndexInLoop = currentPackage->builtins->builder->CreateAdd(existingMemcpyIndexInLoop, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
     // Store new index
     currentPackage->builtins->builder->CreateStore(incrementedMemcpyIndexInLoop, memcpyIndexPtr);
-
-    // TODO: Outside loop, add null-terminator?
 
     // At the end of while-block, jump back to the condition which may jump to mergeBlock or reiterate
     currentPackage->builtins->builder->CreateBr(memcpyCondBlock);
@@ -275,33 +286,45 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Make sure new code is added to "block" after while statement
     currentPackage->builtins->builder->SetInsertPoint(memcpyMergeBlock);
 
-    // Allocate string struct
-    auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
-        currentPackage->builtins->builder->GetInsertBlock(),
-        llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        stringClass->structType,                                // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(stringClass->structType),       // size, matches input type?
-        nullptr, nullptr);
-    currentPackage->builtins->builder->Insert(stringMemoryPointer);
+    auto one = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
 
-    ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->builtins->builder->CreateCall(stringClass->constructor, argumentsReference);
-    auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    auto pointerGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
-    currentPackage->builtins->builder->CreateStore(finalStringMemory, pointerGEP);
+    // Insert closing bracket (ASCII 93)
+    Value * lastOffset = currentPackage->builtins->builder->CreateLoad(currentByteOffsetPtr);
+
+    Value * closingBracket = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 93, true));
+    Value * destinationClosingBracket = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {lastOffset});
+    currentPackage->builtins->builder->CreateStore(closingBracket, destinationClosingBracket);
+
+    // Add null-terminator
+    auto zeroConstant = ConstantInt::get(*currentPackage->context, llvm::APInt(8, 0, true));
+    Value * nullTerminatorAddress = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, { finalSum });
+    currentPackage->builtins->builder->CreateStore(zeroConstant, nullTerminatorAddress);
+
+    // Create string and set pointer + size
+    auto outputStringPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->builtins->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+        stringClass->structType,                                    // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringClass->structType),           // size, matches input type?
+        nullptr,
+        nullptr,
+        ""
+    );
+    currentPackage->builtins->builder->Insert(outputStringPointer);
+
+    int outputStringPointerIndex = stringClass->properties["stringPointer"]->index;
+    auto outputStringPointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto outputStringPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, outputStringPointerIndex, true));
+    auto outputStringGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, outputStringPointer, {outputStringPointerZeroValue, outputStringPointerIndexValue});
+
+    currentPackage->builtins->builder->CreateStore(finalStringMemory, outputStringGEP);
 
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    auto sizeGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, outputStringPointer, {sizeZeroValue, sizeIndexValue});
     currentPackage->builtins->builder->CreateStore(finalSum, sizeGEP);
 
-    // FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
-    // auto printfArgs = ArrayRef<Value *>{geti8StrVal(*currentPackage->builtins->module, "Final sum: %d\n", "args"), finalSum};
-    // currentPackage->builtins->builder->CreateCall(printfFunc, printfArgs);
-
-    // TODO: Store
-    currentPackage->builtins->builder->CreateRet(stringMemoryPointer);
+    currentPackage->builtins->builder->CreateRet(outputStringPointer);
     currentPackage->builtins->builder->SetInsertPoint(resumeBlock);
 }
 

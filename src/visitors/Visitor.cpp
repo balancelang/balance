@@ -102,8 +102,8 @@ Type *getBuiltinType(BalanceTypeString * typeString) {
     return nullptr;
 }
 
-Constant *geti8StrVal(Module &M, char const *str, Twine const &name) {
-    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str);
+Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
+    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
     auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
     Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(M.getContext()));
     Constant *indices[] = {zero, zero};
@@ -687,7 +687,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 } else if (PT->getElementType()->isArrayTy()) {
                     // TODO: Implement Array.toString() and invoke that instead of directly calling printf
                     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
+                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args", true)};
                     FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
                     (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
                     int numElements = PT->getElementType()->getArrayNumElements();
@@ -698,14 +698,14 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                         auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
                         llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
                         if (i < numElements - 1) {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args", true), valueAtIndex};
                             (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         } else {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true), valueAtIndex};
                             (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         }
                     }
-                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
+                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args", true)};
                     (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
 
                     return any();

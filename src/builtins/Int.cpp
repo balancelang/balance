@@ -74,7 +74,7 @@ void createMethod_Int_toString() {
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
         ConstantInt::get(*currentPackage->context, APInt(32, 0)),
-        geti8StrVal(*currentPackage->currentModule->module, "%d", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
@@ -96,7 +96,7 @@ void createMethod_Int_toString() {
     ArrayRef<Value *> arguments({
         memoryPointer,
         ConstantInt::get(*currentPackage->context, APInt(32, 50)),
-        geti8StrVal(*currentPackage->currentModule->module, "%d", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
 

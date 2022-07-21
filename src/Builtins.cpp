@@ -66,7 +66,7 @@ void createFunction__print()
 
     // Create newline TODO: Make this a parameter?
     ArrayRef<Value *> newlineArguments({
-        geti8StrVal(*currentPackage->currentModule->module, "\n", "newline"),
+        geti8StrVal(*currentPackage->currentModule->module, "\n", "newline", true),
     });
     currentPackage->currentModule->builder->CreateCall(printfFunction, newlineArguments);
 

@@ -82,7 +82,7 @@ void createMethod_Bool_toString() {
     // if value == 0 (false)                                                                        // 5 = 'false'
     Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 5, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueFalse, sizeGEP);
-    Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false");
+    Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueFalse, pointerGEP);
 
     currentPackage->currentModule->builder->CreateBr(mergeBlock);
@@ -93,7 +93,7 @@ void createMethod_Bool_toString() {
     Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 4, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueTrue, sizeGEP);
 
-    Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true");
+    Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueTrue, pointerGEP);
 
     currentPackage->currentModule->builder->CreateBr(mergeBlock);

@@ -62,7 +62,7 @@ using namespace std;
 
 llvm::Value *anyToValue(any anyVal);
 Type *getBuiltinType(BalanceTypeString * typeString);
-Constant *geti8StrVal(Module &M, char const *str, Twine const &name);
+Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull);
 void LogError(string errorMessage);
 
 class BalanceVisitor : public BalanceParserBaseVisitor
