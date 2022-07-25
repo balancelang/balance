@@ -167,7 +167,7 @@ literal
     ;
 
 arrayLiteral
-    : '[' listElements ']'
+    : '[' listElements ','? ']'
     ;
 
 listElements

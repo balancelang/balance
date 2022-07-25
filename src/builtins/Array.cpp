@@ -61,6 +61,9 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, lengthIndexValue});
     Value * lengthValue = currentPackage->builtins->builder->CreateLoad(lengthPointerGEP);
 
+    Value * lengthMinusOneValue = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
+
+
     auto elementSize = ConstantExpr::getSizeOf(stringClass->structType->getPointerTo());
 
     // Allocate N string pointers
@@ -165,12 +168,12 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Make sure new code is added to "block" after while statement
     currentPackage->builtins->builder->SetInsertPoint(mergeBlock);
 
-    // Calculate total length including brackets, commas and whitespace (+ 2 + 2*(N))
+    // Calculate total length including brackets, commas and whitespace (+ 2 + 2*(N-1))
     Value * totalSum = currentPackage->builtins->builder->CreateLoad(totalLengthVariablePtr);
-    // auto nMinusOne = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
+    auto nMinusOne = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
     Value * twoValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 2, true));
-    auto twoTimesNMinusOne = currentPackage->builtins->builder->CreateMul(twoValue, lengthValue);
-    auto plusBrackets = currentPackage->builtins->builder->CreateAdd(twoTimesNMinusOne, twoValue);       // TODO: add brackets
+    auto twoTimesNMinusOne = currentPackage->builtins->builder->CreateMul(twoValue, nMinusOne);
+    auto plusBrackets = currentPackage->builtins->builder->CreateAdd(twoTimesNMinusOne, twoValue);
     Value * finalSum = currentPackage->builtins->builder->CreateAdd(totalSum, plusBrackets);
 
     // Calculate string length + null terminator
@@ -214,7 +217,8 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // while condition
     Value * existingMemcpyIndex = currentPackage->builtins->builder->CreateLoad(memcpyIndexPtr);
-    Value * memcpyCondition = currentPackage->builtins->builder->CreateICmpSLT(existingMemcpyIndex, lengthValue);
+    // We loop N-1 times while adding ", " and then do that last "manually"
+    Value * memcpyCondition = currentPackage->builtins->builder->CreateICmpSLT(existingMemcpyIndex, lengthMinusOneValue);
 
     // Create the condition - if expression is true, jump to loop block, else jump to after loop block
     currentPackage->builtins->builder->CreateCondBr(memcpyCondition, memcpyLoopBlock, memcpyMergeBlock);
@@ -285,11 +289,44 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Make sure new code is added to "block" after while statement
     currentPackage->builtins->builder->SetInsertPoint(memcpyMergeBlock);
 
+    // BEGIN LAST ELEMENT
+    // Load current index
+    Value * lastElementIndex = currentPackage->builtins->builder->CreateLoad(memcpyIndexPtr);
+
+    // Load current byteOffset
+    Value * lastElementByteOffset = currentPackage->builtins->builder->CreateLoad(currentByteOffsetPtr);
+
+    // Load current string
+    auto lastElementGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType->getPointerTo(), arrayMemoryPointer, {lastElementIndex});
+    Value * lastElement = currentPackage->builtins->builder->CreateLoad(lastElementGEP);
+
+    // Get GEP for current string length and load
+    auto lastElementZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto lastElementLengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
+    auto lastElementLengthGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, lastElement, {lastElementZeroValue, lastElementLengthIndexValue});
+    Value * lastElementLengthValue = currentPackage->builtins->builder->CreateLoad(lastElementLengthGEP);
+
+    // Get GEP for current string memory
+    auto lastElementMemoryZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto lastElementMemoryIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
+    auto lastElementMemoryGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, lastElement, {lastElementMemoryZeroValue, lastElementMemoryIndexValue});
+    Value * lastElementMemoryValue = currentPackage->builtins->builder->CreateLoad(lastElementMemoryGEP);
+
+    // Calculate destination address + byteOffset
+    Value * lastElementDestinationAddress = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {lastElementByteOffset});
+
+    // Create call to memcpy with destination (with offset), source and num
+    // void * memcpy ( void * destination, const void * source, size_t num );
+    ArrayRef<Value *> lastElementMemcpyArguments {lastElementDestinationAddress, lastElementMemoryValue, lastElementLengthValue};
+    currentPackage->builtins->builder->CreateCall(memcpyFunc, lastElementMemcpyArguments);
+
+    // Update byteOffset as current byteOffset + current string length
+    Value * lastOffset = currentPackage->builtins->builder->CreateAdd(lastElementByteOffset, lastElementLengthValue);
+    // END LAST ELEMENT
+
     auto one = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
 
     // Insert closing bracket (ASCII 93)
-    Value * lastOffset = currentPackage->builtins->builder->CreateLoad(currentByteOffsetPtr);
-
     Value * closingBracket = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 93, true));
     Value * destinationClosingBracket = currentPackage->builtins->builder->CreateGEP(Type::getInt8Ty(*currentPackage->context), finalStringMemory, {lastOffset});
     currentPackage->builtins->builder->CreateStore(closingBracket, destinationClosingBracket);
