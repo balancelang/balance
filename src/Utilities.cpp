@@ -123,6 +123,8 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
             } else if (propertyType->getPointerElementType()->isStructTy()) {
                 // TODO: Does it suffice if we do this for all pointer types? (e.g remove the two above)
                 initialValue = ConstantPointerNull::get(PT);
+            } else {
+                initialValue = ConstantPointerNull::get(PT);
             }
         }
 

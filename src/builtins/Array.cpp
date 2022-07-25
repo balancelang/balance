@@ -62,15 +62,16 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Value * lengthValue = currentPackage->builtins->builder->CreateLoad(lengthPointerGEP);
 
     auto elementSize = ConstantExpr::getSizeOf(stringClass->structType->getPointerTo());
-    auto allocize = currentPackage->builtins->builder->CreateMul(elementSize, lengthValue);
 
     // Allocate N string pointers
     auto arrayMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->builtins->builder->GetInsertBlock(),
-        llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        stringClass->structType->getPointerTo(),                // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(arrayClass->structType),        // size, matches input type?
-        nullptr, nullptr, "");
+        llvm::Type::getInt64Ty(*currentPackage->context),                       // Size type, e.g. 'n' in malloc(n)
+        stringClass->structType->getPointerTo(),                                // output type, which we get pointer to?
+        elementSize,                                                            // size of each element
+        lengthValue,
+        nullptr,
+        "");
     currentPackage->builtins->builder->Insert(arrayMemoryPointer);
 
     // TODO: Create a map function that works on arrays, where toString can be the mapping
@@ -272,8 +273,6 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // Store new byteoffset
     currentPackage->builtins->builder->CreateStore(byteOffsetPlusWhiteSpace, currentByteOffsetPtr);
-
-    FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
 
     // Increment index + 1
     Value * incrementedMemcpyIndexInLoop = currentPackage->builtins->builder->CreateAdd(existingMemcpyIndexInLoop, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));

@@ -80,12 +80,13 @@ void createMethod_Int_toString() {
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 
-    // TODO: stringLength + 1?
+    Value * stringLengthWithNull = currentPackage->currentModule->builder->CreateAdd(stringLength, ConstantInt::get(*currentPackage->context, APInt(32, 1)));
+
     auto memoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),   // input type?
         llvm::Type::getInt8Ty(*currentPackage->context),    // output type, which we get pointer to?
-        stringLength,                                       // size, matches input type?
+        stringLengthWithNull,                                       // size, matches input type?
         nullptr,
         nullptr,
         ""
@@ -95,7 +96,7 @@ void createMethod_Int_toString() {
     // int snprintf ( char * s, size_t n, const char * format, ... );
     ArrayRef<Value *> arguments({
         memoryPointer,
-        ConstantInt::get(*currentPackage->context, APInt(32, 50)),
+        stringLengthWithNull,
         geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
