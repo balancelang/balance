@@ -294,20 +294,29 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
             // int32
             arrayClassString->generics.push_back(new BalanceTypeString("Int"));
         }
+    } else if (type->isFloatingPointTy()) {
+        arrayClassString->generics.push_back(new BalanceTypeString("Double"));
+    } else if (PointerType *PT = dyn_cast<PointerType>(type)) {
+        if (PT->getPointerElementType()->isStructTy()) {
+            // get struct type
+            std::string className = PT->getPointerElementType()->getStructName().str();
+
+            // TODO: Not sure this will work for nested generic types
+            arrayClassString->generics.push_back(new BalanceTypeString(className));
+        }
     }
 
     // TODO: Figure out how we get BalanceTypeString from the type
-
+    getBuiltinType(arrayClassString);
     BalanceImportedClass *arrayClass = currentPackage->currentModule->getImportedClass(arrayClassString);
     auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
-    auto allocSize = llvm::ConstantExpr::getMul(elementSize, arrayLength);
 
     auto memoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
         type,                                                       // output type, which we get pointer to?
-        allocSize,                                                  // size, matches input type?
-        nullptr,
+        elementSize,                                                  // size, matches input type?
+        arrayLength,
         nullptr,
         ""
     );
@@ -662,28 +671,23 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             if (PointerType *PT = dyn_cast<PointerType>(value->getType())) {
                 if (PT->getPointerElementType()->isStructTy()) {
                     std::string structName = PT->getPointerElementType()->getStructName().str();
-                    if (structName == "String") {
-                        auto args = ArrayRef<Value *>{value};
-                        return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, args);
-                    } else {
-                        // invoke .toString() on the struct
-                        BalanceClass * bclass = currentPackage->currentModule->getClassFromStructName(structName);
-                        if (bclass == nullptr) {
-                            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromStructName(structName);
-                            if (ibclass == nullptr) {
-                                // TODO: Throw error
-                            } else {
-                                bclass = ibclass->bclass;
-                            }
+                    // invoke .toString() on the struct
+                    BalanceClass * bclass = currentPackage->currentModule->getClassFromStructName(structName);
+                    if (bclass == nullptr) {
+                        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromStructName(structName);
+                        if (ibclass == nullptr) {
+                            // TODO: Throw error
+                        } else {
+                            bclass = ibclass->bclass;
                         }
-
-                        Function * toStringFunction = bclass->methods["toString"]->function;
-                        auto args = ArrayRef<Value *>{value};
-                        Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
-
-                        auto printArgs = ArrayRef<Value *>{stringValue};
-                        return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                     }
+
+                    Function * toStringFunction = bclass->methods["toString"]->function;
+                    auto args = ArrayRef<Value *>{value};
+                    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
+
+                    auto printArgs = ArrayRef<Value *>{stringValue};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 } else if (PT->getElementType()->isArrayTy()) {
                     // TODO: Implement Array.toString() and invoke that instead of directly calling printf
                     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));

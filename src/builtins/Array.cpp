@@ -121,12 +121,12 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     BalanceClass * bclass = currentPackage->currentModule->getClass(arrayClass->name->generics[0]);
     if (bclass != nullptr) {
         genericToStringFunction = bclass->methods["toString"]->function;
-        genericType = bclass->type != nullptr ? bclass->type : bclass->structType;
+        genericType = bclass->type != nullptr ? bclass->type : bclass->structType->getPointerTo();
     } else {
         BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(arrayClass->name->generics[0]);
         if (ibclass != nullptr) {
             genericToStringFunction = ibclass->methods["toString"]->function;
-            genericType = ibclass->bclass->type != nullptr ? ibclass->bclass->type : ibclass->bclass->structType;
+            genericType = ibclass->bclass->type != nullptr ? ibclass->bclass->type : ibclass->bclass->structType->getPointerTo();
         } else {
             // TODO: Throw error
         }

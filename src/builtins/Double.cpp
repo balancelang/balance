@@ -108,7 +108,10 @@ void createMethod_Double_toString() {
 }
 
 void createType__Double() {
-    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Double"));
+    auto typeString = new BalanceTypeString("Double");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Double"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

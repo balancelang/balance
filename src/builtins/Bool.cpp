@@ -105,7 +105,10 @@ void createMethod_Bool_toString() {
 }
 
 void createType__Bool() {
-    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Bool"));
+    auto typeString = new BalanceTypeString("Bool");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Bool"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

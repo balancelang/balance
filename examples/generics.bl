@@ -1,3 +1,5 @@
 def returnsArray() -> Array<Int> {
     return [1,2,3]
 }
+
+print(returnsArray())
