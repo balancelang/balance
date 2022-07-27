@@ -8,7 +8,7 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_String_toString() {
+void createMethod_String_toString_WITH_QUOTES() {
     // Create forward declaration of memcpy
     // void * memcpy ( void * destination, const void * source, size_t num );
     ArrayRef<Type *> memcpyParams({
@@ -123,6 +123,55 @@ void createMethod_String_toString() {
     currentPackage->currentModule->builder->CreateStore(newStringContentPointer, newStringPointerGEP);
 
     currentPackage->currentModule->builder->CreateRet(newStringPointer);
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+}
+
+void createMethod_String_toString() {
+    // Create forward declaration of memcpy
+    // void * memcpy ( void * destination, const void * source, size_t num );
+    ArrayRef<Type *> memcpyParams({
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
+        llvm::Type::getInt64Ty(*currentPackage->context),
+    });
+    llvm::Type * memcpyReturnType = llvm::Type::getInt32Ty(*currentPackage->context);
+    llvm::FunctionType * memcpyDeclarationType = llvm::FunctionType::get(memcpyReturnType, memcpyParams, false);
+    currentPackage->builtins->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
+
+
+    std::string functionName = "toString";
+    std::string functionNameWithClass = "String_" + functionName;
+
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("String"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("String"));
+
+    // Create BalanceFunction
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+
+    // Create llvm::Function
+    ArrayRef<Type *> parametersReference({
+        getBuiltinType(new BalanceTypeString("String"))
+    });
+
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
+
+    llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
+
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    currentPackage->currentModule->currentClass->methods[functionName]->function = intToStringFunc;
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
+
+    // Store current block so we can return to it after function declaration
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    Function::arg_iterator args = intToStringFunc->arg_begin();
+    llvm::Value * stringValue = args++;
+
+    currentPackage->currentModule->builder->CreateRet(stringValue);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 

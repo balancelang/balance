@@ -137,6 +137,8 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     currentPackage->currentModule->currentClass->structType->setBody(propertyTypesRef, false);
     currentPackage->currentModule->currentClass->hasBody = true;
 
+    currentPackage->currentModule->currentClass->name->populateTypes();
+
     currentPackage->currentModule->currentClass = nullptr;
     return nullptr;
 }
@@ -163,10 +165,14 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
                     if (ibclass == nullptr) {
                         // TODO: Throw error
                     } else {
-                        bparameter->type = ibclass->bclass->structType;
+                        if (ibclass->bclass->structType != nullptr) {
+                            bparameter->type = ibclass->bclass->structType->getPointerTo();
+                        }
                     }
                 } else {
-                    bparameter->type = bclass->structType;
+                    if (bclass->structType != nullptr) {
+                        bparameter->type = bclass->structType->getPointerTo();
+                    }
                 }
             }
         }
@@ -189,20 +195,18 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
         // Check if we are parsing a class method
         Function *function;
         if (currentPackage->currentModule->currentClass != nullptr) {
-            PointerType *thisPointer = currentPackage->currentModule->currentClass->structType->getPointerTo();
-            functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
-            functionParameterNames.insert(functionParameterNames.begin(), "this");
             std::string functionNameWithClass = currentPackage->currentModule->currentClass->name->toString() + "_" + functionName;
             ArrayRef<Type *> parametersReference(functionParameterTypes);
             // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
             FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
             function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-            currentPackage->currentModule->currentClass->methods[functionName]->function = function;
+
+            bfunction->function = function;
         } else {
             ArrayRef<Type *> parametersReference(functionParameterTypes);
             FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
             function = Function::Create(functionType, Function::ExternalLinkage, functionName, currentPackage->currentModule->module);
-            currentPackage->currentModule->functions[functionName]->function = function;
+            bfunction->function = function;
         }
     }
 

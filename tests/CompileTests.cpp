@@ -119,7 +119,7 @@ void createPrintString() {
     assertEqual("HELLO\n", result, program);
 }
 
-void createPrintList() {
+void createPrintArray() {
     string program = "var a = [1,2,3,4]\nprint(a)";
     string result = run(program);
     assertEqual("[1, 2, 3, 4]\n", result, program);
@@ -210,7 +210,7 @@ void runCompileTestSuite() {
     createPrintBool();
     createPrintDouble();
     createPrintString();
-    // createPrintList();
+    createPrintArray();
     createFunctionAndInvoke();
     createLambdaAndInvoke();
     createReassignment();

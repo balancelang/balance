@@ -120,7 +120,9 @@ llvm::Value *BalanceModule::getValue(std::string variableName) {
     return nullptr;
 }
 
-void BalanceModule::setValue(std::string variableName, llvm::Value *value) { this->currentScope->symbolTable[variableName] = value; }
+void BalanceModule::setValue(std::string variableName, llvm::Value *value) {
+    this->currentScope->symbolTable[variableName] = value;
+}
 
 bool BalanceModule::finalized() {
     for (auto const &x : this->classes) {

@@ -111,8 +111,9 @@ void examplesHelloWorldTest() {
 }
 
 void examplesVariablesTest() {
+    // TODO: printing a string should print without quotes, but array of strings should include quotes?
     string result = runExample("../examples/variables.bl");
-    assertEqual("true\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n[1, 2, 3, 4]\n", result, "Variables");
+    assertEqual("true\n24\n25.66\nLorem ipsum\nThis is a multiline string\nthat started on the previous line\nand is now on the 3rd line\n[1, 2, 3]\n[true, false, true]\n[1.1, 2.2, 3.3]\n[a, b, c]\n", result, "Variables");
 }
 
 void examplesFunctionsTest() {
@@ -134,7 +135,7 @@ void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
     examplesHelloWorldTest();
-    // examplesVariablesTest();
+    examplesVariablesTest();
     examplesFunctionsTest();
     examplesLambdasTest();
     examplesFilesTest();

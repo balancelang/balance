@@ -54,12 +54,6 @@ void importClassToModule(BalanceImportedClass *ibclass, BalanceModule *bmodule) 
         vector<Type *> functionParameterTypes;
         vector<std::string> functionParameterNames;
 
-        if (ibclass->bclass->structType != nullptr) {
-            PointerType *thisPointer = ibclass->bclass->structType->getPointerTo();
-            functionParameterTypes.insert(functionParameterTypes.begin(), thisPointer);
-            functionParameterNames.insert(functionParameterNames.begin(), "this");
-        }
-
         for (BalanceParameter *bparameter : ibfunction->bfunction->parameters) {
             functionParameterTypes.push_back(bparameter->type);
             functionParameterNames.push_back(bparameter->name);

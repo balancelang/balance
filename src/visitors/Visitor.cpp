@@ -672,17 +672,21 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 if (PT->getPointerElementType()->isStructTy()) {
                     std::string structName = PT->getPointerElementType()->getStructName().str();
                     // invoke .toString() on the struct
+                    Function * toStringFunction = nullptr;
                     BalanceClass * bclass = currentPackage->currentModule->getClassFromStructName(structName);
                     if (bclass == nullptr) {
                         BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromStructName(structName);
-                        if (ibclass == nullptr) {
-                            // TODO: Throw error
-                        } else {
-                            bclass = ibclass->bclass;
+                        if (ibclass != nullptr) {
+                            toStringFunction = ibclass->methods["toString"]->function;
                         }
+                    } else {
+                        toStringFunction = bclass->methods["toString"]->function;
                     }
 
-                    Function * toStringFunction = bclass->methods["toString"]->function;
+                    if (toStringFunction == nullptr) {
+                        // TODO: Throw error
+                    }
+
                     auto args = ArrayRef<Value *>{value};
                     Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
 
@@ -767,8 +771,8 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         // Create File struct which holds this and return pointer to the struct
         BalanceClass *fileClass = currentPackage->builtins->classes["File"];
 
-        auto structSize = ConstantExpr::getSizeOf(fileClass->type);
-        auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->type->getPointerTo(), fileClass->type, structSize, nullptr, nullptr, "");
+        auto structSize = ConstantExpr::getSizeOf(fileClass->structType);
+        auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->structType->getPointerTo(), fileClass->structType, structSize, nullptr, nullptr, "");
         currentPackage->currentModule->builder->Insert(pointer);
 
         ArrayRef<Value *> argumentsReference{pointer};
@@ -778,7 +782,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         int intIndex = fileClass->properties["filePointer"]->index;
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
 
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->type, pointer, {zero, index});
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->structType, pointer, {zero, index});
         currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
 
         return (Value *)pointer;
@@ -994,10 +998,6 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     // Add function parameter names and insert in function scope
     Function::arg_iterator args = bfunction->function->arg_begin();
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        llvm::Value *thisPointer = args++;
-        currentPackage->currentModule->setValue("this", thisPointer);
-    }
 
     for (BalanceParameter *parameter : bfunction->parameters) {
         llvm::Value *x = args++;
