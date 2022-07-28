@@ -110,7 +110,6 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
     // Add implicit "this" argument to class methods
     if (currentPackage->currentModule->currentClass != nullptr) {
         BalanceParameter * thisParameter = new BalanceParameter(currentPackage->currentModule->currentClass->name, "this");
-        thisParameter->implicit = true;
         parameters.push_back(thisParameter);
     }
 
