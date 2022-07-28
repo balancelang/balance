@@ -2,6 +2,8 @@
 #include "../Builtins.h"
 #include "../Package.h"
 
+#include "../models/BalanceTypeString.h"
+
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
@@ -9,8 +11,8 @@ extern BalancePackage *currentPackage;
 extern llvm::Value *accessedValue;
 
 void createMethod_Bool_toString() {
-    BalanceParameter * valueParameter = new BalanceParameter("Bool", "value");
-    valueParameter->type = getBuiltinType("Bool");
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Bool"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("Bool"));
 
     std::string functionName = "toString";
     std::string functionNameWithClass = "Bool_" + functionName;
@@ -22,17 +24,17 @@ void createMethod_Bool_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType("Bool")
+        getBuiltinType(new BalanceTypeString("Bool"))
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType("String"), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
 
     llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = boolToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("String");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -41,7 +43,7 @@ void createMethod_Bool_toString() {
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
@@ -80,7 +82,7 @@ void createMethod_Bool_toString() {
     // if value == 0 (false)                                                                        // 5 = 'false'
     Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 5, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueFalse, sizeGEP);
-    Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false");
+    Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueFalse, pointerGEP);
 
     currentPackage->currentModule->builder->CreateBr(mergeBlock);
@@ -91,7 +93,7 @@ void createMethod_Bool_toString() {
     Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 4, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueTrue, sizeGEP);
 
-    Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true");
+    Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueTrue, pointerGEP);
 
     currentPackage->currentModule->builder->CreateBr(mergeBlock);
@@ -103,7 +105,10 @@ void createMethod_Bool_toString() {
 }
 
 void createType__Bool() {
-    BalanceClass * bclass = new BalanceClass("Bool");
+    auto typeString = new BalanceTypeString("Bool");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Bool"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

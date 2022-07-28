@@ -43,23 +43,57 @@ void BalanceModule::generateASTFromString(std::string program) {
     this->generateASTFromStream(antlrStream);
 }
 
-BalanceClass *BalanceModule::getClass(std::string className) {
-    if (this->classes.find(className) != this->classes.end()) {
-        return this->classes[className];
+BalanceClass *BalanceModule::getClass(BalanceTypeString * className) {
+    std::string structName = className->toString();
+    return this->getClassFromStructName(structName);
+}
+
+BalanceClass * BalanceModule::getClassFromStructName(std::string structName) {
+    if (this->classes.find(structName) != this->classes.end()) {
+        return this->classes[structName];
     }
+    return nullptr;
+}
+
+BalanceClass * BalanceModule::getClassFromBaseName(std::string baseName) {
+    for (auto const &x : classes)
+    {
+        BalanceClass * bclass = x.second;
+        if (bclass->name->base == baseName) {
+            return bclass;
+        }
+    }
+
+    return nullptr;
+}
+
+BalanceImportedClass *BalanceModule::getImportedClass(BalanceTypeString * className) {
+    std::string structName = className->toString();
+    return this->getImportedClassFromStructName(structName);
+}
+
+BalanceImportedClass * BalanceModule::getImportedClassFromStructName(std::string structName) {
+    if (this->importedClasses.find(structName) != this->importedClasses.end()) {
+        return this->importedClasses[structName];
+    }
+    return nullptr;
+}
+
+BalanceImportedClass * BalanceModule::getImportedClassFromBaseName(std::string baseName) {
+    for (auto const &x : importedClasses)
+    {
+        BalanceImportedClass * ibclass = x.second;
+        if (ibclass->bclass->name->base == baseName) {
+            return ibclass;
+        }
+    }
+
     return nullptr;
 }
 
 BalanceFunction *BalanceModule::getFunction(std::string functionName) {
     if (this->functions.find(functionName) != this->functions.end()) {
         return this->functions[functionName];
-    }
-    return nullptr;
-}
-
-BalanceImportedClass *BalanceModule::getImportedClass(std::string className) {
-    if (this->importedClasses.find(className) != this->importedClasses.end()) {
-        return this->importedClasses[className];
     }
     return nullptr;
 }
@@ -86,7 +120,9 @@ llvm::Value *BalanceModule::getValue(std::string variableName) {
     return nullptr;
 }
 
-void BalanceModule::setValue(std::string variableName, llvm::Value *value) { this->currentScope->symbolTable[variableName] = value; }
+void BalanceModule::setValue(std::string variableName, llvm::Value *value) {
+    this->currentScope->symbolTable[variableName] = value;
+}
 
 bool BalanceModule::finalized() {
     for (auto const &x : this->classes) {

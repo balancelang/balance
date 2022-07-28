@@ -1,5 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
-project(Balance VERSION 0.0.5)
+project(Balance VERSION 0.0.6)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -113,6 +113,7 @@ add_executable(balance
                src/models/BalanceModule.cpp
                src/models/BalanceParameter.cpp
                src/models/BalanceProperty.cpp
+               src/models/BalanceTypeString.cpp
                src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
@@ -124,6 +125,7 @@ add_executable(balance
                src/builtins/Int.cpp
                src/builtins/Double.cpp
                src/builtins/Bool.cpp
+               src/builtins/Array.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h

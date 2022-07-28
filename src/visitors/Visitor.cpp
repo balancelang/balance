@@ -1,6 +1,7 @@
 #include "Visitor.h"
 #include "../Package.h"
 #include "../models/BalanceClass.h"
+#include "../builtins/Array.h"
 
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -60,29 +61,49 @@ using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
 extern llvm::Value *accessedValue;
+extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void LogError(std::string errorMessage) { fprintf(stderr, "Error: %s\n", errorMessage.c_str()); }
 
 llvm::Value *anyToValue(any anyVal) { return any_cast<llvm::Value *>(anyVal); }
 
-Type *getBuiltinType(std::string typeString) {
-    if (typeString == "Int") {
+Type *getBuiltinType(BalanceTypeString * typeString) {
+    if (typeString->base == "Int") {
         return Type::getInt32Ty(*currentPackage->context);
-    } else if (typeString == "Bool") {
+    } else if (typeString->base == "Bool") {
         return Type::getInt1Ty(*currentPackage->context);
-    } else if (typeString == "String") {
-        return currentPackage->builtins->getClass("String")->structType->getPointerTo();
-    } else if (typeString == "Double") {
+    } else if (typeString->base == "String") {
+        return currentPackage->builtins->getClass(typeString)->structType->getPointerTo();
+    } else if (typeString->base == "Double") {
         return Type::getDoubleTy(*currentPackage->context);
-    } else if (typeString == "None") {
+    } else if (typeString->base == "None") {
         return Type::getVoidTy(*currentPackage->context);
+    } else if (typeString->base == "Array") {
+        BalanceClass * arrayClass = currentPackage->builtins->getClass(typeString);
+        if (arrayClass == nullptr) {
+            // TODO: Try to push this out of Visitor.cpp and make it a pass before this step
+            BalanceTypeString * genericTypeString = typeString->generics[0];
+            if (!genericTypeString->finalized()) {
+                genericTypeString->populateTypes();
+            }
+            BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+            createType__Array(typeString);
+            currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+
+            // Import class into module
+            arrayClass = currentPackage->builtins->getClass(typeString);
+            createImportedClass(currentPackage->currentModule, arrayClass);
+            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(arrayClass->name);
+            importClassToModule(ibclass, currentPackage->currentModule);
+        }
+        return arrayClass->structType->getPointerTo();
     }
 
     return nullptr;
 }
 
-Constant *geti8StrVal(Module &M, char const *str, Twine const &name) {
-    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str);
+Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
+    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
     auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
     Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(M.getContext()));
     Constant *indices[] = {zero, zero};
@@ -108,7 +129,8 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
 
 any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) {
     std::string text = ctx->getText();
-    std::string className = ctx->classInitializer()->IDENTIFIER()->getText();
+    // TODO: include generic types, if any
+    BalanceTypeString * className = new BalanceTypeString(ctx->classInitializer()->IDENTIFIER()->getText());
 
     BalanceClass *bclass;
     llvm::Function *constructor;
@@ -196,16 +218,41 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
 any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) {
     std::string text = ctx->getText();
 
-    any anyValMember = visit(ctx->member);
-    llvm::Value *valueMember = anyToValue(anyValMember);
-    any anyValIndex = visit(ctx->index);
-    llvm::Value *valueIndex = anyToValue(anyValIndex); // Should return i32 for now
-    any anyVal = visit(ctx->value);
-    llvm::Value *value = anyToValue(anyVal);
+    llvm::Value *value = anyToValue(visit(ctx->value));
 
-    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, valueIndex});
-    currentPackage->currentModule->builder->CreateStore(value, ptr);
+    llvm::Value *valueMember = anyToValue(visit(ctx->member));
+    if (ctx->index) {
+        // Index returns i32 directly, e.g. a[3] = ... returns 3 as a value
+        llvm::Value * pointerIndex = anyToValue(visit(ctx->index));
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zero, pointerIndex});
+        currentPackage->currentModule->builder->CreateStore(value, ptr);
+    } else {
+        std::string accessName = ctx->access->getText();
+
+        if (PointerType *PT = dyn_cast<PointerType>(valueMember->getType())) {
+            if (PT->getPointerElementType()->isStructTy()) {
+                // get struct type
+                std::string className = PT->getPointerElementType()->getStructName().str();
+
+                // TODO: Implement, and add test for this case
+                // BalanceClass * bclass = currentPackage->currentModule->getClass(className);
+                // if (bclass == nullptr) {
+                //     BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(className);
+                //     if (ibclass == nullptr) {
+                //         // TODO: Throw error
+                //     } else {
+                //         bclass = ibclass->bclass;
+                //     }
+                // }
+
+                // auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                // auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bclass->properties[accessName]->index, true));
+                // auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zeroValue, indexValue});
+                // currentPackage->currentModule->builder->CreateStore(value, ptr);
+            }
+        }
+    }
 
     return any();
 }
@@ -234,17 +281,76 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     }
 
     Type *type = values[0]->getType();
-    auto arrayType = llvm::ArrayType::get(type, values.size());
+    auto elementSize = ConstantExpr::getSizeOf(type);
 
-    // TODO: Malloc and implement Generics syntax, e.g. Array<Int>
-    AllocaInst *alloca = currentPackage->currentModule->builder->CreateAlloca(arrayType);
-    auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    BalanceTypeString * arrayClassString = new BalanceTypeString("Array");
+
+    if (type->isIntegerTy()) {
+        int width = type->getIntegerBitWidth();
+        if (width == 1) {
+            // bool
+            arrayClassString->generics.push_back(new BalanceTypeString("Bool"));
+        } else if (width == 32) {
+            // int32
+            arrayClassString->generics.push_back(new BalanceTypeString("Int"));
+        }
+    } else if (type->isFloatingPointTy()) {
+        arrayClassString->generics.push_back(new BalanceTypeString("Double"));
+    } else if (PointerType *PT = dyn_cast<PointerType>(type)) {
+        if (PT->getPointerElementType()->isStructTy()) {
+            // get struct type
+            std::string className = PT->getPointerElementType()->getStructName().str();
+
+            // TODO: Not sure this will work for nested generic types
+            arrayClassString->generics.push_back(new BalanceTypeString(className));
+        }
+    }
+
+    // TODO: Figure out how we get BalanceTypeString from the type
+    getBuiltinType(arrayClassString);
+    BalanceImportedClass *arrayClass = currentPackage->currentModule->getImportedClass(arrayClassString);
+    auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
+
+    auto memoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+        type,                                                       // output type, which we get pointer to?
+        elementSize,                                                  // size, matches input type?
+        arrayLength,
+        nullptr,
+        ""
+    );
+    currentPackage->currentModule->builder->Insert(memoryPointer);
+
     for (int i = 0; i < values.size(); i++) {
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(alloca, {zero, index});
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(memoryPointer, {index});
         currentPackage->currentModule->builder->CreateStore(values[i], ptr);
     }
-    return (Value *)alloca;
+
+    auto arrayMemoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+        arrayClass->bclass->structType,                             // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(arrayClass->bclass->structType),    // size, matches input type?
+        nullptr, nullptr, "");
+    currentPackage->currentModule->builder->Insert(arrayMemoryPointer);
+    ArrayRef<Value *> constructorArguments{arrayMemoryPointer};
+    currentPackage->currentModule->builder->CreateCall(arrayClass->constructor->constructor, constructorArguments);
+
+    // length
+    auto lengthZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->bclass->properties["length"]->index, true));
+    auto lengthGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->bclass->structType, arrayMemoryPointer, {lengthZeroValue, lengthIndexValue});
+    currentPackage->currentModule->builder->CreateStore(arrayLength, lengthGEP);
+
+    // memorypointer
+    auto memoryPointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->bclass->properties["memoryPointer"]->index, true));
+    auto memoryPointerGEP = currentPackage->currentModule->builder->CreateGEP(arrayClass->bclass->structType, arrayMemoryPointer, {memoryPointerZeroValue, memoryPointerIndexValue});
+    currentPackage->currentModule->builder->CreateStore(memoryPointer, memoryPointerGEP);
+
+    return (Value *)arrayMemoryPointer;
 }
 
 any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
@@ -287,9 +393,9 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
                 // get struct type
                 std::string className = PT->getPointerElementType()->getStructName().str();
                 // TODO: Make a function that does this search
-                BalanceClass *bclass = currentPackage->currentModule->getClass(className);
+                BalanceClass *bclass = currentPackage->currentModule->getClassFromStructName(className);
                 if (bclass == nullptr) {
-                    BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(className);
+                    BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClassFromStructName(className);
                     if (ibClass == nullptr) {
                         // TODO: Throw error.
                     } else {
@@ -406,10 +512,10 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
                 int width = lhsVal->getType()->getIntegerBitWidth();
                 if (width == 1) {
                     // bool
-                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 } else if (width == 32) {
                     // int32
-                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 }
             }
         }
@@ -418,10 +524,10 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
                 int width = rhsVal->getType()->getIntegerBitWidth();
                 if (width == 1) {
                     // bool
-                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 } else if (width == 32) {
                     // int32
-                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 }
             }
         }
@@ -457,10 +563,10 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
                 int width = lhsVal->getType()->getIntegerBitWidth();
                 if (width == 1) {
                     // bool
-                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateUIToFP(lhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 } else if (width == 32) {
                     // int32
-                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType("Double"));
+                    lhsVal = currentPackage->currentModule->builder->CreateSIToFP(lhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 }
             }
         }
@@ -469,10 +575,10 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
                 int width = rhsVal->getType()->getIntegerBitWidth();
                 if (width == 1) {
                     // bool
-                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateUIToFP(rhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 } else if (width == 32) {
                     // int32
-                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType("Double"));
+                    rhsVal = currentPackage->currentModule->builder->CreateSIToFP(rhsVal, getBuiltinType(new BalanceTypeString("Double")));
                 }
             }
         }
@@ -502,7 +608,7 @@ any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ct
 }
 
 any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) {
-    Type *type = getBuiltinType("Bool");
+    Type *type = getBuiltinType(new BalanceTypeString("Bool"));
     if (ctx->TRUE()) {
         return (Value *)ConstantInt::get(type, 1, true);
     }
@@ -511,7 +617,7 @@ any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ct
 
 any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
     std::string value = ctx->DOUBLE()->getText();
-    Type *type = getBuiltinType("Double");
+    Type *type = getBuiltinType(new BalanceTypeString("Double"));
     double doubleValue = stod(value);
     return (Value *)ConstantFP::get(type, doubleValue);
 }
@@ -520,7 +626,7 @@ any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
     std::string text = ctx->STRING()->getText();
     int stringLength = text.size();
 
-    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass("String");
+    BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClassFromStructName("String");
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
@@ -564,17 +670,32 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             llvm::Value *value = anyToValue(anyVal);
             if (PointerType *PT = dyn_cast<PointerType>(value->getType())) {
                 if (PT->getPointerElementType()->isStructTy()) {
-                    StringRef structName = PT->getPointerElementType()->getStructName();
-                    if (structName == "String") {
-                        auto args = ArrayRef<Value *>{value};
-                        return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, args);
+                    std::string structName = PT->getPointerElementType()->getStructName().str();
+                    // invoke .toString() on the struct
+                    Function * toStringFunction = nullptr;
+                    BalanceClass * bclass = currentPackage->currentModule->getClassFromStructName(structName);
+                    if (bclass == nullptr) {
+                        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromStructName(structName);
+                        if (ibclass != nullptr) {
+                            toStringFunction = ibclass->methods["toString"]->function;
+                        }
                     } else {
-                        // invoke .toString() on it
+                        toStringFunction = bclass->methods["toString"]->function;
                     }
+
+                    if (toStringFunction == nullptr) {
+                        // TODO: Throw error
+                    }
+
+                    auto args = ArrayRef<Value *>{value};
+                    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
+
+                    auto printArgs = ArrayRef<Value *>{stringValue};
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 } else if (PT->getElementType()->isArrayTy()) {
                     // TODO: Implement Array.toString() and invoke that instead of directly calling printf
                     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args")};
+                    auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args", true)};
                     FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
                     (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
                     int numElements = PT->getElementType()->getArrayNumElements();
@@ -585,14 +706,14 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                         auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
                         llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
                         if (i < numElements - 1) {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args"), valueAtIndex};
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args", true), valueAtIndex};
                             (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         } else {
-                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args"), valueAtIndex};
+                            auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true), valueAtIndex};
                             (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
                         }
                     }
-                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args")};
+                    auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args", true)};
                     (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
 
                     return any();
@@ -600,7 +721,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             } else if (IntegerType *IT = dyn_cast<IntegerType>(value->getType())) {
                 int width = value->getType()->getIntegerBitWidth();
                 if (width == 1) {
-                    BalanceImportedClass *boolClass = currentPackage->currentModule->getImportedClass("Bool");
+                    BalanceImportedClass *boolClass = currentPackage->currentModule->getImportedClassFromStructName("Bool");
                     BalanceImportedFunction *boolToStringFunc = boolClass->methods["toString"];
                     auto args = ArrayRef<Value *>{value};
                     Value *stringValue = currentPackage->currentModule->builder->CreateCall(boolToStringFunc->function, args);
@@ -608,7 +729,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                     auto printArgs = ArrayRef<Value *>{stringValue};
                     return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 } else {
-                    BalanceImportedClass *intClass = currentPackage->currentModule->getImportedClass("Int");
+                    BalanceImportedClass *intClass = currentPackage->currentModule->getImportedClassFromStructName("Int");
                     BalanceImportedFunction *intToStringFunc = intClass->methods["toString"];
                     auto args = ArrayRef<Value *>{value};
                     Value *stringValue = currentPackage->currentModule->builder->CreateCall(intToStringFunc->function, args);
@@ -617,7 +738,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                     return (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
                 }
             } else if (value->getType()->isFloatingPointTy()) {
-                BalanceImportedClass *doubleClass = currentPackage->currentModule->getImportedClass("Double");
+                BalanceImportedClass *doubleClass = currentPackage->currentModule->getImportedClassFromStructName("Double");
                 BalanceImportedFunction *doubleToStringFunc = doubleClass->methods["toString"];
                 auto args = ArrayRef<Value *>{value};
                 Value *stringValue = currentPackage->currentModule->builder->CreateCall(doubleToStringFunc->function, args);
@@ -629,7 +750,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         }
     } else if (accessedValue == nullptr && functionName == "open") {
         Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen"); // TODO: Move this to separate module
-        BalanceClass *stringClass = currentPackage->builtins->getClass("String");
+        BalanceClass *stringClass = currentPackage->builtins->getClassFromStructName("String");
         vector<Value *> functionArguments;
         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
             any anyVal = visit(argument);
@@ -701,11 +822,11 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
 
             Function *function;
             // TODO: Make a function that does this search and else returns nullptr
-            BalanceClass *bclass = currentPackage->currentModule->getClass(className);
+            BalanceClass *bclass = currentPackage->currentModule->getClassFromStructName(className);
             if (bclass == nullptr) {
-                BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(className);
+                BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClassFromStructName(className);
                 if (ibClass == nullptr) {
-                    bclass = currentPackage->builtins->getClass(className);
+                    bclass = currentPackage->builtins->getClassFromStructName(className);
                     if (bclass == nullptr) {
                         // TODO: Throw error.
                     } else {
@@ -805,17 +926,17 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
         std::string parameterName = parameter->identifier->getText();
         functionParameterNames.push_back(parameterName);
         std::string typeString = parameter->type->getText();
-        Type *type = getBuiltinType(typeString); // TODO: Handle unknown type
+        Type *type = getBuiltinType(new BalanceTypeString(typeString)); // TODO: Handle unknown type
         functionParameterTypes.push_back(type);
     }
 
     // If we don't have a return type, assume none
     Type *returnType;
     if (ctx->lambda()->returnType()) {
-        std::string functionReturnTypeString = ctx->lambda()->returnType()->IDENTIFIER()->getText();
-        returnType = getBuiltinType(functionReturnTypeString); // TODO: Handle unknown type
+        std::string functionReturnTypeString = ctx->lambda()->returnType()->balanceType()->getText();
+        returnType = getBuiltinType(new BalanceTypeString(functionReturnTypeString)); // TODO: Handle unknown type
     } else {
-        returnType = getBuiltinType("None");
+        returnType = getBuiltinType(new BalanceTypeString("None"));
     }
 
     ArrayRef<Type *> parametersReference(functionParameterTypes);
@@ -877,10 +998,6 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     // Add function parameter names and insert in function scope
     Function::arg_iterator args = bfunction->function->arg_begin();
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        llvm::Value *thisPointer = args++;
-        currentPackage->currentModule->setValue("this", thisPointer);
-    }
 
     for (BalanceParameter *parameter : bfunction->parameters) {
         llvm::Value *x = args++;

@@ -17,18 +17,20 @@ class BalanceImportedConstructor;
 class BalanceClass
 {
 public:
-    string name;
+    BalanceTypeString * name;
     map<string, BalanceProperty *> properties = {};
     map<string, BalanceFunction *> methods = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;
+    llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)
     bool hasBody;
     BalanceModule *module;
-    BalanceClass(string name)
+    BalanceClass(BalanceTypeString * name)
     {
         this->name = name;
     }
 
+    bool compareTypeString(BalanceTypeString * other);
     bool finalized();
     BalanceProperty * getProperty(std::string propertyName);
 };

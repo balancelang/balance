@@ -21,8 +21,8 @@ void createMethod_Double_toString() {
     std::string functionName = "toString";
     std::string functionNameWithClass = "Double_" + functionName;
 
-    BalanceParameter * valueParameter = new BalanceParameter("Double", "value");
-    valueParameter->type = getBuiltinType("Double");
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Double"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("Double"));
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -31,17 +31,17 @@ void createMethod_Double_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType("Double")
+        getBuiltinType(new BalanceTypeString("Double"))
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType("String"), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
 
     llvm::Function * doubleToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", doubleToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = doubleToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("String");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -50,7 +50,7 @@ void createMethod_Double_toString() {
     Function::arg_iterator args = doubleToStringFunc->arg_begin();
     llvm::Value * intValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClass(new BalanceTypeString("String"));
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
@@ -74,7 +74,7 @@ void createMethod_Double_toString() {
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
         ConstantInt::get(*currentPackage->context, APInt(32, 0)),
-        geti8StrVal(*currentPackage->currentModule->module, "%g", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
@@ -96,7 +96,7 @@ void createMethod_Double_toString() {
     ArrayRef<Value *> arguments({
         memoryPointer,
         ConstantInt::get(*currentPackage->context, APInt(32, 50)),
-        geti8StrVal(*currentPackage->currentModule->module, "%g", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
 
@@ -108,7 +108,10 @@ void createMethod_Double_toString() {
 }
 
 void createType__Double() {
-    BalanceClass * bclass = new BalanceClass("Double");
+    auto typeString = new BalanceTypeString("Double");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Double"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

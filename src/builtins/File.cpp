@@ -22,9 +22,9 @@ void createMethod_close() {
     llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "Int");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("Int"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = closeFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("None");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("None"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -96,7 +96,7 @@ void createMethod_read() {
 
     std::string functionName = "read";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentClass->structType->getPointerTo()  // File "this" argument
@@ -108,7 +108,7 @@ void createMethod_read() {
     llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = closeFunc;
     currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 
@@ -232,7 +232,7 @@ void createMethod_write() {
 
     std::string functionName = "write";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentClass->structType->getPointerTo(),  // this argument
@@ -245,7 +245,7 @@ void createMethod_write() {
     llvm::Function * writeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", writeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, "None");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("None"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = writeFunc;
     currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 
@@ -287,7 +287,7 @@ void createMethod_write() {
 }
 
 void createType__File() {
-    BalanceClass * bclass = new BalanceClass("File");
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("File"));
     currentPackage->currentModule->classes["File"] = bclass;
     bclass->properties["filePointer"] = new BalanceProperty("filePointer", "", 0);
     bclass->properties["filePointer"]->type = llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0);

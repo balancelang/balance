@@ -98,8 +98,8 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
             if (bfunction != nullptr) {
                 BalanceImportedFunction * ibfunction = currentPackage->currentModule->getImportedFunction(importString);
                 importFunctionToModule(ibfunction, currentPackage->currentModule);
-            } else if (importedModule->getClass(importString) != nullptr) {
-                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(importString);
+            } else if (importedModule->getClassFromBaseName(importString) != nullptr) {
+                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromBaseName(importString);
                 importClassToModule(ibclass, currentPackage->currentModule);
             }
         }

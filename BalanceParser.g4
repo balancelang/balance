@@ -66,7 +66,7 @@ assignment
 
 memberAssignment
     : member=expression '[' index=expression ']' '=' value=expression
-    | member=expression '.' identifier=expression '=' value=expression
+    | member=expression '.' access=variable '=' value=expression
     ;
 
 expression
@@ -90,8 +90,17 @@ parameterList
 	: (parameter (COMMA parameter)*)?
 	;
 
+balanceType
+    : IDENTIFIER                                                        # SimpleType
+    | base=IDENTIFIER '<' typeList '>'                                  # GenericType
+    ;
+
+typeList
+    : balanceType (COMMA balanceType)*
+    ;
+
 parameter
-    : type=IDENTIFIER identifier=IDENTIFIER /* For now, require type */
+    : type=balanceType identifier=IDENTIFIER /* For now, require type */
     ;
 
 argumentList
@@ -137,7 +146,7 @@ lambda
     ;
 
 returnType
-    : '->' IDENTIFIER
+    : '->' balanceType
     ;
 
 block
@@ -158,7 +167,7 @@ literal
     ;
 
 arrayLiteral
-    : '[' listElements ']'
+    : '[' listElements ','? ']'
     ;
 
 listElements

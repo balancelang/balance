@@ -21,8 +21,8 @@ void createMethod_Int_toString() {
     std::string functionName = "toString";
     std::string functionNameWithClass = "Int_" + functionName;
 
-    BalanceParameter * valueParameter = new BalanceParameter("Int", "value");
-    valueParameter->type = getBuiltinType("Int");
+    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Int"), "value");
+    valueParameter->type = getBuiltinType(new BalanceTypeString("Int"));
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -31,17 +31,17 @@ void createMethod_Int_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType("Int")
+        getBuiltinType(new BalanceTypeString("Int"))
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType("String"), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
 
     llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, "String");
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = intToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType("String");
+    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -50,7 +50,7 @@ void createMethod_Int_toString() {
     Function::arg_iterator args = intToStringFunc->arg_begin();
     llvm::Value * intValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass("String");
+    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
@@ -74,18 +74,19 @@ void createMethod_Int_toString() {
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
         ConstantInt::get(*currentPackage->context, APInt(32, 0)),
-        geti8StrVal(*currentPackage->currentModule->module, "%d", "args"),
+        geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 
-    // TODO: stringLength + 1?
+    Value * stringLengthWithNull = currentPackage->currentModule->builder->CreateAdd(stringLength, ConstantInt::get(*currentPackage->context, APInt(32, 1)));
+
     auto memoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),   // input type?
         llvm::Type::getInt8Ty(*currentPackage->context),    // output type, which we get pointer to?
-        stringLength,                                       // size, matches input type?
+        stringLengthWithNull,                                       // size, matches input type?
         nullptr,
         nullptr,
         ""
@@ -95,8 +96,8 @@ void createMethod_Int_toString() {
     // int snprintf ( char * s, size_t n, const char * format, ... );
     ArrayRef<Value *> arguments({
         memoryPointer,
-        ConstantInt::get(*currentPackage->context, APInt(32, 50)),
-        geti8StrVal(*currentPackage->currentModule->module, "%d", "args"),
+        stringLengthWithNull,
+        geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
 
@@ -108,7 +109,10 @@ void createMethod_Int_toString() {
 }
 
 void createType__Int() {
-    BalanceClass * bclass = new BalanceClass("Int");
+    auto typeString = new BalanceTypeString("Int");
+    BalanceClass * bclass = new BalanceClass(typeString);
+    bclass->type = getBuiltinType(typeString);
+
     currentPackage->currentModule->classes["Int"] = bclass;
     currentPackage->currentModule->currentClass = bclass;
 

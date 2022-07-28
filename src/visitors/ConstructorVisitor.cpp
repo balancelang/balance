@@ -73,9 +73,10 @@ extern BalancePackage *currentPackage;
 // Creates default empty argument constructor
 std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     string text = ctx->getText();
-    string className = ctx->className->getText();
+    string className = ctx->className->getText();  // TODO: Parse generics when syntax is implemented
+    BalanceTypeString * btypeString = new BalanceTypeString(className);
 
-    BalanceClass *bclass = currentPackage->currentModule->getClass(className);
+    BalanceClass *bclass = currentPackage->currentModule->getClass(btypeString);
     currentPackage->currentModule->currentClass = bclass;
 
     if (bclass->constructor == nullptr) {
