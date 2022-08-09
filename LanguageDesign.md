@@ -34,6 +34,17 @@
     - Sockets
     - File handles
     - overloads
+    - async / await
+        - await single syntax:
+            var b = await ...
+        - await multiple syntax:
+            await {
+                var q = ...
+                var b = ...
+            }
+            ^-- awaits all tasks and continues when all are done, leaving q and b with the results
+            the {} block can only contain awaitable expressions
+
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits
