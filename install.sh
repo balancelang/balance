@@ -1,6 +1,6 @@
 # cmake
 sudo apt update
-sudo apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre
+sudo apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre gdb
 sudo apt clean all
 
 wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null

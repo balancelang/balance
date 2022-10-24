@@ -6,10 +6,16 @@ extern BalancePackage *currentPackage;
 
 std::string BalanceTypeString::toString() {
     std::string result = this->base;
-    if (this->generics.size() > 0) {
-        for (BalanceTypeString * generic : this->generics) {
-            result += "<" + generic->toString() + ">";
+    auto genericsCount = this->generics.size();
+    if (genericsCount > 0) {
+        result += "<";
+        for (int i = 0; i < genericsCount; i++) {
+            result += this->generics[i]->toString();
+            if (i < genericsCount - 1) {
+                result += ", ";
+            }
         }
+        result += ">";
     }
 
     return result;

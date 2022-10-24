@@ -34,6 +34,12 @@
     - Sockets
     - File handles
     - overloads
+    - support dictionary initializer expression, e.g.
+        class A {
+            Int a
+            Int b
+        }
+        A a = { a: 123, b: 456 }
     - async / await
         - await single syntax:
             var b = await ...

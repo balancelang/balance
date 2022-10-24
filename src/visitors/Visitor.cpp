@@ -872,8 +872,14 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 functionArguments.push_back(castVal);
             }
 
-            ArrayRef<Value *> argumentsReference(functionArguments);
-            return (Value *)currentPackage->currentModule->builder->CreateCall(FunctionType::get(loaded->getType(), false), loaded, argumentsReference);
+            if (PointerType *PT = dyn_cast<PointerType>(val->getType()->getPointerElementType())) {
+                if (FunctionType *FT = dyn_cast<FunctionType>(PT->getPointerElementType())) {
+                    ArrayRef<Value *> argumentsReference(functionArguments);
+                    return (Value *)currentPackage->currentModule->builder->CreateCall(FT, loaded, argumentsReference);
+                }
+            }
+
+            // TODO: Throw error
         }
     } else {
         FunctionCallee function;

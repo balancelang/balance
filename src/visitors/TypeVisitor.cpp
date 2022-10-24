@@ -163,7 +163,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
                 if (bclass == nullptr) {
                     BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString);
                     if (ibclass == nullptr) {
-                        // TODO: Throw error
+                        throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
                     } else {
                         if (ibclass->bclass->structType != nullptr) {
                             bparameter->type = ibclass->bclass->structType->getPointerTo();

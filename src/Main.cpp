@@ -1,60 +1,52 @@
 #include "Main.h"
 #include "Builtins.h"
-#include "visitors/Visitor.h"
 #include "Package.h"
 #include "Utilities.h"
+#include "visitors/Visitor.h"
 
-#include <iostream>
-#include <cstdio>
-#include <fstream>
-#include "clang/Driver/Driver.h"
+#include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Driver/Compilation.h"
 #include "clang/CodeGen/CodeGenAction.h"
+#include "clang/Driver/Compilation.h"
+#include "clang/Driver/Driver.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/TextDiagnosticBuffer.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Value.h"
-#include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/GenericValue.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/IR/ValueSymbolTable.h"
-#include "antlr4-runtime.h"
+#include <cstdio>
+#include <fstream>
+#include <iostream>
 
 #include "../tests/ASTTests.h"
 #include "../tests/CompileTests.h"
@@ -65,8 +57,8 @@
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
 
-#include <typeinfo>
 #include <typeindex>
+#include <typeinfo>
 
 using namespace antlrcpptest;
 using namespace llvm;
@@ -79,13 +71,11 @@ BalancePackage *currentPackage = nullptr;
 // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
 llvm::Value *accessedValue;
 
-void printVersion()
-{
+void printVersion() {
     cout << "Balance version: " << BALANCE_VERSION << endl;
 }
 
-void printHelp()
-{
+void printHelp() {
     cout << "Run one of the following:" << endl;
     cout << "'./balance --help' to display this" << endl;
     cout << "'./balance --version' to display version" << endl;
@@ -94,30 +84,28 @@ void printHelp()
 }
 
 void createNewProject() {
-    if (fileExist("package.json"))
-    {
+    if (fileExist("package.json")) {
         cout << "This directory already contains a package.json" << endl;
         exit(1);
     }
 
-    std::ofstream  dst("package.json",   std::ios::binary);
+    std::ofstream dst("package.json", std::ios::binary);
 
     dst << ""
-"{"
-"\"name\": \"\",\n"
-"\"version\": \"0.0.0\",\n"
-"\"entrypoints\": {\n"
-"\"default\": \"[REPLACE WITH DEFAULT PROGRAM]\"\n"
-"},\n"
-"\"dependencies\": {\n"
-"}\n"
-"}\n";
+           "{"
+           "\"name\": \"\",\n"
+           "\"version\": \"0.0.0\",\n"
+           "\"entrypoints\": {\n"
+           "\"default\": \"[REPLACE WITH DEFAULT PROGRAM]\"\n"
+           "},\n"
+           "\"dependencies\": {\n"
+           "}\n"
+           "}\n";
 
     cout << "Created new project." << endl;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     bool isTest = false;
     bool isHelp = false;
     bool isPrintVersion = false;
@@ -128,31 +116,22 @@ int main(int argc, char **argv)
         arguments.push_back(argv[i]);
     }
 
-    if (argc == 1)
-    {
+    if (argc == 1) {
         printVersion();
         printHelp();
         return 0;
     }
 
     // i = 1, skip balance executable
-    for (int i = 1; i < arguments.size(); i++)
-    {
+    for (int i = 1; i < arguments.size(); i++) {
         std::string argument = arguments[i];
-        if (argument == "--test")
-        {
+        if (argument == "--test") {
             isTest = true;
-        }
-        else if (argument == "--version")
-        {
+        } else if (argument == "--version") {
             isPrintVersion = true;
-        }
-        else if (argument == "--help")
-        {
+        } else if (argument == "--help") {
             isHelp = true;
-        }
-        else if (argument == "--verbose")
-        {
+        } else if (argument == "--verbose") {
             verbose = true;
         } else {
             if (argument != "new" && argument != "run") {
@@ -177,22 +156,15 @@ int main(int argc, char **argv)
         bool success = currentPackage->execute();
         return !success;
     } else {
-        if (isPrintVersion)
-        {
+        if (isPrintVersion) {
             printVersion();
-        }
-        else if (isHelp)
-        {
+        } else if (isHelp) {
             printHelp();
-        }
-        else if (isTest)
-        {
+        } else if (isTest) {
             runASTTestSuite();
             runCompileTestSuite();
             runExamplesTestSuite();
-        }
-        else
-        {
+        } else {
             currentPackage = new BalancePackage("", entryPoint);
             bool success = currentPackage->executeAsScript();
             return !success;
