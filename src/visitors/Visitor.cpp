@@ -97,6 +97,17 @@ Type *getBuiltinType(BalanceTypeString * typeString) {
             importClassToModule(ibclass, currentPackage->currentModule);
         }
         return arrayClass->structType->getPointerTo();
+    } else if (typeString->base == "Lambda") {
+        vector<Type *> functionParameterTypes;
+        //                                              -1 since last parameter is return
+        for (int i = 0; i < typeString->generics.size() - 1; i++) {
+            functionParameterTypes.push_back(getBuiltinType(typeString->generics[i]));
+        }
+
+        ArrayRef<Type *> parametersReference(functionParameterTypes);
+
+        Type * returnType = getBuiltinType(typeString->generics.back());
+        return FunctionType::get(returnType, parametersReference, false)->getPointerTo();
     }
 
     return nullptr;
@@ -861,7 +872,14 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             }
 
             ArrayRef<Value *> argumentsReference(functionArguments);
-            return (Value *)currentPackage->currentModule->builder->CreateCall(FunctionType::get(val->getType(), false), val, argumentsReference);
+            
+            if (FunctionType *FT = dyn_cast<FunctionType>(val->getType()->getPointerElementType())) {
+                ArrayRef<Value *> argumentsReference(functionArguments);
+                return (Value *)currentPackage->currentModule->builder->CreateCall(FT, val, argumentsReference);
+            }
+
+            // TODO: Throw error
+
         } else if (val->getType()->getPointerElementType()->isPointerTy()) {
             Value *loaded = currentPackage->currentModule->builder->CreateLoad(val);
             vector<Value *> functionArguments;

@@ -1,16 +1,27 @@
-var lambda1 = () -> None {
-    print("Hello world")
+// Lambda which takes Int and returns Double
+var lambda1 = (Int w) -> Double {
+    print(w)
+    return w * 2.0
 }
 
-var lambda2 = (Int a) -> None {
-    print(a)
+lambda1(5)
+
+
+// Lambda with no arguments or return values
+var lambda2 = () {
+    print("This implicitly returns None")
 }
 
-// Implicit return None
-var lambda3 = (Int a) {
-    print(a)
+lambda2()
+
+
+// Lambda which takes a lambda (Int -> Double) and returns a lambda (Int -> None)
+def functionTakesLambda(Lambda<Int, Double> x) -> Lambda<Int, None> {
+    var q = x(5)
+    return (Int x) {
+        print("Hello")
+    }
 }
 
-lambda1()
-lambda2(55)
-lambda3(88)
+var output = functionTakesLambda(lambda1)
+output(5555)
