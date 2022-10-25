@@ -10,6 +10,7 @@ public:
     llvm::BasicBlock *block;
     BalanceScopeBlock *parent;
     std::map<std::string, llvm::Value *> symbolTable;
+    bool isTerminated = false;
 
     BalanceScopeBlock(llvm::BasicBlock *block, BalanceScopeBlock *parent)
     {

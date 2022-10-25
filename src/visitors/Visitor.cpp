@@ -379,7 +379,11 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
     currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(thenBlock, scope);
     visit(ctx->ifblock);
-    currentPackage->currentModule->builder->CreateBr(mergeBlock);
+
+    // If current scope was already terminated by return, don't branch to mergeblock
+    if (!currentPackage->currentModule->currentScope->isTerminated) {
+        currentPackage->currentModule->builder->CreateBr(mergeBlock);
+    }
     thenBlock = currentPackage->currentModule->builder->GetInsertBlock();
     function->getBasicBlockList().push_back(elseBlock);
     currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
@@ -387,7 +391,11 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
     if (ctx->elseblock) {
         visit(ctx->elseblock);
     }
-    currentPackage->currentModule->builder->CreateBr(mergeBlock);
+
+    // If current scope was already terminated by return, don't branch to mergeblock
+    if (!currentPackage->currentModule->currentScope->isTerminated) {
+        currentPackage->currentModule->builder->CreateBr(mergeBlock);
+    }
     elseBlock = currentPackage->currentModule->builder->GetInsertBlock();
     function->getBasicBlockList().push_back(mergeBlock);
     currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
@@ -937,6 +945,7 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
         any anyVal = visit(ctx->expression());
         llvm::Value *castVal = anyToValue(anyVal);
         currentPackage->currentModule->builder->CreateRet(castVal);
+        currentPackage->currentModule->currentScope->isTerminated = true;
     }
     return any();
 }
@@ -1034,6 +1043,20 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
     visit(ctx->functionBlock());
+
+    /* BEGIN Remove empty blocks */
+    vector<BasicBlock *> removes;
+    for (Function::iterator b = bfunction->function->begin(), be = bfunction->function->end(); b != be; ++b) {
+        BasicBlock* BB = &*b;
+        if (BB->size() == 0) {
+            removes.push_back(BB);
+        }
+    }
+
+    for (BasicBlock* BB : removes) {
+        BB->removeFromParent();
+    }
+    /* END Remove empty blocks */
 
     if (bfunction->returnType->isVoidTy()) {
         currentPackage->currentModule->builder->CreateRetVoid();
