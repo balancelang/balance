@@ -144,6 +144,8 @@ bool BalancePackage::executeString(std::string program) {
 
     // Persist modules as binary
     this->writePackageToBinary("program");
+
+    return true;
 }
 
 void BalancePackage::buildConstructors() {
