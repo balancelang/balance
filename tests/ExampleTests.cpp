@@ -123,7 +123,7 @@ void examplesFunctionsTest() {
 
 void examplesLambdasTest() {
     string result = runExample("../examples/lambdas.bl");
-    assertEqual("Hello world\n55\n88\n", result, "Lambdas");
+    assertEqual("5\nThis implicitly returns None\n5\nHello\n", result, "Lambdas");
 }
 
 void examplesFilesTest() {
