@@ -70,6 +70,16 @@ using namespace std;
 extern BalancePackage *currentPackage;
 extern BalanceModule *currentModule;
 
+/**
+ * TODO: Handle types from different modules - if name-clashing, require renaming on import
+ * E.g.
+ * from a import X
+ * from b import X
+ *  ->
+ * from a import X
+ * from b import X as Xb
+ */
+
 std::any PackageVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
     std::string text = ctx->getText();
 

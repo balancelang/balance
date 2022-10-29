@@ -64,6 +64,7 @@ assignment
     | IDENTIFIER '=' expression                                         # ExistingAssignment
     ;
 
+// Can these be implemented under 'assignment'?
 memberAssignment
     : member=expression '[' index=expression ']' '=' value=expression
     | member=expression '.' access=variable '=' value=expression

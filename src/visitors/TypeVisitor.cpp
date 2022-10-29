@@ -114,7 +114,48 @@ std::any TypeVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentC
     return std::any();
 }
 
-// std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) { return std::any(); }
+std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) {
+    std::string text = ctx->getText();
+
+    BalanceTypeString * member = any_cast<BalanceTypeString *>(visit(ctx->member));
+    BalanceTypeString * expression = any_cast<BalanceTypeString *>(visit(ctx->value));
+
+    if (ctx->index) {
+        BalanceTypeString * index = any_cast<BalanceTypeString *>(visit(ctx->index));
+        if (member->base == "Array" && index->base != "Int") {
+            currentPackage->currentModule->addTypeError(ctx, "Array index must be Int: " + text + ", found " + index->toString());
+        }
+
+        if (member->base == "Array" && !member->generics[0]->equalTo(expression)) {
+            currentPackage->currentModule->addTypeError(ctx, "Types are not equal in array assignment. Expected " + member->generics[0]->toString() + ", found " + expression->toString());
+        }
+        // TODO: Handle
+    } else {
+        std::string accessName = ctx->access->getText();
+        BalanceClass * bclass = currentPackage->currentModule->getClass(member);
+        if (bclass == nullptr) {
+            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(member);
+            if (ibclass == nullptr) {
+                // TODO: Handle
+            } else {
+                bclass = ibclass->bclass;
+            }
+        }
+
+        BalanceProperty  * bproperty = bclass->properties[accessName];
+        if (bproperty == nullptr) {
+            // Unknown class property
+            currentPackage->currentModule->addTypeError(ctx, "Unknown property. Type " + bclass->name->toString() + " does not have a property called " + accessName);
+            return std::any();
+        }
+
+        if (!bproperty->stringType->equalTo(expression)) {
+            currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bproperty->stringType->toString() + ", found " + expression->toString());
+        }
+    }
+
+    return std::any();
+}
 
 std::any TypeVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) {
     std::string text = ctx->getText();
@@ -164,8 +205,38 @@ std::any TypeVisitor::visitRelationalExpression(BalanceParser::RelationalExpress
 
     return new BalanceTypeString("Bool");
 }
-// std::any TypeVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) { return std::any(); }
+
+std::any TypeVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) {
+    std::string text = this->getText(ctx);
+
+    BalanceTypeString * member = any_cast<BalanceTypeString *>(visit(ctx->member));
+    BalanceTypeString * index = any_cast<BalanceTypeString *>(visit(ctx->index));
+
+    if (member->base == "Array" && index->base != "Int") {
+        currentPackage->currentModule->addTypeError(ctx, "Array index must be Int: " + text + ", found " + index->toString());
+    }
+
+    // TODO: When we introduce Dictionaries, it will probably be return member->generics[1]
+    // TODO: Throw error for now
+
+    // This works because accessing arrays returns the 0th generic type
+    return member->generics[0];
+}
+
+std::any TypeVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) {
+    std::string text = this->getText(ctx);
+
+    BalanceTypeString * lhs = any_cast<BalanceTypeString *>(visit(ctx->lhs));
+    BalanceTypeString * rhs = any_cast<BalanceTypeString *>(visit(ctx->rhs));
+
+    if (!lhs->equalTo(rhs)) {
+        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in multiplicative expression: " + text + ", " + lhs->toString() + " != " + rhs->toString());
+    }
+
+    // TODO: How can we define which types can be multiplied? e.g. "abc" * "abc" ?
+
+    return lhs;
+}
 
 std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
     std::string variableName = ctx->IDENTIFIER()->getText();
@@ -176,8 +247,6 @@ std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
     }
     return tryVal;
 }
-// std::any TypeVisitor::visitParameterList(BalanceParser::ParameterListContext *ctx) { return std::any(); }
-
 
 std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
     std::string base = ctx->base->getText();
@@ -193,10 +262,6 @@ std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
 
     return new BalanceTypeString(base, generics);
 }
-// std::any TypeVisitor::visitTypeList(BalanceParser::TypeListContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitParameter(BalanceParser::ParameterContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitArgumentList(BalanceParser::ArgumentListContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitArgument(BalanceParser::ArgumentContext *ctx) { return std::any(); }
 
 std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     std::string text = this->getText(ctx);
@@ -348,6 +413,13 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     currentPackage->currentModule->currentClass = bclass;
     currentPackage->currentModule->classes[className] = bclass;
 
+    // Visit all class properties
+    for (auto const &x : ctx->classElement()) {
+        if (x->classProperty()) {
+            visit(x);
+        }
+    }
+
     // Visit all class functions
     for (auto const &x : ctx->classElement()) {
         if (x->functionDefinition()) {
@@ -412,10 +484,6 @@ std::any TypeVisitor::visitLambda(BalanceParser::LambdaContext *ctx) {
     return new BalanceTypeString("Lambda", parameters);
 }
 
-// std::any TypeVisitor::visitReturnType(BalanceParser::ReturnTypeContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitBlock(BalanceParser::BlockContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitFunctionBlock(BalanceParser::FunctionBlockContext *ctx) { return std::any(); }
-// std::any TypeVisitor::visitLiteral(BalanceParser::LiteralContext *ctx) { return std::any(); }
 std::any TypeVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     string text = ctx->getText();
 
@@ -450,14 +518,6 @@ std::any TypeVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *
 std::any TypeVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
     return new BalanceTypeString("Double");
 }
-
-// std::any TypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-//     if (ctx->IDENTIFIER()) {
-//         return new BalanceTypeString(ctx->IDENTIFIER()->getText());
-//     } else {
-//         return new BalanceTypeString(ctx->NONE()->getText());
-//     }
-// }
 
 std::any TypeVisitor::visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) {
     return new BalanceTypeString("None");

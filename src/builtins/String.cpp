@@ -181,9 +181,9 @@ void createType__String() {
 
     // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
     currentPackage->currentModule->classes["String"] = bclass;
-    bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", "", 0, false);
+    bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", nullptr, 0, false);
     bclass->properties["stringPointer"]->type = llvm::Type::getInt8PtrTy(*currentPackage->context);
-    bclass->properties["length"] = new BalanceProperty("length", "", 1, true);
+    bclass->properties["length"] = new BalanceProperty("length", nullptr, 1, true);
     bclass->properties["length"]->type = llvm::Type::getInt32Ty(*currentPackage->context);
 
     currentPackage->currentModule->currentClass = bclass;

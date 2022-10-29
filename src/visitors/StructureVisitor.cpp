@@ -158,7 +158,7 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
 
 std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    string typeString = ctx->type->getText();
+    BalanceTypeString * typeString = new BalanceTypeString(ctx->type->getText());
     string name = ctx->name->getText();
 
     int count = currentPackage->currentModule->currentClass->properties.size();

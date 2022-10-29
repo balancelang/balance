@@ -1,0 +1,23 @@
+var a = [1,2,3,4]
+
+a[0] = 2            // fine
+a[0] = "abc"        // not fine
+a["abc"] = 4        // not fine
+
+
+class MyClass {
+    Int a
+
+    def getA() -> Int {
+        return a
+    }
+
+    def setA(Int value) -> None {
+        a = value
+    }
+}
+
+var cls = new MyClass()
+cls.a = 123         // fine
+cls.a = "abc"       // not fine
+cls.abc = 123       // not fine, abc does not exist on MyClass

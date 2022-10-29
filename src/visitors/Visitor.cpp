@@ -268,7 +268,6 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
 
 any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) {
     std::string text = ctx->getText();
-    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     any anyValMember = visit(ctx->member);
     llvm::Value *valueMember = anyToValue(anyValMember);
