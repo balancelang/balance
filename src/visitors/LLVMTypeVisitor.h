@@ -12,7 +12,7 @@ using namespace llvm;
 using namespace std;
 
 
-class TypeVisitor : public BalanceParserBaseVisitor
+class LLVMTypeVisitor : public BalanceParserBaseVisitor
 {
 public:
     std::any visitImportStatement(BalanceParser::ImportStatementContext *ctx) override;

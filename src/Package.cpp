@@ -5,7 +5,7 @@
 #include "visitors/StructureVisitor.h"
 #include "visitors/ForwardDeclarationVisitor.h"
 #include "visitors/ConstructorVisitor.h"
-#include "visitors/TypeVisitor.h"
+#include "visitors/LLVMTypeVisitor.h"
 #include "config.h"
 
 #include <map>
@@ -177,7 +177,7 @@ void BalancePackage::buildStructures()
         queue.pop();
 
         // Visit entire tree
-        TypeVisitor visitor;
+        LLVMTypeVisitor visitor;
         visitor.visit(bmodule->tree);
 
         bool isFinalized = bmodule->finalized();

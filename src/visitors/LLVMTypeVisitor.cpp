@@ -1,4 +1,4 @@
-#include "TypeVisitor.h"
+#include "LLVMTypeVisitor.h"
 
 #include "../Package.h"
 #include "Visitor.h"
@@ -60,7 +60,7 @@ using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
 
-std::any TypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
+std::any LLVMTypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
     std::string text = ctx->getText();
 
     std::string importPath;
@@ -91,7 +91,7 @@ std::any TypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext
     return nullptr;
 }
 
-std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
+std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     string text = ctx->getText();
     string className = ctx->className->getText();
 
@@ -143,7 +143,7 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     return nullptr;
 }
 
-std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
+std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
 
     BalanceFunction *bfunction;
@@ -224,7 +224,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
     return nullptr;
 }
 
-std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
+std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
     string typeString = ctx->type->getText();
     BalanceTypeString * btypeString = new BalanceTypeString(typeString); // TODO: Parse generics
