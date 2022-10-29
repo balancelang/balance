@@ -91,7 +91,7 @@ parameterList
 	;
 
 balanceType
-    : IDENTIFIER                                                        # SimpleType
+    : (IDENTIFIER | NONE)                                               # SimpleType
     | base=IDENTIFIER '<' typeList '>'                                  # GenericType
     ;
 
@@ -137,12 +137,12 @@ classElement
     ;
 
 classProperty
-    : type=IDENTIFIER name=IDENTIFIER
+    : type=balanceType name=IDENTIFIER
     ;
 
 lambda
     : OPEN_PARENS parameterList CLOSE_PARENS returnType? OPEN_BRACE WS* functionBlock WS* CLOSE_BRACE WS*
-    // | OPEN_PARENS parameterList CLOSE_PARENS '->' expression     // single-expression 
+    // | OPEN_PARENS parameterList CLOSE_PARENS '->' expression     // single-expression
     ;
 
 returnType
@@ -164,6 +164,7 @@ literal
     | booleanLiteral
     | doubleLiteral
     | arrayLiteral
+    | noneLiteral
     ;
 
 arrayLiteral
@@ -189,4 +190,8 @@ booleanLiteral
 
 doubleLiteral
     : DOUBLE
+    ;
+
+noneLiteral
+    : NONE
     ;

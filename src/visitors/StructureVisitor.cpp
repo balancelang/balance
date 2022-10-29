@@ -91,7 +91,11 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
 }
 
 std::any StructureVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-    return new BalanceTypeString(ctx->IDENTIFIER()->getText());
+    if (ctx->IDENTIFIER()) {
+        return new BalanceTypeString(ctx->IDENTIFIER()->getText());
+    } else {
+        return new BalanceTypeString(ctx->NONE()->getText());
+    }
 }
 
 std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {

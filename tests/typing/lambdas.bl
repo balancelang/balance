@@ -1,0 +1,29 @@
+var lamb = (Int a) -> None {
+    a = 55                  // fine
+    a = "abc"               // not fine
+
+    var a = 123             // not fine
+}
+lamb(555)                   // fine
+lamb("abc")                 // not fine
+lamb()                      // not fine
+lamb(1, 2)                  // not fine
+
+var lamb2 = (Int a) -> Int {
+    print(a)
+    // Missing return
+}
+
+var lamb3 = (Int a) -> String {
+    print(a)
+
+    return 123              // wrong return type
+}
+
+
+def funcTakesLambda(Lambda<Int, Int> x) {
+
+}
+
+funcTakesLambda(lamb)       // fine
+funcTakesLambda(lamb3)      // not fine

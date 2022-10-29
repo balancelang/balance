@@ -4,6 +4,7 @@
 #include "BalanceScopeBlock.h"
 #include "BalanceClass.h"
 #include "BalanceFunction.h"
+#include "BalanceLambda.h"
 #include "llvm/IR/IRBuilder.h"
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
@@ -71,11 +72,14 @@ public:
 
     BalanceScopeBlock *rootScope;
     BalanceClass *currentClass = nullptr;
-    BalanceFunction *currentFunction = nullptr;  // TODO: Update visitor.cpp to use this?
+    BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
+    BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
     llvm::Value *accessedValue = nullptr;
+
+    BalanceClass * accessedType = nullptr;     // Used by TypeVisitor.cpp
 
     llvm::Module *module;
 

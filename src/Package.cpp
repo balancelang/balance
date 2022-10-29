@@ -89,20 +89,20 @@ bool BalancePackage::compileAndPersist()
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
 
+        createBuiltins();
+
+        // Add builtins to modules
+        this->addBuiltinsToModules();
+
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->buildTextualRepresentations();
 
-        // Type checking
+        // Type checking, also creates all class, class-methods and function definitions (textually only)
         bool success = this->typeChecking();
         if (!success) {
             compileSuccess = false;
             break;
         }
-
-        createBuiltins();
-
-        // Add builtins to modules
-        this->addBuiltinsToModules();
 
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();
@@ -131,14 +131,19 @@ bool BalancePackage::executeString(std::string program) {
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
     modules["program"]->generateASTFromString(program);
+    this->currentModule = modules["program"];
 
     createBuiltins();
     this->addBuiltinsToModules();
 
-    this->currentModule = modules["program"];
-
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
     this->buildTextualRepresentations();
+
+    // Type checking, also creates all class, class-methods and function definitions (textually only)
+    bool success = this->typeChecking();
+    if (!success) {
+        return false;
+    }
 
     // Run loop that builds LLVM functions and handles cycles
     this->buildStructures();

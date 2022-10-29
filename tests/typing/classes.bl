@@ -1,0 +1,27 @@
+var cls = new MyClass()
+cls.setA(25)        // fine
+cls.asdasdasd(25)   // not fine (doesn't exist)
+cls.setA()          // not fine (too few args)
+cls.setA(1, 2, 3)   // not fine (too many args)
+cls.setA("abc")     // not fine (wrong type)
+
+var a = 123         // fine
+a = cls.getA()      // fine
+var b = "abc"       // fine
+b = cls.getA()      // not fine (String != Int)
+
+
+// outputs 25
+
+// We can reference the class both before and after its declaration
+class MyClass {
+    Int a
+
+    def getA() -> Int {
+        return a
+    }
+
+    def setA(Int value) -> None {
+        a = value
+    }
+}
