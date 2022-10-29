@@ -24,6 +24,7 @@ public:
     std::string toString();
     bool finalized();
     void populateTypes();
+    bool equalTo(BalanceTypeString * other);
 };
 
 #endif

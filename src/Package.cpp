@@ -6,6 +6,8 @@
 #include "visitors/ForwardDeclarationVisitor.h"
 #include "visitors/ConstructorVisitor.h"
 #include "visitors/LLVMTypeVisitor.h"
+#include "visitors/TypeVisitor.h"
+
 #include "config.h"
 
 #include <map>
@@ -81,12 +83,20 @@ bool BalancePackage::executeAsScript() {
 
 bool BalancePackage::compileAndPersist()
 {
+    bool compileSuccess = true;
     for (auto const &entryPoint : this->entrypoints)
     {
-        createBuiltins();
-
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
+
+        // Type checking
+        bool success = this->typeChecking();
+        if (!success) {
+            compileSuccess = false;
+            break;
+        }
+
+        createBuiltins();
 
         // Add builtins to modules
         this->addBuiltinsToModules();
@@ -113,7 +123,7 @@ bool BalancePackage::compileAndPersist()
         this->reset();
     }
 
-    return true;
+    return compileSuccess;
 }
 
 // TODO: Combine this function and the above
@@ -299,6 +309,25 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
             module = getNextElementOrNull();
         }
     }
+}
+
+bool BalancePackage::typeChecking() {
+    bool anyError = false;
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        TypeVisitor visitor;
+        visitor.visit(bmodule->tree);
+
+        if (bmodule->hasTypeErrors()) {
+            anyError = true;
+            bmodule->reportTypeErrors();
+        }
+    }
+    return !anyError;
 }
 
 void writeModuleToBinary(BalanceModule * bmodule) {

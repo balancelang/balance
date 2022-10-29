@@ -8,13 +8,46 @@
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
+#include "ParserRuleContext.h"
 
 using namespace antlrcpptest;
+using namespace antlr4;
 
 class BalanceImportedClass;
 class BalanceImportedFunction;
 class BalanceClass;
 class BalanceFunction;
+
+class Position {
+public:
+    int line;
+    int column;
+    Position(int line, int column) {
+        this->line = line;
+        this->column = column;
+    }
+};
+
+class Range {
+public:
+    Position * start;
+    Position * end;
+    Range(Position * start, Position * end) {
+        this->start = start;
+        this->end = end;
+    }
+};
+
+class TypeError
+{
+public:
+    Range * range;
+    std::string message;
+    TypeError(Range * range, std::string message) {
+        this->range = range;
+        this->message = message;
+    }
+};
 
 class BalanceModule
 {
@@ -52,6 +85,9 @@ public:
     BalanceParser * parser = nullptr;
     antlr4::tree::ParseTree *tree = nullptr;
 
+    // Typechecking
+    std::vector<TypeError *> typeErrors;
+
     bool finishedDiscovery;
 
     BalanceModule(string path, bool isEntrypoint)
@@ -72,6 +108,7 @@ public:
         this->initializeModule();
     }
 
+    void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath(std::string filePath);
@@ -86,9 +123,13 @@ public:
     BalanceFunction * getFunction(std::string functionName);
     BalanceImportedFunction * getImportedFunction(std::string functionName);
 
+    BalanceTypeString *getTypeValue(std::string variableName);
     llvm::Value *getValue(std::string variableName);
     void setValue(std::string variableName, llvm::Value *value);
     bool finalized();
+
+    bool hasTypeErrors();
+    void reportTypeErrors();
 };
 
 #endif

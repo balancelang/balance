@@ -1,5 +1,5 @@
-#ifndef TYPE_VISITOR_H
-#define TYPE_VISITOR_H
+#ifndef LLVM_TYPE_VISITOR_H
+#define LLVM_TYPE_VISITOR_H
 
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"

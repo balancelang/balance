@@ -60,7 +60,6 @@
 using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
-extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void LogError(std::string errorMessage) { fprintf(stderr, "Error: %s\n", errorMessage.c_str()); }
 

@@ -8,7 +8,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Create forward declaration of memcpy

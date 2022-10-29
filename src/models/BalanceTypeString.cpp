@@ -60,3 +60,8 @@ void BalanceTypeString::populateTypes() {
     //     generic->populateTypes();
     // }
 }
+
+bool BalanceTypeString::equalTo(BalanceTypeString * other) {
+    // TODO: Maybe implement a better way to check for equality
+    return this->toString() == other->toString();
+}

@@ -1,6 +1,10 @@
 #include "BalanceModule.h"
 #include "../Package.h"
 
+#include "ParserRuleContext.h"
+
+using namespace antlr4;
+
 extern BalancePackage *currentPackage;
 
 void BalanceModule::initializeModule() {
@@ -105,6 +109,21 @@ BalanceImportedFunction *BalanceModule::getImportedFunction(std::string function
     return nullptr;
 }
 
+BalanceTypeString *BalanceModule::getTypeValue(std::string variableName) {
+    BalanceScopeBlock *scope = this->currentScope;
+    while (scope != nullptr) {
+        // Check variables etc
+        BalanceTypeString *tryVal = scope->typeSymbolTable[variableName];
+        if (tryVal != nullptr) {
+            return tryVal;
+        }
+
+        scope = scope->parent;
+    }
+
+    return nullptr;
+}
+
 llvm::Value *BalanceModule::getValue(std::string variableName) {
     BalanceScopeBlock *scope = this->currentScope;
     while (scope != nullptr) {
@@ -138,4 +157,23 @@ bool BalanceModule::finalized() {
     }
 
     return true;
+}
+
+void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {
+    Position * start = new Position(ctx->getStart()->getLine(), ctx->start->getCharPositionInLine());
+    Position * end = new Position(ctx->getStop()->getLine(), ctx->stop->getCharPositionInLine());
+
+    Range * range = new Range(start, end);
+    TypeError * typeError = new TypeError(range, message);
+    this->typeErrors.push_back(typeError);
+}
+
+bool BalanceModule::hasTypeErrors() {
+    return !this->typeErrors.empty();
+}
+
+void BalanceModule::reportTypeErrors() {
+    for (TypeError * typeError : this->typeErrors) {
+        std::cout << "Type error: " + typeError->message + ", on line " + std::to_string(typeError->range->start->line) << std::endl;
+    }
 }

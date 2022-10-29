@@ -68,7 +68,12 @@
         "filesystem": "cpp",
         "*.inc": "cpp",
         "future": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp"
     },
     "cmake.sourceDirectory": "${workspaceFolder}/.",
     "editor.quickSuggestions": {
