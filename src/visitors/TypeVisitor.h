@@ -13,17 +13,15 @@ class TypeVisitor : public BalanceParserBaseVisitor
 {
 public:
     std::string getText(antlr4::ParserRuleContext *ctx);
-    // std::any visitWhileStatement(BalanceParser::WhileStatementContext *ctx) override;
+    std::any visitWhileStatement(BalanceParser::WhileStatementContext *ctx) override;
     std::any visitIfStatement(BalanceParser::IfStatementContext *ctx) override;
-    // std::any visitIfBlock(BalanceParser::IfBlockContext *ctx) override;
-    // std::any visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) override;
+    std::any visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) override;
     std::any visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) override;
-    // std::any visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) override;
+    std::any visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) override;
     // std::any visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) override;
     // std::any visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) override;
-    // std::any visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) override;
+    std::any visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) override;
     std::any visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) override;
-    // std::any visitLiteralExpression(BalanceParser::LiteralExpressionContext *ctx) override;
     // std::any visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) override;
     // std::any visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) override;
     // std::any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
@@ -38,7 +36,7 @@ public:
     // std::any visitArgumentList(BalanceParser::ArgumentListContext *ctx) override;
     // std::any visitArgument(BalanceParser::ArgumentContext *ctx) override;
     // std::any visitFunctionCall(BalanceParser::FunctionCallContext *ctx) override;
-    // std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
+    std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
     // std::any visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) override;
     // std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
     // std::any visitClassElement(BalanceParser::ClassElementContext *ctx) override;

@@ -89,6 +89,9 @@ bool BalancePackage::compileAndPersist()
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
 
+        // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
+        this->buildTextualRepresentations();
+
         // Type checking
         bool success = this->typeChecking();
         if (!success) {
@@ -100,9 +103,6 @@ bool BalancePackage::compileAndPersist()
 
         // Add builtins to modules
         this->addBuiltinsToModules();
-
-        // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
-        this->buildTextualRepresentations();
 
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();

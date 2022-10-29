@@ -1,0 +1,8 @@
+var a = 123
+a = "kmdfkmdf"  // not fine
+
+if (2 > 0) {
+    a = "kmdf"  // not fine
+    var a = "123"
+    a = "kmdf"  // fine
+}

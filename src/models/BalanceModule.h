@@ -71,6 +71,7 @@ public:
 
     BalanceScopeBlock *rootScope;
     BalanceClass *currentClass = nullptr;
+    BalanceFunction *currentFunction = nullptr;  // TODO: Update visitor.cpp to use this?
     BalanceScopeBlock *currentScope;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.

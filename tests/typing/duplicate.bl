@@ -1,0 +1,22 @@
+var b = 123  // fine
+
+if (true) {
+    var b = 123  // fine
+    var b = 555  // not fine
+} else {
+    var b = 123  // fine
+    var b = 123  // not fine
+}
+
+var b = 123  // not fine
+
+
+
+
+def funcTakesIntReturnsInt(Int a) -> Int {  // fine
+    return 123
+}
+
+def funcTakesIntReturnsInt(Int a) -> Int {  // not fine (while we not yet support overloads)
+    return 123
+}

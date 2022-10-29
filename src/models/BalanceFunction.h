@@ -18,6 +18,7 @@ public:
     std::vector<BalanceParameter *> parameters;
     llvm::Type *returnType = nullptr;
     llvm::Function *function = nullptr;
+    bool hasExplicitReturn = false;
 
     BalanceFunction(std::string name, std::vector<BalanceParameter *> parameters, BalanceTypeString * returnTypeString)
     {
