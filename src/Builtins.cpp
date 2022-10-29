@@ -88,6 +88,21 @@ void createFunction__open()
     // Create forward declaration of fopen
     llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
     currentPackage->currentModule->module->getOrInsertFunction("fopen", functionType);
+
+    BalanceParameter * pathParameter = new BalanceParameter(new BalanceTypeString("String"), "path");
+    pathParameter->type = getBuiltinType(new BalanceTypeString("String"));
+
+    BalanceParameter * modeParameter = new BalanceParameter(new BalanceTypeString("String"), "mode");
+    modeParameter->type = getBuiltinType(new BalanceTypeString("String"));
+
+    std::vector<BalanceParameter *> parameters = {
+        pathParameter,
+        modeParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction("open", parameters, new BalanceTypeString("File"));
+    BalanceClass * fileClass = currentPackage->builtins->getClass(new BalanceTypeString("File"));
+    bfunction->returnType = fileClass->structType->getPointerTo();
+    currentPackage->currentModule->functions["open"] = bfunction;
 }
 
 void createFunctions() {
