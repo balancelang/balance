@@ -6,7 +6,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern llvm::Value *accessedValue;
 
 void createMethod_close() {
     std::string functionName = "close";

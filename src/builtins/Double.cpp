@@ -6,7 +6,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern llvm::Value *accessedValue;
 
 void createMethod_Double_toString() {
     // Create forward declaration of snprintf

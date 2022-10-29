@@ -68,9 +68,6 @@ using namespace std;
 bool verbose = false;
 BalancePackage *currentPackage = nullptr;
 
-// Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
-llvm::Value *accessedValue;
-
 void printVersion() {
     cout << "Balance version: " << BALANCE_VERSION << endl;
 }

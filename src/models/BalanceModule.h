@@ -40,6 +40,9 @@ public:
     BalanceClass *currentClass = nullptr;
     BalanceScopeBlock *currentScope;
 
+    // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
+    llvm::Value *accessedValue = nullptr;
+
     llvm::Module *module;
 
     // The AST of the module

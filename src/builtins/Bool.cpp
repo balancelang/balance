@@ -8,7 +8,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern llvm::Value *accessedValue;
 
 void createMethod_Bool_toString() {
     BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Bool"), "value");

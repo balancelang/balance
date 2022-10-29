@@ -8,7 +8,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern llvm::Value *accessedValue;
 extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void createMethod_Array_toString(BalanceClass * arrayClass) {

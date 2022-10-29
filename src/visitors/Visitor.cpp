@@ -60,7 +60,6 @@
 using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
-extern llvm::Value *accessedValue;
 extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void LogError(std::string errorMessage) { fprintf(stderr, "Error: %s\n", errorMessage.c_str()); }
@@ -181,10 +180,10 @@ any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpre
     llvm::Value *valueMember = anyToValue(anyValMember);
 
     // Store this value, so that visiting the access will use it as context
-    accessedValue = valueMember;
+    currentPackage->currentModule->accessedValue = valueMember;
     any anyValAccess = visit(ctx->access);
     llvm::Value *value = anyToValue(anyValAccess);
-    accessedValue = nullptr;
+    currentPackage->currentModule->accessedValue = nullptr;
     return value;
 }
 
@@ -406,8 +405,8 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
 any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) {
     std::string variableName = ctx->variable()->IDENTIFIER()->getText();
 
-    if (accessedValue != nullptr) {
-        if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType())) {
+    if (currentPackage->currentModule->accessedValue != nullptr) {
+        if (PointerType *PT = dyn_cast<PointerType>(currentPackage->currentModule->accessedValue->getType())) {
             if (PT->getPointerElementType()->isStructTy()) {
                 // get struct type
                 std::string className = PT->getPointerElementType()->getStructName().str();
@@ -434,7 +433,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 
                 Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                 Value *propertyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
-                Value *propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(bclass->structType, accessedValue, {zero, propertyIndex});
+                Value *propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(bclass->structType, currentPackage->currentModule->accessedValue, {zero, propertyIndex});
                 return (Value *)currentPackage->currentModule->builder->CreateLoad(propertyPointerValue);
             }
         }
@@ -680,7 +679,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     std::string text = ctx->getText();
     std::string functionName = ctx->IDENTIFIER()->getText();
     // TODO: Make a search through scope, parent scopes, builtins etc.
-    if (accessedValue == nullptr && functionName == "print") {
+    if (currentPackage->currentModule->accessedValue == nullptr && functionName == "print") {
         // FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
         FunctionCallee printFunc = currentPackage->currentModule->getImportedFunction("print")->function;
         vector<Value *> functionArguments;
@@ -767,7 +766,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             }
             break;
         }
-    } else if (accessedValue == nullptr && functionName == "open") {
+    } else if (currentPackage->currentModule->accessedValue == nullptr && functionName == "open") {
         Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen"); // TODO: Move this to separate module
         BalanceClass *stringClass = currentPackage->builtins->getClassFromStructName("String");
         vector<Value *> functionArguments;
@@ -806,13 +805,13 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
 
         return (Value *)pointer;
     } else {
-        if (accessedValue != nullptr) {
+        if (currentPackage->currentModule->accessedValue != nullptr) {
             // Means we're invoking function on an element
-            Type *elementType = accessedValue->getType();
+            Type *elementType = currentPackage->currentModule->accessedValue->getType();
             vector<Value *> functionArguments;
             std::string className;
 
-            if (PointerType *PT = dyn_cast<PointerType>(accessedValue->getType())) {
+            if (PointerType *PT = dyn_cast<PointerType>(currentPackage->currentModule->accessedValue->getType())) {
                 // TODO: Check that it is actually struct
                 className = PT->getElementType()->getStructName().str();
             } else if (elementType->isIntegerTy()) {
@@ -827,17 +826,17 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             }
 
             // Add "this" as first argument
-            functionArguments.push_back(accessedValue);
+            functionArguments.push_back(currentPackage->currentModule->accessedValue);
 
             // Don't consider accessedValue when parsing arguments
-            llvm::Value * backup = accessedValue;
-            accessedValue = nullptr;
+            llvm::Value * backup = currentPackage->currentModule->accessedValue;
+            currentPackage->currentModule->accessedValue = nullptr;
             for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
                 any anyVal = visit(argument);
                 llvm::Value *castVal = anyToValue(anyVal);
                 functionArguments.push_back(castVal);
             }
-            accessedValue = backup;
+            currentPackage->currentModule->accessedValue = backup;
 
             Function *function;
             // TODO: Make a function that does this search and else returns nullptr
