@@ -1,0 +1,7 @@
+def funcTakesIntReturnsInt(Int a) -> Int {
+    return "kmsd"  // not Int
+}
+
+def funcTakesIntReturnsInt2(Int a) -> Int {
+    // missing return
+}

@@ -5,10 +5,6 @@
 
 using namespace std;
 
-/**
- * TODO: How we do handle types from different modules?
- * E.g. Array<MyClass> where MyClass exists in multiple modules?
- */
 class BalanceTypeString
 {
 public:
@@ -24,6 +20,7 @@ public:
     std::string toString();
     bool finalized();
     void populateTypes();
+    bool equalTo(BalanceTypeString * other);
 };
 
 #endif

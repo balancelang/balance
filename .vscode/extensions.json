@@ -1,6 +1,7 @@
 {
     "recommendations": [
         "mike-lischke.vscode-antlr4",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "shardulm94.trailing-spaces"
     ]
 }

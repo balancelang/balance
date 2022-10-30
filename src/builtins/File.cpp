@@ -244,7 +244,10 @@ void createMethod_write() {
     llvm::Function * writeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", writeFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {}, new BalanceTypeString("None"));
+    BalanceParameter * thisParameter = new BalanceParameter(new BalanceTypeString("File"), "this");
+    BalanceParameter * contentParameter = new BalanceParameter(new BalanceTypeString("String"), "content");
+
+    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, {thisParameter, contentParameter}, new BalanceTypeString("None"));
     currentPackage->currentModule->currentClass->methods[functionName]->function = writeFunc;
     currentPackage->currentModule->currentClass->methods[functionName]->returnType = returnType;
 
@@ -288,7 +291,7 @@ void createMethod_write() {
 void createType__File() {
     BalanceClass * bclass = new BalanceClass(new BalanceTypeString("File"));
     currentPackage->currentModule->classes["File"] = bclass;
-    bclass->properties["filePointer"] = new BalanceProperty("filePointer", "", 0);
+    bclass->properties["filePointer"] = new BalanceProperty("filePointer", nullptr, 0);
     bclass->properties["filePointer"]->type = llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0);
 
     currentPackage->currentModule->currentClass = bclass;

@@ -8,7 +8,6 @@
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
-extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Create forward declaration of memcpy
@@ -367,9 +366,9 @@ void createType__Array(BalanceTypeString * typeString) {
     BalanceClass * arrayClass = new BalanceClass(typeString);
     currentPackage->builtins->classes[typeString->toString()] = arrayClass;
 
-    arrayClass->properties["memoryPointer"] = new BalanceProperty("memoryPointer", "", 0);
+    arrayClass->properties["memoryPointer"] = new BalanceProperty("memoryPointer", nullptr, 0);
     arrayClass->properties["memoryPointer"]->type = typeString->generics[0]->type->getPointerTo();
-    arrayClass->properties["length"] = new BalanceProperty("length", "", 1, true);
+    arrayClass->properties["length"] = new BalanceProperty("length", nullptr, 1, true);
     arrayClass->properties["length"]->type = llvm::Type::getInt32Ty(*currentPackage->context);
 
     StructType *structType = StructType::create(*currentPackage->context, typeString->toString());

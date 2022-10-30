@@ -17,6 +17,8 @@ NEW                 : 'new';
 FROM                : 'from';
 IMPORT              : 'import';
 AS                  : 'as';
+NONE                : 'None';
+
 
 OPEN_BRACE          : '{';
 CLOSE_BRACE         : '}';

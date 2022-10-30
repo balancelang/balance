@@ -66,6 +66,8 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
     string className = ctx->className->getText();
     string text = ctx->getText();
 
+    // TODO: check for duplicate className
+
     BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className));
     currentPackage->currentModule->currentClass = bclass;
     currentPackage->currentModule->classes[className] = bclass;
@@ -89,7 +91,11 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
 }
 
 std::any StructureVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-    return new BalanceTypeString(ctx->IDENTIFIER()->getText());
+    if (ctx->IDENTIFIER()) {
+        return new BalanceTypeString(ctx->IDENTIFIER()->getText());
+    } else {
+        return new BalanceTypeString(ctx->NONE()->getText());
+    }
 }
 
 std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
@@ -105,6 +111,19 @@ std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *c
 
 std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
+
+    if (currentPackage->currentModule->currentClass != nullptr) {
+        if (currentPackage->currentModule->currentClass->methods[functionName] != nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+            return std::any();
+        }
+    } else {
+        if (currentPackage->currentModule->functions[functionName] != nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
+            return std::any();
+        }
+    }
+
     vector<BalanceParameter *> parameters;
 
     // Add implicit "this" argument to class methods
@@ -139,7 +158,7 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
 
 std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    string typeString = ctx->type->getText();
+    BalanceTypeString * typeString = new BalanceTypeString(ctx->type->getText());
     string name = ctx->name->getText();
 
     int count = currentPackage->currentModule->currentClass->properties.size();

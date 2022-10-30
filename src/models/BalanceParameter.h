@@ -10,7 +10,7 @@ class BalanceParameter
 public:
     BalanceTypeString * balanceTypeString;
     std::string name;
-    llvm::Type *type = nullptr;
+    llvm::Type *type = nullptr;  // TODO: Ditch this and use balanceTypeString->type
 
     BalanceParameter(BalanceTypeString * balanceTypeString, std::string name)
     {

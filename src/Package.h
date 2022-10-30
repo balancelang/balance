@@ -53,6 +53,7 @@ public:
     void buildForwardDeclarations();
     void buildConstructors();
     void addBuiltinsToModules();
+    bool typeChecking();
 };
 
 #endif

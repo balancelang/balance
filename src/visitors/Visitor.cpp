@@ -60,7 +60,6 @@
 using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
-extern std::map<llvm::Value *, BalanceTypeString *> typeLookup;
 
 void LogError(std::string errorMessage) { fprintf(stderr, "Error: %s\n", errorMessage.c_str()); }
 
@@ -269,7 +268,6 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
 
 any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) {
     std::string text = ctx->getText();
-    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
     any anyValMember = visit(ctx->member);
     llvm::Value *valueMember = anyToValue(anyValMember);
@@ -865,6 +863,8 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         }
     }
 
+    // TODO: Should functions be referenced with getValue as well, so we get the closest lambda/func
+
     // Check if function is a variable (lambda e.g.)
     llvm::Value *val = currentPackage->currentModule->getValue(functionName);
     if (val) {
@@ -879,7 +879,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             }
 
             ArrayRef<Value *> argumentsReference(functionArguments);
-            
+
             if (FunctionType *FT = dyn_cast<FunctionType>(val->getType()->getPointerElementType())) {
                 ArrayRef<Value *> argumentsReference(functionArguments);
                 return (Value *)currentPackage->currentModule->builder->CreateCall(FT, val, argumentsReference);
