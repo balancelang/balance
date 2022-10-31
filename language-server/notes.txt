@@ -1,0 +1,8 @@
+https://github.com/kuafuwang/LspCpp
+https://github.com/cinemast/libjson-rpc-cpp
+https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
+https://macromates.com/manual/en/language_grammars
+https://microsoft.github.io/language-server-protocol/
+
+
+https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#serverCapabilities
