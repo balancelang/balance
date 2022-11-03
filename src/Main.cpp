@@ -3,6 +3,7 @@
 #include "Package.h"
 #include "Utilities.h"
 #include "visitors/Visitor.h"
+#include "language-server/LanguageServer.h"
 
 #include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
@@ -106,6 +107,7 @@ int main(int argc, char **argv) {
     bool isTest = false;
     bool isHelp = false;
     bool isPrintVersion = false;
+    bool isRunLanguageServer = false;
     std::string entryPoint;
 
     std::vector<std::string> arguments;
@@ -130,6 +132,8 @@ int main(int argc, char **argv) {
             isHelp = true;
         } else if (argument == "--verbose") {
             verbose = true;
+        } else if (argument == "--language-server") {
+            isRunLanguageServer = true;
         } else {
             if (argument != "new" && argument != "run") {
                 entryPoint = argument;
@@ -161,6 +165,8 @@ int main(int argc, char **argv) {
             runASTTestSuite();
             runCompileTestSuite();
             runExamplesTestSuite();
+        } else if (isRunLanguageServer) {
+            runLanguageServer();
         } else {
             currentPackage = new BalancePackage("", entryPoint);
             bool success = currentPackage->executeAsScript();

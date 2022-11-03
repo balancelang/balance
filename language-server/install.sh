@@ -1,1 +1,0 @@
-sudo apt-get install libboost-dev libboost-all-dev

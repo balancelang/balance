@@ -8,8 +8,8 @@ set(CMAKE_CXX_FLAGS "-g")       # enables debugging
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING 1)
-set(CMAKE_C_COMPILER "/usr/bin/gcc")
-set(CMAKE_CXX_COMPILER "/usr/bin/g++")
+# set(CMAKE_C_COMPILER "/usr/bin/gcc")
+# set(CMAKE_CXX_COMPILER "/usr/bin/g++")
 
 find_package(Threads REQUIRED)
 # set(ENABLE_LLVM_SHARED ON)
@@ -102,6 +102,13 @@ antlr_target(BalanceGrammarParser BalanceParser.g4 PARSER VISITOR
 include_directories(${ANTLR_BalanceGrammarLexer_OUTPUT_DIR})
 include_directories(${ANTLR_BalanceGrammarParser_OUTPUT_DIR})
 
+
+FetchContent_Declare(
+    lspcpp
+    GIT_REPOSITORY https://github.com/kuafuwang/LspCpp.git
+)
+FetchContent_MakeAvailable(lspcpp)
+
 # add generated grammar to the binary target
 add_executable(balance
                src/Main.cpp
@@ -127,6 +134,7 @@ add_executable(balance
                src/builtins/Double.cpp
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
+               src/language-server/LanguageServer.cpp
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
@@ -138,6 +146,10 @@ add_executable(balance
 
 # run this to get list of components: llvm-config-12 --components
 llvm_map_components_to_libnames(llvm_libs support core irreader mc target ${LLVM_TARGETS_TO_BUILD})
+
+target_include_directories(balance PRIVATE lspcpp)
+target_link_libraries(balance lspcpp)
+
 target_link_libraries(balance antlr4_static)
 target_link_libraries(balance Threads::Threads)
 target_link_libraries(balance LLVM clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)

@@ -11,17 +11,12 @@ import {
 
 let client: LanguageClient;
 
-class T {
-    asdkmskm() {
-
-    }
-}
-
 export async function activate(context: vscode.ExtensionContext) {
     const runExecutable: Executable = {
         // command: "/home/jeppe/workspace/balance/build/balance",
-        command: "/home/jeppe/workspace/balance/language-server/LspCpp/_build/StdIOServerExample",
-        args: []
+        // command: "/home/jeppe/workspace/balance/language-server/LspCpp/_build/StdIOServerExample",
+        command: "/home/jeppe/workspace/balance/balance",
+        args: [ "--language-server" ]
     };
 
     const serverOptions: ServerOptions = {
