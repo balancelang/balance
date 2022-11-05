@@ -109,8 +109,6 @@ public:
         {
             this->name = this->path;
         }
-
-        this->initializeModule();
     }
 
     void addTypeError(ParserRuleContext * ctx, std::string message);

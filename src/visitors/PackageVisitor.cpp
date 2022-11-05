@@ -93,6 +93,7 @@ std::any PackageVisitor::visitImportStatement(BalanceParser::ImportStatementCont
     map<string, BalanceModule *>::iterator it = currentPackage->modules.find(importPath);
     if (currentPackage->modules.end() == it) {
         currentPackage->modules[importPath] = new BalanceModule(importPath, false);
+        currentPackage->modules[importPath]->initializeModule();
     }
 
     return nullptr;

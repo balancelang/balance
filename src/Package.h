@@ -45,6 +45,7 @@ public:
     void throwIfMissing(std::string property);
     bool compileAndPersist();
     void compile();
+    void buildLanguageServerTokens();
     void buildDependencyTree(std::string rootPath);
     void writePackageToBinary(std::string entrypointName);
     BalanceModule * getNextElementOrNull();

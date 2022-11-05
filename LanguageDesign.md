@@ -50,6 +50,11 @@
             }
             ^-- awaits all tasks and continues when all are done, leaving q and b with the results
             the {} block can only contain awaitable expressions
+    - built-in support for running OS commands
+        os {
+            lsOut, lsErr, lsRc = ls -l
+            echo lsOut > test.txt
+        }
 
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do

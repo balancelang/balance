@@ -1,0 +1,6 @@
+var i = 50
+if (i < 100) {
+    print("i was less than 100")
+} else {
+    print("i was not less than 100")
+}

@@ -1,10 +1,14 @@
 ﻿#ifndef LANGUAGE_SERVER_H
 #define LANGUAGE_SERVER_H
 
+#include "../Package.h"
+#include "../visitors/TokenVisitor.h"
+
 #include "LibLsp/lsp/textDocument/signature_help.h"
 #include "LibLsp/lsp/AbsolutePath.h"
 #include "LibLsp/JsonRpc/Condition.h"
 #include "LibLsp/lsp/general/exit.h"
+#include "LibLsp/lsp/general/initialized.h"
 #include "LibLsp/lsp/textDocument/declaration_definition.h"
 #include <boost/program_options.hpp>
 #include "LibLsp/lsp/textDocument/signature_help.h"
@@ -43,7 +47,30 @@ class StdIOServer {
             rsp.id = req.id;
 
             SemanticTokensLegend legend;
-            legend.tokenTypes = {"namespace", "type", "class"};
+            legend.tokenTypes = {
+            	"namespace",
+                "type",
+                "class",
+                "enum",
+                "interface",
+                "struct",
+                "typeParameter",
+                "parameter",
+                "variable",
+                "property",
+                "enumMember",
+                "event",
+                "function",
+                "method",
+                "macro",
+                "keyword",
+                "modifier",
+                "comment",
+                "string",
+                "number",
+                "regexp",
+                "operator"
+            };
 
             SemanticTokensWithRegistrationOptions semanticTokensOptions;
             semanticTokensOptions.legend = legend;
@@ -55,26 +82,31 @@ class StdIOServer {
             return rsp;
         });
 
-        // remote_end_point_.registerHandler([&](Notify_InitializedNotification::notify &notify) {});
+        remote_end_point_.registerHandler([&](Notify_InitializedNotification::notify &notify) { });
 
         // https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokens_fullRequest
         remote_end_point_.registerHandler([&](const td_semanticTokens_full::request &req) {
             td_semanticTokens_full::response rsp;
             rsp.id = req.id;
 
-            SemanticToken token;
-            token.deltaLine = 0;
-            token.deltaStart = 0;
-            token.length = 5;
-            token.tokenType = ls_class;
+            try {
+                std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
+                std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
-            std::vector<SemanticToken> tokenVector;
-            tokenVector.push_back(token);
+                BalanceModule * bmodule = new BalanceModule(rootPathWithoutExtension, true);
+                bmodule->generateASTFromPath(rootPath);
 
-            SemanticTokens tokens;
-            tokens.data = tokens.encodeTokens(tokenVector);
+                // Visit entire tree
+                TokenVisitor visitor;
+                visitor.visit(bmodule->tree);
 
-            rsp.result = tokens;
+                SemanticTokens tokens;
+                tokens.data = tokens.encodeTokens(visitor.tokens);
+
+                rsp.result = tokens;
+            } catch (const std::exception &exc) {
+                _log.error(exc.what());
+            }
 
             return rsp;
         });

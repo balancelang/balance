@@ -59,6 +59,7 @@ returnStatement
     : RETURN expression?
     ;
 
+// Should IDENTIFIER be variable?
 assignment
     : VAR IDENTIFIER '=' expression                                     # NewAssignment
     | IDENTIFIER '=' expression                                         # ExistingAssignment
@@ -108,6 +109,7 @@ argumentList
     : (argument (COMMA argument)*)?
     ;
 
+// TODO: Replace all this with expression?
 argument
     : literal
     | expression

@@ -7,6 +7,7 @@
 #include "visitors/ConstructorVisitor.h"
 #include "visitors/LLVMTypeVisitor.h"
 #include "visitors/TypeVisitor.h"
+#include "visitors/TokenVisitor.h"
 
 #include "config.h"
 
@@ -97,6 +98,9 @@ bool BalancePackage::compileAndPersist()
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->buildTextualRepresentations();
 
+        // If language-server, build tokens TODO: Check if language-server
+        this->buildLanguageServerTokens();
+
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         bool success = this->typeChecking();
         if (!success) {
@@ -130,6 +134,7 @@ bool BalancePackage::compileAndPersist()
 bool BalancePackage::executeString(std::string program) {
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
+    modules["program"]->initializeModule();
     modules["program"]->generateASTFromString(program);
     this->currentModule = modules["program"];
 
@@ -263,6 +268,18 @@ void BalancePackage::buildTextualRepresentations()
     }
 }
 
+void BalancePackage::buildLanguageServerTokens() {
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        TokenVisitor visitor;
+        visitor.visit(this->currentModule->tree);
+    }
+}
+
 void BalancePackage::compile()
 {
     for (auto const &x : modules)
@@ -296,6 +313,7 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
 {
     std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
     modules[rootPathWithoutExtension] = new BalanceModule(rootPathWithoutExtension, true);
+    modules[rootPathWithoutExtension]->initializeModule();
     this->currentModule = modules[rootPathWithoutExtension];
     this->currentModule->generateASTFromPath(rootPath);
     modules[rootPathWithoutExtension]->finishedDiscovery = true;

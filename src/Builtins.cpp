@@ -121,6 +121,7 @@ void createTypes() {
 
 void createBuiltins() {
     BalanceModule * bmodule = new BalanceModule("builtins", false);
+    bmodule->initializeModule();
     currentPackage->builtins = bmodule;
     currentPackage->currentModule = bmodule;
 

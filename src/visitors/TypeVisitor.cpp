@@ -9,6 +9,7 @@ extern BalancePackage *currentPackage;
 std::string TypeVisitor::getText(antlr4::ParserRuleContext *ctx) {
     int a = ctx->start->getStartIndex();
     int b = ctx->stop->getStopIndex();
+    // ctx->getSourceInterval()  TODO: Maybe we can use getSourceInterval here?
     antlr4::misc::Interval * interval = new antlr4::misc::Interval((size_t) a, (size_t) b);
     return currentPackage->currentModule->antlrStream->getText(*interval);
 }
