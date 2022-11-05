@@ -114,7 +114,7 @@ public:
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
-    void generateASTFromPath(std::string filePath);
+    void generateASTFromPath();
     void generateASTFromString(std::string program);
     BalanceClass * getClass(BalanceTypeString * className);
     BalanceClass * getClassFromStructName(std::string structName);

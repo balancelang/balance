@@ -3,6 +3,7 @@
 
 #include "../Package.h"
 #include "../visitors/TokenVisitor.h"
+#include "../visitors/TypeVisitor.h"
 
 #include "LibLsp/lsp/textDocument/signature_help.h"
 #include "LibLsp/lsp/AbsolutePath.h"
@@ -16,8 +17,10 @@
 #include "LibLsp/lsp/ProtocolJsonHandler.h"
 #include "LibLsp/lsp/textDocument/typeHierarchy.h"
 #include "LibLsp/lsp/AbsolutePath.h"
+#include "LibLsp/lsp/lsPosition.h"
 #include "LibLsp/lsp/textDocument/resolveCompletionItem.h"
-
+#include "LibLsp/lsp/general/lsTextDocumentClientCapabilities.h"
+#include "LibLsp/lsp/textDocument/publishDiagnostics.h"
 #include "LibLsp/JsonRpc/Endpoint.h"
 #include "LibLsp/JsonRpc/stream.h"
 #include "LibLsp/JsonRpc/TcpServer.h"
@@ -79,6 +82,9 @@ class StdIOServer {
             semanticTokensOptions.full = {true, semanticTokensServerFull};
 
             rsp.result.capabilities.semanticTokensProvider = semanticTokensOptions;
+
+            // lsCompletionOptions completionOptions;
+            // rsp.result.capabilities.completionProvider = completionOptions;
             return rsp;
         });
 
@@ -89,24 +95,56 @@ class StdIOServer {
             td_semanticTokens_full::response rsp;
             rsp.id = req.id;
 
+            SemanticTokens tokens;
             try {
                 std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
                 std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
                 BalanceModule * bmodule = new BalanceModule(rootPathWithoutExtension, true);
-                bmodule->generateASTFromPath(rootPath);
-
+                bmodule->generateASTFromPath();
                 // Visit entire tree
-                TokenVisitor visitor;
-                visitor.visit(bmodule->tree);
+                TokenVisitor tokenVisitor;
+                tokenVisitor.visit(bmodule->tree);
 
-                SemanticTokens tokens;
-                tokens.data = tokens.encodeTokens(visitor.tokens);
+                tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
 
-                rsp.result = tokens;
+                // TODO: Clean this up
+                Notify_TextDocumentPublishDiagnostics::notify notification;
+                notification.params.uri = req.params.textDocument.uri;
+
+                TypeVisitor typeVisitor;
+                typeVisitor.visit(bmodule->tree);
+
+                for (TypeError * typeError : bmodule->typeErrors) {
+                    _log.info("Type error: " + typeError->message);
+                    lsDiagnostic diagnosticItem;
+                    diagnosticItem.severity = lsDiagnosticSeverity::Error;
+                    diagnosticItem.message = typeError->message;
+                    diagnosticItem.source = "balance";
+                    lsRange range;
+                    lsPosition start;
+                    start.line = typeError->range->start->line;
+                    start.character = typeError->range->start->column;
+                    lsPosition end;
+                    end.line = typeError->range->end->line;
+                    end.character = typeError->range->end->column;
+                    range.start = start;
+                    range.end = end;
+                    diagnosticItem.range = range;
+                    notification.params.diagnostics.push_back(diagnosticItem);
+                }
+                remote_end_point_.sendNotification(notification);
+
             } catch (const std::exception &exc) {
                 _log.error(exc.what());
             }
+            rsp.result = tokens;
+            return rsp;
+        });
+
+        remote_end_point_.registerHandler([&](const td_completion::request &req) {
+            td_completion::response rsp;
+            rsp.id = req.id;
 
             return rsp;
         });

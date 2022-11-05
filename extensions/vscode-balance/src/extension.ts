@@ -6,7 +6,6 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
-    TransportKind
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
@@ -25,29 +24,36 @@ export async function activate(context: vscode.ExtensionContext) {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: [{ scheme: 'file', language: 'plaintext' }],
+        documentSelector: [{ scheme: 'file', language: 'balance' }],
         synchronize: {
             // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
         }
     };
 
-    // Create the language client and start the client.
-    client = new LanguageClient(
-        'balance',
-        'Balance Language Server',
-        serverOptions,
-        clientOptions
-    );
-
-    // Start the client. This will also launch the server
+    client = new LanguageClient('balance', 'Balance Language Server', serverOptions, clientOptions);
     client.start();
-    console.log("After start");
-
     await client.onReady();
-    console.log("On ready");
-    client.sendRequest('textDocument/semanticTokens/full', '');
 
+    vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
+        if (vscode.window.activeTextEditor !== undefined && vscode.window.activeTextEditor.document === document) {
+            client.sendRequest('textDocument/semanticTokens/full', {
+                textDocument: {
+                    uri: "file://" + document.uri.fsPath
+                }
+            });
+        }
+    });
+
+    vscode.workspace.onDidChangeTextDocument(event => {
+        // client.sendRequest('textDocument/semanticTokens/full');
+    });
+
+    vscode.workspace.onDidOpenTextDocument(async event => {
+        await client.sendRequest('textDocument/semanticTokens/full').catch(err => {
+            console.log(err);
+        });
+    });
 }
 
 export function deactivate() { }

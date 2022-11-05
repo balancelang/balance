@@ -30,14 +30,9 @@ void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
     this->tree = this->parser->root();
 }
 
-void BalanceModule::generateASTFromPath(std::string filePath) {
-    if (!fileExist(filePath)) {
-        cout << "Input file doesn't exist: " << filePath << endl;
-        exit(1);
-    }
-
+void BalanceModule::generateASTFromPath() {
     ifstream inputStream;
-    inputStream.open(filePath);
+    inputStream.open(this->filePath);
     this->antlrStream = new antlr4::ANTLRInputStream(inputStream);
     this->generateASTFromStream(antlrStream);
 }

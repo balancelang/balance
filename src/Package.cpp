@@ -99,7 +99,7 @@ bool BalancePackage::compileAndPersist()
         this->buildTextualRepresentations();
 
         // If language-server, build tokens TODO: Check if language-server
-        this->buildLanguageServerTokens();
+        // this->buildLanguageServerTokens();
 
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         bool success = this->typeChecking();
@@ -315,7 +315,7 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
     modules[rootPathWithoutExtension] = new BalanceModule(rootPathWithoutExtension, true);
     modules[rootPathWithoutExtension]->initializeModule();
     this->currentModule = modules[rootPathWithoutExtension];
-    this->currentModule->generateASTFromPath(rootPath);
+    this->currentModule->generateASTFromPath();
     modules[rootPathWithoutExtension]->finishedDiscovery = true;
     PackageVisitor visitor;
     visitor.visit(this->currentModule->tree);
@@ -326,7 +326,7 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
         while (module != nullptr)
         {
             this->currentModule = module;
-            this->currentModule->generateASTFromPath(module->filePath);
+            this->currentModule->generateASTFromPath();
             visitor.visit(module->tree);
             module->finishedDiscovery = true;
             module = getNextElementOrNull();
