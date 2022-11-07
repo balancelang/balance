@@ -1,4 +1,4 @@
 set -e
-cd build
+cd _build
 ./balance ../testFile.bl $@
 ./default

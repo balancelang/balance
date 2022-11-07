@@ -1,0 +1,9 @@
+{
+    "name": "exampleProject",
+    "version": "0.0.0",
+    "entrypoints": {
+        "default": "helloWorld.bl"
+    },
+    "dependencies": {},
+    "TODO": "Remove this?"
+}

@@ -16,6 +16,7 @@ class BalancePackage {
 public:
     std::string packageJsonPath;
     std::string entrypoint;
+    std::string packagePath;
     rapidjson::Document document;
 
     std::string name;
@@ -25,11 +26,22 @@ public:
     BalanceModule * builtins = nullptr;
     BalanceModule *currentModule = nullptr;
     LLVMContext *context;
+    bool isAnalyzeOnly = false;
+
+    std::function<void(std::string)> logger;
 
     BalancePackage(std::string packageJsonPath, std::string entrypoint) {
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
         this->context = new LLVMContext();
+
+        // Get directory of packageJson
+        int pos = packageJsonPath.find_last_of("\\/");
+        this->packagePath = packageJsonPath.substr(0, pos);
+
+        this->logger = [](std::string x) {
+            std::cout << "LOG: " << x << std::endl;
+        };
     }
 
     void reset() {

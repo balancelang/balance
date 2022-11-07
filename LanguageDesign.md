@@ -88,8 +88,3 @@
 - Package manager
     - All packages compiled in cloud-service, which lazily builds requested architectures?
     - Code-coverage requirements?
-
-- Compilation stages
-    - E.g. create a visitor that first gathers all type symbols (not evaluating them yet)
-    - Then another visitor for creating all functions?
-    - Then one visiting the rest, assuming all functions and type-symbols are known?

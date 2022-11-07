@@ -1,3 +1,3 @@
 set -e
-cd build
+cd _build
 ./balance --language-server

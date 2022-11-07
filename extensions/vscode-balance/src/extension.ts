@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as net from 'net';
 import { workspace } from 'vscode';
 
 import {
@@ -6,13 +7,14 @@ import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
+    StreamInfo,
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
 
 export async function activate(context: vscode.ExtensionContext) {
     const runExecutable: Executable = {
-        command: "/home/jeppe/workspace/balance/build/balance",
+        command: "/home/jeppe/workspace/balance/_build/balance",
         args: [ "--language-server" ]
     };
 
@@ -45,14 +47,22 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    vscode.workspace.onDidChangeTextDocument(event => {
-        // client.sendRequest('textDocument/semanticTokens/full');
-    });
+    // vscode.workspace.onDidChangeTextDocument(async (event: vscode.TextDocumentChangeEvent) => {
+    //     client.sendRequest('textDocument/semanticTokens/full', {
+    //         textDocument: {
+    //             uri: "file://" + event.document.uri.fsPath
+    //         }
+    //     });
+    // });
 
-    vscode.workspace.onDidOpenTextDocument(async event => {
-        await client.sendRequest('textDocument/semanticTokens/full').catch(err => {
-            console.log(err);
-        });
+    vscode.workspace.onDidOpenTextDocument(async (document: vscode.TextDocument) => {
+        if (document.uri.scheme === "file") {
+            client.sendRequest('textDocument/semanticTokens/full', {
+                textDocument: {
+                    uri: "file://" + document.uri.fsPath
+                }
+            });
+        }
     });
 }
 

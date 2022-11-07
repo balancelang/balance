@@ -87,25 +87,36 @@ bool BalancePackage::compileAndPersist()
     bool compileSuccess = true;
     for (auto const &entryPoint : this->entrypoints)
     {
+        this->logger("Compiling entrypoint: " + entryPoint.second);
+
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
 
+        this->logger("Creating builtins entrypoint");
         createBuiltins();
 
         // Add builtins to modules
+        this->logger("Adding builtins to modules");
         this->addBuiltinsToModules();
 
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
+        this->logger("Building textual representations");
         this->buildTextualRepresentations();
 
         // If language-server, build tokens TODO: Check if language-server
         // this->buildLanguageServerTokens();
 
         // Type checking, also creates all class, class-methods and function definitions (textually only)
+        this->logger("Running type checking");
         bool success = this->typeChecking();
+        this->logger("Type checking: " + std::to_string(success));
         if (!success) {
             compileSuccess = false;
             break;
+        }
+
+        if (this->isAnalyzeOnly) {
+            continue;
         }
 
         // Run loop that builds LLVM functions and handles cycles
@@ -317,9 +328,12 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
     this->currentModule = modules[rootPathWithoutExtension];
     this->currentModule->generateASTFromPath();
     modules[rootPathWithoutExtension]->finishedDiscovery = true;
+
+    this->logger("Running PackageVisitor");
     PackageVisitor visitor;
     visitor.visit(this->currentModule->tree);
 
+    this->logger("Found " + std::to_string(modules.size()) + " modules");
     if (modules.size() > 1)
     {
         BalanceModule *module = getNextElementOrNull();

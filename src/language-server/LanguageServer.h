@@ -34,6 +34,8 @@
 using namespace boost::asio::ip;
 using namespace std;
 
+extern BalancePackage *currentPackage;
+
 class DummyLog : public lsp::Log {
   public:
     void log(Level level, std::wstring &&msg) { std::wcerr << msg << std::endl; };
@@ -43,11 +45,21 @@ class DummyLog : public lsp::Log {
 };
 
 class StdIOServer {
-  public:
+private:
+    BalancePackage * package = nullptr;
+
+public:
     StdIOServer() : remote_end_point_(protocol_json_handler, endpoint, _log) {
         remote_end_point_.registerHandler([&](const td_initialize::request &req) {
             td_initialize::response rsp;
             rsp.id = req.id;
+
+            try {
+                this->initializePackage(*req.params.rootPath);
+            } catch (const std::exception &exc) {
+                _log.error("Error initializing package");
+                _log.error(exc.what());
+            }
 
             SemanticTokensLegend legend;
             legend.tokenTypes = {
@@ -100,40 +112,50 @@ class StdIOServer {
                 std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
                 std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
-                BalanceModule * bmodule = new BalanceModule(rootPathWithoutExtension, true);
-                bmodule->generateASTFromPath();
-                // Visit entire tree
-                TokenVisitor tokenVisitor;
-                tokenVisitor.visit(bmodule->tree);
+                _log.info(std::to_string(this->package->modules.size()));
+                std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, this->package->packagePath + "/", "");
 
-                tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
-
-                // TODO: Clean this up
-                Notify_TextDocumentPublishDiagnostics::notify notification;
-                notification.params.uri = req.params.textDocument.uri;
-
-                TypeVisitor typeVisitor;
-                typeVisitor.visit(bmodule->tree);
-
-                for (TypeError * typeError : bmodule->typeErrors) {
-                    _log.info("Type error: " + typeError->message);
-                    lsDiagnostic diagnosticItem;
-                    diagnosticItem.severity = lsDiagnosticSeverity::Error;
-                    diagnosticItem.message = typeError->message;
-                    diagnosticItem.source = "balance";
-                    lsRange range;
-                    lsPosition start;
-                    start.line = typeError->range->start->line;
-                    start.character = typeError->range->start->column;
-                    lsPosition end;
-                    end.line = typeError->range->end->line;
-                    end.character = typeError->range->end->column;
-                    range.start = start;
-                    range.end = end;
-                    diagnosticItem.range = range;
-                    notification.params.diagnostics.push_back(diagnosticItem);
+                for (auto const &x : this->package->modules) {
+                    BalanceModule *bmodule = x.second;
+                    _log.info(bmodule->name + " " + bmodule->path + " " + bmodule->filePath + " " + modulePath + " " + this->package->packagePath);
                 }
-                remote_end_point_.sendNotification(notification);
+
+                _log.info("Before fetching module: " + modulePath);
+                BalanceModule * bmodule = this->package->modules[modulePath];
+                _log.info("After: " + bmodule->filePath);
+                bmodule->generateASTFromPath();
+                // // Visit entire tree
+                // TokenVisitor tokenVisitor;
+                // tokenVisitor.visit(bmodule->tree);
+
+                // tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
+
+                // // TODO: Clean this up
+                // Notify_TextDocumentPublishDiagnostics::notify notification;
+                // notification.params.uri = req.params.textDocument.uri;
+
+                // TypeVisitor typeVisitor;
+                // typeVisitor.visit(bmodule->tree);
+
+                // for (TypeError * typeError : bmodule->typeErrors) {
+                //     _log.info("Type error: " + typeError->message);
+                //     lsDiagnostic diagnosticItem;
+                //     diagnosticItem.severity = lsDiagnosticSeverity::Error;
+                //     diagnosticItem.message = typeError->message;
+                //     diagnosticItem.source = "balance";
+                //     lsRange range;
+                //     lsPosition start;
+                //     start.line = typeError->range->start->line;
+                //     start.character = typeError->range->start->column;
+                //     lsPosition end;
+                //     end.line = typeError->range->end->line;
+                //     end.character = typeError->range->end->column;
+                //     range.start = start;
+                //     range.end = end;
+                //     diagnosticItem.range = range;
+                //     notification.params.diagnostics.push_back(diagnosticItem);
+                // }
+                // remote_end_point_.sendNotification(notification);
 
             } catch (const std::exception &exc) {
                 _log.error(exc.what());
@@ -166,6 +188,16 @@ class StdIOServer {
         remote_end_point_.startProcessingMessages(input, output);
     }
     ~StdIOServer() {}
+
+    void initializePackage(std::string rootPath) {
+        this->package = new BalancePackage(rootPath + "/package.json", "");
+        currentPackage = this->package;
+        this->package->logger = [&](std::string x) {
+            _log.info(x);
+        };
+        this->package->isAnalyzeOnly = true;
+        this->package->execute();
+    }
 
     struct ostream : lsp::base_ostream<std::ostream> {
         explicit ostream(std::ostream &_t) : base_ostream<std::ostream>(_t) {}
