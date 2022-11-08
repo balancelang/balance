@@ -11,17 +11,29 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+const DEBUG = true;
 
 export async function activate(context: vscode.ExtensionContext) {
-    const runExecutable: Executable = {
+    let runExecutable: Executable = {
         command: "/home/jeppe/workspace/balance/_build/balance",
         args: [ "--language-server" ]
     };
 
-    const serverOptions: ServerOptions = {
+    let serverOptions: ServerOptions = {
         run: runExecutable,
         debug: runExecutable
     };
+
+    if (DEBUG) {
+        serverOptions = () => {
+            const socket = net.connect({ port: 9333 });
+            const result: StreamInfo = {
+                writer: socket,
+                reader: socket
+            };
+            return Promise.resolve(result);
+        };
+    }
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {

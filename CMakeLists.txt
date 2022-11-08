@@ -135,7 +135,7 @@ add_executable(balance
                src/builtins/Double.cpp
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
-               src/language-server/LanguageServer.cpp
+               src/language-server/LanguageServer.h
                tests/ASTTests.h
                tests/ASTTests.cpp
                tests/CompileTests.h
