@@ -15,6 +15,8 @@
 #include <queue>
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/document.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 
 extern bool verbose;
 extern BalancePackage *currentPackage;
@@ -56,11 +58,12 @@ void BalancePackage::populate()
     {
         std::string entrypointName = itr->name.GetString();
         std::string entrypointValue = itr->value.GetString();
-        this->entrypoints[entrypointName] = entrypointValue;
+        std::string entrypointPath = this->packagePath + "/" + entrypointValue;
+        this->entrypoints[entrypointName] = entrypointPath;
 
         // Check if entrypointValue exists?
-        if (!fileExist(entrypointValue)) {
-            std::cout << "Entrypoint does not exist: " << entrypointValue << std::endl;
+        if (!fileExist(entrypointPath)) {
+            std::cout << "Entrypoint does not exist: " << entrypointPath << std::endl;
             exit(1);
         }
     }
@@ -70,9 +73,21 @@ void BalancePackage::populate()
 
 bool BalancePackage::execute()
 {
-    // Load json file into properties
-    this->load();
-    this->populate();
+    if (fileExist(this->packageJsonPath)) {
+        // Load json file into properties
+        this->load();
+        this->populate();
+    } else {
+        // Find all balance scripts and add as entrypoints
+        for (const auto & entry : fs::directory_iterator(this->packagePath)) {
+            auto extension = entry.path().extension().string();
+            if (extension == ".bl") {
+                std::string filename = entry.path().filename().string();
+                std::string filenameWithoutExtension = filename.substr(0, filename.find_last_of("."));
+                this->entrypoints[filenameWithoutExtension] = entry.path();
+            }
+        }
+    }
 
     return this->compileAndPersist();
 }
@@ -112,7 +127,7 @@ bool BalancePackage::compileAndPersist()
         this->logger("Type checking: " + std::to_string(success));
         if (!success) {
             compileSuccess = false;
-            break;
+            continue;
         }
 
         if (this->isAnalyzeOnly) {

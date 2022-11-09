@@ -166,14 +166,15 @@ public:
 
             rsp.result.capabilities.semanticTokensProvider = semanticTokensOptions;
 
-            // lsCompletionOptions completionOptions;
-            // rsp.result.capabilities.completionProvider = completionOptions;
+            lsCompletionOptions completionOptions;
+            rsp.result.capabilities.completionProvider = completionOptions;
             return rsp;
         });
 
         this->endpoint->registerHandler([&](Notify_InitializedNotification::notify &notify) {});
 
         this->endpoint->registerHandler([=](Notify_Exit::notify &notify) {
+            std::cout << "Stopping.." << std::endl;
             std::cout << notify.ToJson() << std::endl;
             this->server->stop();
         });
@@ -183,53 +184,58 @@ public:
             rsp.id = req.id;
 
             SemanticTokens tokens;
-            // try {
-            //     std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
-            //     std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
+            try {
+                std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
+                std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
-            //     logger->info(std::to_string(currentPackage->modules.size()));
-            //     std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packagePath + "/", "");
+                logger->info(std::to_string(currentPackage->modules.size()));
+                std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packagePath + "/", "");
 
-            //     logger->info("Before fetching module: " + modulePath);
-            //     BalanceModule *bmodule = currentPackage->modules[modulePath];
-            //     logger->info("After: " + bmodule->filePath);
-            //     bmodule->generateASTFromPath();
-            //     // Visit entire tree
-            //     TokenVisitor tokenVisitor;
-            //     tokenVisitor.visit(bmodule->tree);
+                logger->info("Before fetching module: " + modulePath);
 
-            //     tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
+                BalanceModule *bmodule = currentPackage->getModule(modulePath);
+                if (bmodule == nullptr) {
+                    logger->info("Couldn't find module: " + modulePath);
+                    return rsp;
+                }
+                logger->info("After: " + bmodule->filePath);
+                bmodule->generateASTFromPath();
+                // Visit entire tree
+                TokenVisitor tokenVisitor;
+                tokenVisitor.visit(bmodule->tree);
 
-            //     // TODO: Clean this up
-            //     Notify_TextDocumentPublishDiagnostics::notify notification;
-            //     notification.params.uri = req.params.textDocument.uri;
+                tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
 
-            //     TypeVisitor typeVisitor;
-            //     typeVisitor.visit(bmodule->tree);
+                // TODO: Clean this up
+                Notify_TextDocumentPublishDiagnostics::notify notification;
+                notification.params.uri = req.params.textDocument.uri;
 
-            //     for (TypeError * typeError : bmodule->typeErrors) {
-            //         logger->info("Type error: " + typeError->message);
-            //         lsDiagnostic diagnosticItem;
-            //         diagnosticItem.severity = lsDiagnosticSeverity::Error;
-            //         diagnosticItem.message = typeError->message;
-            //         diagnosticItem.source = "balance";
-            //         lsRange range;
-            //         lsPosition start;
-            //         start.line = typeError->range->start->line;
-            //         start.character = typeError->range->start->column;
-            //         lsPosition end;
-            //         end.line = typeError->range->end->line;
-            //         end.character = typeError->range->end->column;
-            //         range.start = start;
-            //         range.end = end;
-            //         diagnosticItem.range = range;
-            //         notification.params.diagnostics.push_back(diagnosticItem);
-            //     }
-            //     this->endpoint->sendNotification(notification);
+                TypeVisitor typeVisitor;
+                typeVisitor.visit(bmodule->tree);
 
-            // } catch (const std::exception &exc) {
-            //     logger->error(exc.what());
-            // }
+                for (TypeError * typeError : bmodule->typeErrors) {
+                    logger->info("Type error: " + typeError->message);
+                    lsDiagnostic diagnosticItem;
+                    diagnosticItem.severity = lsDiagnosticSeverity::Error;
+                    diagnosticItem.message = typeError->message;
+                    diagnosticItem.source = "balance";
+                    lsRange range;
+                    lsPosition start;
+                    start.line = typeError->range->start->line;
+                    start.character = typeError->range->start->column;
+                    lsPosition end;
+                    end.line = typeError->range->end->line;
+                    end.character = typeError->range->end->column;
+                    range.start = start;
+                    range.end = end;
+                    diagnosticItem.range = range;
+                    notification.params.diagnostics.push_back(diagnosticItem);
+                }
+                this->endpoint->sendNotification(notification);
+
+            } catch (const std::exception &exc) {
+                logger->error(exc.what());
+            }
             rsp.result = tokens;
             return rsp;
         });

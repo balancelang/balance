@@ -49,6 +49,13 @@ public:
         this->currentModule = nullptr;
     }
 
+    BalanceModule * getModule(std::string modulePath) {
+        if (this->modules.find(modulePath) != this->modules.end()) {
+            return this->modules[modulePath];
+        }
+        return nullptr;
+    }
+
     bool execute();
     bool executeAsScript();
     bool executeString(std::string program);

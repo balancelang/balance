@@ -74,7 +74,15 @@
         "numbers": "cpp",
         "semaphore": "cpp",
         "stop_token": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "csignal": "cpp",
+        "strstream": "cpp",
+        "complex": "cpp",
+        "coroutine": "cpp",
+        "source_location": "cpp",
+        "ranges": "cpp",
+        "cfenv": "cpp",
+        "valarray": "cpp"
     },
     "cmake.sourceDirectory": "${workspaceFolder}/.",
     "editor.quickSuggestions": {
