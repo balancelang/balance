@@ -193,7 +193,7 @@ public:
 
                 logger->info("Before fetching module: " + modulePath);
 
-                BalanceModule *bmodule = currentPackage->getModule(modulePath);
+                BalanceModule *bmodule = currentPackage->getModule(rootPathWithoutExtension);
                 if (bmodule == nullptr) {
                     logger->info("Couldn't find module: " + modulePath);
                     return rsp;
@@ -210,6 +210,8 @@ public:
                 Notify_TextDocumentPublishDiagnostics::notify notification;
                 notification.params.uri = req.params.textDocument.uri;
 
+                bmodule->typeErrors.clear();        // TODO: Free?
+                bmodule->initializeModule();
                 TypeVisitor typeVisitor;
                 typeVisitor.visit(bmodule->tree);
 
@@ -221,10 +223,10 @@ public:
                     diagnosticItem.source = "balance";
                     lsRange range;
                     lsPosition start;
-                    start.line = typeError->range->start->line;
+                    start.line = typeError->range->start->line - 1;
                     start.character = typeError->range->start->column;
                     lsPosition end;
-                    end.line = typeError->range->end->line;
+                    end.line = typeError->range->end->line - 1;
                     end.character = typeError->range->end->column;
                     range.start = start;
                     range.end = end;

@@ -102,6 +102,9 @@ bool BalancePackage::compileAndPersist()
     bool compileSuccess = true;
     for (auto const &entryPoint : this->entrypoints)
     {
+        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
+        this->reset();
+
         this->logger("Compiling entrypoint: " + entryPoint.second);
 
         // (PackageVisitor.cpp) Build import tree
@@ -124,7 +127,11 @@ bool BalancePackage::compileAndPersist()
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         this->logger("Running type checking");
         bool success = this->typeChecking();
-        this->logger("Type checking: " + std::to_string(success));
+        if (success) {
+            this->logger("Type checking: success");
+        } else {
+            this->logger("Type checking: fail");
+        }
         if (!success) {
             compileSuccess = false;
             continue;
@@ -148,9 +155,6 @@ bool BalancePackage::compileAndPersist()
 
         // Persist modules as binary
         this->writePackageToBinary(entryPoint.first);
-
-        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
-        this->reset();
     }
 
     return compileSuccess;
