@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+## [0.0.8]
+- Initial language server implementation.
+
 ## [0.0.7]
 ### Added
 - Support for typed lambdas as arguments/return values.
