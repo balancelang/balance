@@ -18,7 +18,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-extern bool verbose;
 extern BalancePackage *currentPackage;
 
 void BalancePackage::load()
@@ -405,10 +404,10 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    if (verbose)
-    {
-        bmodule->module->print(llvm::errs(), nullptr);
-    }
+    // if (currentPackage->verboseLogging)
+    // {
+    //     bmodule->module->print(llvm::errs(), nullptr);
+    // }
 
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);

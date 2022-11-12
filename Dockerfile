@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # cmake and tools
 RUN apt update
-RUN apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre libboost-dev
+RUN apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre libboost-all-dev
 RUN apt clean all
 
 # LLVM-12

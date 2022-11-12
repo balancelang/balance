@@ -1,1 +1,1 @@
-docker run --rm -it -v $(pwd)/..:/balance balancelang:balance /bin/bash
+docker run --rm -it -v $(pwd)/..:/balance balancelang/balance /bin/bash

@@ -66,7 +66,6 @@ using namespace llvm;
 using namespace antlr4;
 using namespace std;
 
-bool verbose = false;
 BalancePackage *currentPackage = nullptr;
 
 void printVersion() {
@@ -109,6 +108,7 @@ int main(int argc, char **argv) {
     bool isPrintVersion = false;
     bool isRunLanguageServer = false;
     bool languageServerTcp = false;
+    bool verboseLogging = false;
     std::string entryPoint;
 
     std::vector<std::string> arguments;
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
         } else if (argument == "--help") {
             isHelp = true;
         } else if (argument == "--verbose") {
-            verbose = true;
+            verboseLogging = true;
         } else if (argument == "--language-server") {
             isRunLanguageServer = true;
         } else if (argument == "--language-server-tcp") {
@@ -157,6 +157,7 @@ int main(int argc, char **argv) {
 
         // TODO: One day we might allow executing from a different directory
         currentPackage = new BalancePackage("package.json", entryPoint);
+        currentPackage->verboseLogging = verboseLogging;
         bool success = currentPackage->execute();
         return !success;
     } else {

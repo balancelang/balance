@@ -27,6 +27,7 @@ public:
     BalanceModule *currentModule = nullptr;
     LLVMContext *context;
     bool isAnalyzeOnly = false;
+    bool verboseLogging = false;
 
     std::function<void(std::string)> logger;
 
@@ -39,8 +40,10 @@ public:
         int pos = packageJsonPath.find_last_of("\\/");
         this->packagePath = packageJsonPath.substr(0, pos);
 
-        this->logger = [](std::string x) {
-            std::cout << "LOG: " << x << std::endl;
+        this->logger = [&](std::string x) {
+            if (this->verboseLogging) {
+                std::cout << "LOG: " << x << std::endl;
+            }
         };
     }
 
