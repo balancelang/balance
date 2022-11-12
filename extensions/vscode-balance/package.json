@@ -21,7 +21,17 @@
                 "command": "balance.analyze",
                 "title": "Balance analyze"
             }
-        ]
+        ],
+        "configuration": {
+            "title": "Balance",
+            "properties": {
+                "balance.compilerPath": {
+                    "type": "string",
+                    "default": "/usr/bin/balance",
+                    "description": "Path to the balance compiler"
+                }
+            }
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",

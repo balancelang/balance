@@ -108,6 +108,7 @@ int main(int argc, char **argv) {
     bool isHelp = false;
     bool isPrintVersion = false;
     bool isRunLanguageServer = false;
+    bool languageServerTcp = false;
     std::string entryPoint;
 
     std::vector<std::string> arguments;
@@ -134,6 +135,8 @@ int main(int argc, char **argv) {
             verbose = true;
         } else if (argument == "--language-server") {
             isRunLanguageServer = true;
+        } else if (argument == "--language-server-tcp") {
+            languageServerTcp = true;
         } else {
             if (argument != "new" && argument != "run") {
                 entryPoint = argument;
@@ -166,7 +169,7 @@ int main(int argc, char **argv) {
             runCompileTestSuite();
             runExamplesTestSuite();
         } else if (isRunLanguageServer) {
-            runLanguageServer();
+            runLanguageServer(languageServerTcp);
         } else {
             currentPackage = new BalancePackage("", entryPoint);
             bool success = currentPackage->executeAsScript();

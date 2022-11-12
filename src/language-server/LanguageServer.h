@@ -134,6 +134,8 @@ private:
     DummyLog * logger;
     RemoteEndPoint * endpoint;
 
+    std::string workspaceRootPath = "";
+
 public:
     LanguageServer * server;
     BalanceLanguageServer(LanguageServer * server) {
@@ -147,16 +149,11 @@ public:
             td_initialize::response rsp;
             rsp.id = req.id;
 
-            try {
-                this->initializePackage(*req.params.rootPath);
-            } catch (const std::exception &exc) {
-                this->logger->error("Error initializing package");
-                // logger.error(exc.what());
-            }
+            this->workspaceRootPath = *req.params.rootPath;
 
             SemanticTokensLegend legend;
-            legend.tokenTypes = {"namespace", "type",     "class",  "enum",  "interface", "struct",   "typeParameter", "parameter", "variable", "property", "enumMember",
-                                "event",     "function", "method", "macro", "keyword",   "modifier", "comment",       "string",    "number",   "regexp",   "operator"};
+            legend.tokenTypes = {"namespace", "type", "class", "enum", "interface", "struct", "typeParameter", "parameter", "variable", "property", "enumMember",
+                                "event", "function", "method", "macro", "keyword", "modifier", "comment", "string", "number", "regexp", "operator"};
 
             SemanticTokensWithRegistrationOptions semanticTokensOptions;
             semanticTokensOptions.legend = legend;
@@ -171,7 +168,19 @@ public:
             return rsp;
         });
 
-        this->endpoint->registerHandler([&](Notify_InitializedNotification::notify &notify) {});
+        this->endpoint->registerHandler([&](Notify_InitializedNotification::notify &notify) {
+            try {
+                this->initializePackage(this->workspaceRootPath);
+            } catch (const std::exception &exc) {
+                this->logger->error("Error initializing package");
+                this->logger->error(exc.what());
+            }
+
+            for (auto const &x : currentPackage->modules) {
+                BalanceModule *bmodule = x.second;
+                this->typeCheckModule(bmodule);
+            }
+        });
 
         this->endpoint->registerHandler([=](Notify_Exit::notify &notify) {
             std::cout << "Stopping.." << std::endl;
@@ -179,7 +188,7 @@ public:
             this->server->stop();
         });
 
-        this->endpoint->registerHandler([&](const td_semanticTokens_full::request &req) {
+        this->endpoint->registerHandler([&](const td_semanticTokens_full::request &req) -> lsp::ResponseOrError<td_semanticTokens_full::response> {
             td_semanticTokens_full::response rsp;
             rsp.id = req.id;
 
@@ -188,10 +197,9 @@ public:
                 std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
                 std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
-                logger->info(std::to_string(currentPackage->modules.size()));
                 std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packagePath + "/", "");
 
-                logger->info("Before fetching module: " + modulePath);
+                currentPackage->compileAndPersist();
 
                 BalanceModule *bmodule = currentPackage->getModule(rootPathWithoutExtension);
                 if (bmodule == nullptr) {
@@ -206,34 +214,7 @@ public:
 
                 tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
 
-                // TODO: Clean this up
-                Notify_TextDocumentPublishDiagnostics::notify notification;
-                notification.params.uri = req.params.textDocument.uri;
-
-                bmodule->typeErrors.clear();        // TODO: Free?
-                bmodule->initializeModule();
-                TypeVisitor typeVisitor;
-                typeVisitor.visit(bmodule->tree);
-
-                for (TypeError * typeError : bmodule->typeErrors) {
-                    logger->info("Type error: " + typeError->message);
-                    lsDiagnostic diagnosticItem;
-                    diagnosticItem.severity = lsDiagnosticSeverity::Error;
-                    diagnosticItem.message = typeError->message;
-                    diagnosticItem.source = "balance";
-                    lsRange range;
-                    lsPosition start;
-                    start.line = typeError->range->start->line - 1;
-                    start.character = typeError->range->start->column;
-                    lsPosition end;
-                    end.line = typeError->range->end->line - 1;
-                    end.character = typeError->range->end->column;
-                    range.start = start;
-                    range.end = end;
-                    diagnosticItem.range = range;
-                    notification.params.diagnostics.push_back(diagnosticItem);
-                }
-                this->endpoint->sendNotification(notification);
+                this->typeCheckModule(bmodule);
 
             } catch (const std::exception &exc) {
                 logger->error(exc.what());
@@ -241,12 +222,43 @@ public:
             rsp.result = tokens;
             return rsp;
         });
-        this->endpoint->registerHandler([&](const td_completion::request &req) {
-            td_completion::response rsp;
-            rsp.id = req.id;
+        // this->endpoint->registerHandler([&](const td_completion::request &req) {
+        //     td_completion::response rsp;
+        //     rsp.id = req.id;
+        //     return rsp;
+        // });
+    }
 
-            return rsp;
-        });
+    void typeCheckModule(BalanceModule * bmodule) {
+        // TODO: Clean this up
+        Notify_TextDocumentPublishDiagnostics::notify notification;
+        lsDocumentUri uri = lsDocumentUri::FromPath(bmodule->filePath);
+        notification.params.uri = uri;
+
+        bmodule->typeErrors.clear();        // TODO: Free?
+        bmodule->initializeModule();
+        TypeVisitor typeVisitor;
+        typeVisitor.visit(bmodule->tree);
+
+        for (TypeError * typeError : bmodule->typeErrors) {
+            lsDiagnostic diagnosticItem;
+            diagnosticItem.severity = lsDiagnosticSeverity::Error;
+            diagnosticItem.message = typeError->message;
+            diagnosticItem.source = "balance";
+            lsRange range;
+            lsPosition start;
+            start.line = typeError->range->start->line - 1;
+            start.character = typeError->range->start->column;
+            lsPosition end;
+            end.line = typeError->range->end->line - 1;
+            end.character = typeError->range->end->column;
+            range.start = start;
+            range.end = end;
+            diagnosticItem.range = range;
+            notification.params.diagnostics.push_back(diagnosticItem);
+        }
+        // logger->info("Sending notification");
+        this->endpoint->sendNotification(notification);
     }
 
     void run() {
@@ -263,8 +275,7 @@ public:
     }
 };
 
-int runLanguageServer() {
-    bool runAsTcpServer = true;
+int runLanguageServer(bool runAsTcpServer = false) {
     if (runAsTcpServer) {
         TCPServer server;
         BalanceLanguageServer languageServer(&server);

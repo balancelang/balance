@@ -10,12 +10,26 @@ import {
     StreamInfo,
 } from 'vscode-languageclient/node';
 
+export interface BalanceConfiguration {
+    compilerPath: string;
+}
+
 let client: LanguageClient;
 const DEBUG = true;
 
+const config: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('balance');
+
+function getConfiguration(): BalanceConfiguration {
+    return {
+        compilerPath: config.get<string>('compilerPath', "/usr/bin/balance"),
+    };
+}
+
 export async function activate(context: vscode.ExtensionContext) {
+    const configuration = getConfiguration();
+
     let runExecutable: Executable = {
-        command: "/home/jeppe/workspace/balance/_build/balance",
+        command: configuration.compilerPath,
         args: [ "--language-server" ]
     };
 
@@ -38,7 +52,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
         // Register the server for plain text documents
-        documentSelector: [{ scheme: 'file', language: 'balance' }],
+        // documentSelector: [{ scheme: 'file', language: 'balance', pattern: '*.bl' }],
+        documentSelector: [ { pattern: "**/*.bl" } ],
         synchronize: {
             // Notify the server about file changes to '.clientrc files contained in the workspace
             fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
@@ -49,15 +64,16 @@ export async function activate(context: vscode.ExtensionContext) {
     client.start();
     await client.onReady();
 
-    vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
-        if (vscode.window.activeTextEditor !== undefined && vscode.window.activeTextEditor.document === document) {
-            client.sendRequest('textDocument/semanticTokens/full', {
-                textDocument: {
-                    uri: "file://" + document.uri.fsPath
-                }
-            });
-        }
-    });
+    // vscode.workspace.onDidSaveTextDocument(async (document: vscode.TextDocument) => {
+    //     if (vscode.window.activeTextEditor !== undefined && vscode.window.activeTextEditor.document === document) {
+    //         const result = await client.sendRequest<SemanticTokens>('textDocument/semanticTokens/full', {
+    //             textDocument: {
+    //                 uri: "file://" + document.uri.fsPath
+    //             }
+    //         });
+    //         const t = 123;
+    //     }
+    // });
 
     // vscode.workspace.onDidChangeTextDocument(async (event: vscode.TextDocumentChangeEvent) => {
     //     client.sendRequest('textDocument/semanticTokens/full', {
@@ -67,15 +83,15 @@ export async function activate(context: vscode.ExtensionContext) {
     //     });
     // });
 
-    vscode.workspace.onDidOpenTextDocument(async (document: vscode.TextDocument) => {
-        if (document.uri.scheme === "file") {
-            client.sendRequest('textDocument/semanticTokens/full', {
-                textDocument: {
-                    uri: "file://" + document.uri.fsPath
-                }
-            });
-        }
-    });
+    // vscode.workspace.onDidOpenTextDocument(async (document: vscode.TextDocument) => {
+    //     if (document.uri.scheme === "file") {
+    //         client.sendRequest('textDocument/semanticTokens/full', {
+    //             textDocument: {
+    //                 uri: "file://" + document.uri.fsPath
+    //             }
+    //         });
+    //     }
+    // });
 }
 
 export function deactivate() { }

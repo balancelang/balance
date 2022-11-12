@@ -93,7 +93,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/_build/balance",
             "args": [
-                "--language-server"
+                "--language-server", "--language-server-tcp"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
