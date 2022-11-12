@@ -90,7 +90,7 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
-    BalancePackage * package = new BalancePackage("", "");
+    BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(program);
     return exec("./program");
 }

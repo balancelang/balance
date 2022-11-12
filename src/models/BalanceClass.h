@@ -4,6 +4,7 @@
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
 #include "BalanceModule.h"
+#include "BalanceInterface.h"
 
 #include "llvm/IR/DerivedTypes.h"
 
@@ -12,6 +13,7 @@ class BalanceModule;
 class BalanceFunction;
 class BalanceProperty;
 class BalanceImportedConstructor;
+class BalanceInterface;
 
 
 class BalanceClass
@@ -20,6 +22,7 @@ public:
     BalanceTypeString * name;
     map<string, BalanceProperty *> properties = {};
     map<string, BalanceFunction *> methods = {};
+    map<string, BalanceInterface *> interfaces = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;
     llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)

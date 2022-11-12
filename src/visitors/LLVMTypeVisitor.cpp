@@ -144,7 +144,7 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
 }
 
 std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    string functionName = ctx->IDENTIFIER()->getText();
+    string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
 
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentClass != nullptr) {
@@ -163,7 +163,13 @@ std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinit
                 if (bclass == nullptr) {
                     BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString);
                     if (ibclass == nullptr) {
-                        throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
+                        BalanceInterface * binterface = currentPackage->currentModule->getInterface(bparameter->balanceTypeString->base);
+                        if (binterface == nullptr) {
+                            // TODO: Imported interface
+                            throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
+                        } else {
+                            bparameter->type = binterface->structType->getPointerTo();
+                        }
                     } else {
                         if (ibclass->bclass->structType != nullptr) {
                             bparameter->type = ibclass->bclass->structType->getPointerTo();

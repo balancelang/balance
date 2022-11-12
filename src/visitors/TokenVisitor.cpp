@@ -106,12 +106,12 @@ std::any TokenVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx
 }
 
 std::any TokenVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    this->addToken(ctx->DEF()->getSymbol(), SemanticTokenType::ls_keyword);
-    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_method);
+    this->addToken(ctx->functionSignature()->DEF()->getSymbol(), SemanticTokenType::ls_keyword);
+    this->addToken(ctx->functionSignature()->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_method);
 
-    visit(ctx->parameterList());
-    if (ctx->returnType()) {
-        visit(ctx->returnType());
+    visit(ctx->functionSignature()->parameterList());
+    if (ctx->functionSignature()->returnType()) {
+        visit(ctx->functionSignature()->returnType());
     }
     visit(ctx->functionBlock());
 

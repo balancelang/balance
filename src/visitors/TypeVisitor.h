@@ -38,6 +38,7 @@ public:
     std::any visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) override;
     std::any visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) override;
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
+    std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
 
     // TODO: visitClassInitializerExpression
     // Test can't reassign different class

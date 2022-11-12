@@ -1015,7 +1015,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
 }
 
 any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    std::string functionName = ctx->IDENTIFIER()->getText();
+    std::string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
     BalanceFunction *bfunction;
 
     if (currentPackage->currentModule->currentClass != nullptr) {

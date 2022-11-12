@@ -3,6 +3,7 @@
 
 #include "BalanceScopeBlock.h"
 #include "BalanceClass.h"
+#include "BalanceInterface.h"
 #include "BalanceFunction.h"
 #include "BalanceLambda.h"
 #include "llvm/IR/IRBuilder.h"
@@ -17,6 +18,7 @@ using namespace antlr4;
 class BalanceImportedClass;
 class BalanceImportedFunction;
 class BalanceClass;
+class BalanceInterface;
 class BalanceFunction;
 
 class Position {
@@ -63,6 +65,7 @@ public:
     // Structures defined in this module
     std::map<std::string, BalanceClass *> classes = {};
     std::map<std::string, BalanceFunction *> functions = {};
+    std::map<std::string, BalanceInterface *> interfaces = {};
     std::map<std::string, llvm::Value *> globals = {};
 
     // Structures imported into this module
@@ -72,6 +75,7 @@ public:
 
     BalanceScopeBlock *rootScope;
     BalanceClass *currentClass = nullptr;
+    BalanceInterface *currentInterface = nullptr;
     BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
@@ -122,6 +126,7 @@ public:
     BalanceImportedClass * getImportedClass(BalanceTypeString * className);
     BalanceImportedClass * getImportedClassFromStructName(std::string structName);
     BalanceImportedClass * getImportedClassFromBaseName(std::string baseName);
+    BalanceInterface * getInterface(std::string interfaceName);
 
     BalanceFunction * getFunction(std::string functionName);
     BalanceImportedFunction * getImportedFunction(std::string functionName);

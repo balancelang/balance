@@ -156,8 +156,7 @@ int main(int argc, char **argv) {
         }
 
         // TODO: One day we might allow executing from a different directory
-        currentPackage = new BalancePackage("package.json", entryPoint);
-        currentPackage->verboseLogging = verboseLogging;
+        currentPackage = new BalancePackage("package.json", entryPoint, verboseLogging);
         bool success = currentPackage->execute();
         return !success;
     } else {
@@ -172,7 +171,7 @@ int main(int argc, char **argv) {
         } else if (isRunLanguageServer) {
             runLanguageServer(languageServerTcp);
         } else {
-            currentPackage = new BalancePackage("", entryPoint);
+            currentPackage = new BalancePackage("", entryPoint, verboseLogging);
             bool success = currentPackage->executeAsScript();
             return !success;
         }

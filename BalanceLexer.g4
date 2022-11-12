@@ -13,6 +13,8 @@ FALSE               : 'false';
 TRUE                : 'true';
 WHILE               : 'while';
 CLASS               : 'class';
+INTERFACE           : 'interface';
+IMPLEMENTS          : 'implements';
 NEW                 : 'new';
 FROM                : 'from';
 IMPORT              : 'import';

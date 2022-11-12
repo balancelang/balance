@@ -266,7 +266,7 @@ public:
     }
 
     void initializePackage(std::string rootPath) {
-        currentPackage = new BalancePackage(rootPath + "/package.json", "");
+        currentPackage = new BalancePackage(rootPath + "/package.json", "", false);
         currentPackage->logger = [&](std::string x) {
             this->logger->info(x);
         };

@@ -11,6 +11,7 @@ rootBlock
     : lineStatement
     | functionDefinition (LINE_BREAK | EOF)
     | classDefinition (LINE_BREAK | EOF)
+    | interfaceDefinition (LINE_BREAK | EOF)
     ;
 
 lineStatement
@@ -121,8 +122,21 @@ functionCall
     : IDENTIFIER '(' argumentList ')'
     ;
 
+functionSignature
+    : DEF IDENTIFIER OPEN_PARENS parameterList CLOSE_PARENS returnType?
+    ;
+
 functionDefinition
-    : DEF IDENTIFIER OPEN_PARENS parameterList CLOSE_PARENS returnType? WS* OPEN_BRACE LINE_BREAK* functionBlock WS* CLOSE_BRACE WS*
+    : functionSignature WS* OPEN_BRACE LINE_BREAK* functionBlock WS* CLOSE_BRACE WS*
+    ;
+
+interfaceDefinition
+    : INTERFACE interfaceName=IDENTIFIER WS* OPEN_BRACE LINE_BREAK* interfaceElement* WS* CLOSE_BRACE WS*
+    ;
+
+interfaceElement
+    : functionSignature
+    | LINE_BREAK
     ;
 
 classInitializer
@@ -130,7 +144,17 @@ classInitializer
     ;
 
 classDefinition
-    : CLASS className=IDENTIFIER OPEN_BRACE classElement* CLOSE_BRACE
+    : CLASS className=IDENTIFIER classExtendsImplements? OPEN_BRACE classElement* CLOSE_BRACE
+    ;
+
+// Add class extension here as well, e.g. as:
+// classExtendsImplements
+//     : (IMPLEMENTS typeList)? (EXTENDS typeList)?
+//     | (EXTENDS typeList)? (IMPLEMENTS typeList)?
+//     ;
+
+classExtendsImplements
+    : IMPLEMENTS interfaces=typeList
     ;
 
 classElement

@@ -95,7 +95,7 @@ string runExample(string filePath) {
     stringstream strStream;
     strStream << inputStream.rdbuf();
 
-    BalancePackage * package = new BalancePackage("", "");
+    BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(strStream.str());
     return execExample("./program");
 }

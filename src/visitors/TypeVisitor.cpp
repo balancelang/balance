@@ -337,19 +337,31 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
 
         if (!expectedParameters[i]->equalTo(actualParameters[i])) {
-            currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + expectedParameters[i]->toString() + ", found " + actualParameters[i]->toString());
+            BalanceInterface * binterface = currentPackage->currentModule->getInterface(expectedParameters[i]->base);
+            // TODO: Imported interface
+
+            if (binterface != nullptr) {
+                BalanceClass * bclass = currentPackage->currentModule->getClass(actualParameters[i]);
+                // TODO: Imported class
+                if (bclass->interfaces[binterface->name->base] == nullptr) {
+                    currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. " + bclass->name->toString() + " does not implement interface " + binterface->name->toString());
+                }
+            } else {
+                // TODO: Check if expected parameter is interface, and instance implements interface
+                currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + expectedParameters[i]->toString() + ", found " + actualParameters[i]->toString());
+            }
         }
     }
 
     for (int i = expectedParameters.size(); i < actualParameters.size(); i++) {
-        currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in call, " + text + ", found " + actualParameters[i]->toString());
+        currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in call, found " + actualParameters[i]->toString());
     }
 
     return returnType;
 }
 
 std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    std::string functionName = ctx->IDENTIFIER()->getText();
+    std::string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
 
@@ -413,6 +425,11 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
 
     currentPackage->currentModule->currentClass = bclass;
     currentPackage->currentModule->classes[className] = bclass;
+
+    // Parse extend/implements
+    if (ctx->classExtendsImplements()) {
+        visit(ctx->classExtendsImplements());
+    }
 
     // Visit all class properties
     for (auto const &x : ctx->classElement()) {
@@ -522,4 +539,55 @@ std::any TypeVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ct
 
 std::any TypeVisitor::visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) {
     return new BalanceTypeString("None");
+}
+
+std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) {
+    string text = ctx->getText();
+
+    if (currentPackage->currentModule->currentClass == nullptr) {
+        // TODO: Throw error as we're not currently parsing a class
+    }
+
+    for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
+        std::string interfaceName = type->getText();
+        BalanceInterface * binterface = currentPackage->currentModule->getInterface(interfaceName);
+        // TODO: Handle imported interfaces
+
+        // Check if class implements all functions
+        for (auto const &x : binterface->methods) {
+            BalanceFunction * interfaceFunction = x.second;
+
+            // Check if class implements function
+            BalanceFunction * classFunction = currentPackage->currentModule->currentClass->methods[interfaceFunction->name];
+            if (classFunction == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Missing interface implementation of function " + interfaceFunction->name + ", required by interface " + binterface->name->toString());
+                continue;
+            }
+
+            // Check if signature matches
+            if (!interfaceFunction->returnTypeString->equalTo(classFunction->returnTypeString)) {
+                currentPackage->currentModule->addTypeError(ctx, "Wrong return-type of implemented function. Expected " + interfaceFunction->returnTypeString->toString() + ", found " + classFunction->returnTypeString->toString());
+            }
+
+            // We start from 1, since we assume 'this' as first parameter
+            for (int i = 1; i < interfaceFunction->parameters.size(); i++) {
+                if (i >= classFunction->parameters.size()) {
+                    currentPackage->currentModule->addTypeError(ctx, "Missing parameter in implemented method, " + text + ", expected " + interfaceFunction->parameters[i]->balanceTypeString->toString());
+                    continue;
+                }
+
+                if (!interfaceFunction->parameters[i]->balanceTypeString->equalTo(classFunction->parameters[i]->balanceTypeString)) {
+                    currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + interfaceFunction->parameters[i]->balanceTypeString->toString() + ", found " + classFunction->parameters[i]->balanceTypeString->toString());
+                }
+            }
+
+            for (int i = interfaceFunction->parameters.size(); i < classFunction->parameters.size(); i++) {
+                currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in implemented method, " + classFunction->name + ", found " + classFunction->parameters[i]->balanceTypeString->toString());
+            }
+        }
+
+        currentPackage->currentModule->currentClass->interfaces[interfaceName] = binterface;
+    }
+
+    return nullptr;
 }

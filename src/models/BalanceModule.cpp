@@ -42,6 +42,13 @@ void BalanceModule::generateASTFromString(std::string program) {
     this->generateASTFromStream(antlrStream);
 }
 
+BalanceInterface * BalanceModule::getInterface(std::string interfaceName) {
+    if (this->interfaces.find(interfaceName) != this->interfaces.end()) {
+        return this->interfaces[interfaceName];
+    }
+    return nullptr;
+}
+
 BalanceClass *BalanceModule::getClass(BalanceTypeString * className) {
     std::string structName = className->toString();
     return this->getClassFromStructName(structName);
