@@ -1,2 +1,2 @@
 cd examples/project
-../../build/balance run $@ && ./default
+../../_build/balance run $@ && ./default

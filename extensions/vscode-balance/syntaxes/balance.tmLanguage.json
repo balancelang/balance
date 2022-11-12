@@ -1,0 +1,56 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "balance",
+    "patterns": [
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#class"
+        },
+        {
+            "include": "#comments"
+        }
+    ],
+    "repository": {
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.balance",
+                    "match": "\\b(if|while|for|return)\\b"
+                }
+            ]
+        },
+        "class": {
+            "patterns": [
+                {
+                    "name": "storage.type",
+                    "match": "\\b(class|def)\\b"
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash",
+                    "match": "\/\/.*"
+                }
+            ]
+        },
+        "strings": {
+            "name": "string.quoted.double.balance",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.balance",
+                    "match": "\\\\."
+                }
+            ]
+        }
+    },
+    "scopeName": "source.balance"
+}

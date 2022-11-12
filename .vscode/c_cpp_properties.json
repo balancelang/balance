@@ -6,8 +6,8 @@
                 "${workspaceFolder}/**",
                 "/usr/lib/llvm-12/include",
                 "/usr/lib/clang/12/include",
-                "${workspaceFolder}/build/**",
-                "${workspaceFolder}/build/vendor"
+                "${workspaceFolder}/_build/**",
+                "${workspaceFolder}/_build/vendor"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

@@ -118,6 +118,7 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
             return std::any();
         }
     } else {
+        // TODO: Should we allow overriding functions in new scopes?
         if (currentPackage->currentModule->functions[functionName] != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
             return std::any();

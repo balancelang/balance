@@ -16,6 +16,7 @@ class BalancePackage {
 public:
     std::string packageJsonPath;
     std::string entrypoint;
+    std::string packagePath;
     rapidjson::Document document;
 
     std::string name;
@@ -25,16 +26,37 @@ public:
     BalanceModule * builtins = nullptr;
     BalanceModule *currentModule = nullptr;
     LLVMContext *context;
+    bool isAnalyzeOnly = false;
+    bool verboseLogging = false;
+
+    std::function<void(std::string)> logger;
 
     BalancePackage(std::string packageJsonPath, std::string entrypoint) {
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
         this->context = new LLVMContext();
+
+        // Get directory of packageJson
+        int pos = packageJsonPath.find_last_of("\\/");
+        this->packagePath = packageJsonPath.substr(0, pos);
+
+        this->logger = [&](std::string x) {
+            if (this->verboseLogging) {
+                std::cout << "LOG: " << x << std::endl;
+            }
+        };
     }
 
     void reset() {
         this->modules = {};
         this->currentModule = nullptr;
+    }
+
+    BalanceModule * getModule(std::string modulePath) {
+        if (this->modules.find(modulePath) != this->modules.end()) {
+            return this->modules[modulePath];
+        }
+        return nullptr;
     }
 
     bool execute();
@@ -45,6 +67,7 @@ public:
     void throwIfMissing(std::string property);
     bool compileAndPersist();
     void compile();
+    void buildLanguageServerTokens();
     void buildDependencyTree(std::string rootPath);
     void writePackageToBinary(std::string entrypointName);
     BalanceModule * getNextElementOrNull();

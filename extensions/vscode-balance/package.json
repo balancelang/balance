@@ -1,0 +1,69 @@
+{
+    "name": "balance",
+    "displayName": "balance",
+    "description": "Balance programming language support",
+    "version": "0.0.1",
+    "publisher": "JeppeRask",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/balancelang/balance"
+    },
+    "engines": {
+        "vscode": "^1.72.0"
+    },
+    "categories": [
+        "Other",
+        "Programming Languages"
+    ],
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "balance.analyze",
+                "title": "Balance analyze"
+            }
+        ],
+        "configuration": {
+            "title": "Balance",
+            "properties": {
+                "balance.compilerPath": {
+                    "type": "string",
+                    "default": "/usr/bin/balance",
+                    "description": "Path to the balance compiler"
+                },
+                "balance.tcpServer": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether to connect to the language server using TCP."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^7.0.0"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.72.0",
+        "@types/glob": "^8.0.0",
+        "@types/mocha": "^10.0.0",
+        "@types/node": "16.x",
+        "@typescript-eslint/eslint-plugin": "^5.38.1",
+        "@typescript-eslint/parser": "^5.38.1",
+        "eslint": "^8.24.0",
+        "glob": "^8.0.3",
+        "mocha": "^10.0.0",
+        "typescript": "^4.8.4",
+        "@vscode/test-electron": "^2.1.5"
+    }
+}

@@ -3,6 +3,7 @@
 #include "Package.h"
 #include "Utilities.h"
 #include "visitors/Visitor.h"
+#include "language-server/LanguageServer.h"
 
 #include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
@@ -65,7 +66,6 @@ using namespace llvm;
 using namespace antlr4;
 using namespace std;
 
-bool verbose = false;
 BalancePackage *currentPackage = nullptr;
 
 void printVersion() {
@@ -106,6 +106,9 @@ int main(int argc, char **argv) {
     bool isTest = false;
     bool isHelp = false;
     bool isPrintVersion = false;
+    bool isRunLanguageServer = false;
+    bool languageServerTcp = false;
+    bool verboseLogging = false;
     std::string entryPoint;
 
     std::vector<std::string> arguments;
@@ -129,7 +132,11 @@ int main(int argc, char **argv) {
         } else if (argument == "--help") {
             isHelp = true;
         } else if (argument == "--verbose") {
-            verbose = true;
+            verboseLogging = true;
+        } else if (argument == "--language-server") {
+            isRunLanguageServer = true;
+        } else if (argument == "--language-server-tcp") {
+            languageServerTcp = true;
         } else {
             if (argument != "new" && argument != "run") {
                 entryPoint = argument;
@@ -150,6 +157,7 @@ int main(int argc, char **argv) {
 
         // TODO: One day we might allow executing from a different directory
         currentPackage = new BalancePackage("package.json", entryPoint);
+        currentPackage->verboseLogging = verboseLogging;
         bool success = currentPackage->execute();
         return !success;
     } else {
@@ -161,6 +169,8 @@ int main(int argc, char **argv) {
             runASTTestSuite();
             runCompileTestSuite();
             runExamplesTestSuite();
+        } else if (isRunLanguageServer) {
+            runLanguageServer(languageServerTcp);
         } else {
             currentPackage = new BalancePackage("", entryPoint);
             bool success = currentPackage->executeAsScript();

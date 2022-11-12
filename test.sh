@@ -1,3 +1,3 @@
 ./build.sh
-cd build
+cd _build
 ./balance --test

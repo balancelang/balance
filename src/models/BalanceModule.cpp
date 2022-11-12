@@ -30,14 +30,9 @@ void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
     this->tree = this->parser->root();
 }
 
-void BalanceModule::generateASTFromPath(std::string filePath) {
-    if (!fileExist(filePath)) {
-        cout << "Input file doesn't exist: " << filePath << endl;
-        exit(1);
-    }
-
+void BalanceModule::generateASTFromPath() {
     ifstream inputStream;
-    inputStream.open(filePath);
+    inputStream.open(this->filePath);
     this->antlrStream = new antlr4::ANTLRInputStream(inputStream);
     this->generateASTFromStream(antlrStream);
 }
@@ -160,8 +155,11 @@ bool BalanceModule::finalized() {
 }
 
 void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {
-    Position * start = new Position(ctx->getStart()->getLine(), ctx->start->getCharPositionInLine());
-    Position * end = new Position(ctx->getStop()->getLine(), ctx->stop->getCharPositionInLine());
+    Position * start = new Position(ctx->getStart()->getLine(), ctx->getStart()->getCharPositionInLine());
+
+    int length = ctx->getStop()->getStopIndex() - ctx->getStop()->getStartIndex();
+    int endIndex = ctx->getStop()->getCharPositionInLine() + length;
+    Position * end = new Position(ctx->getStop()->getLine(), endIndex);
 
     Range * range = new Range(start, end);
     TypeError * typeError = new TypeError(range, message);

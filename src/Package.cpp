@@ -7,6 +7,7 @@
 #include "visitors/ConstructorVisitor.h"
 #include "visitors/LLVMTypeVisitor.h"
 #include "visitors/TypeVisitor.h"
+#include "visitors/TokenVisitor.h"
 
 #include "config.h"
 
@@ -14,8 +15,9 @@
 #include <queue>
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/document.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 
-extern bool verbose;
 extern BalancePackage *currentPackage;
 
 void BalancePackage::load()
@@ -55,11 +57,12 @@ void BalancePackage::populate()
     {
         std::string entrypointName = itr->name.GetString();
         std::string entrypointValue = itr->value.GetString();
-        this->entrypoints[entrypointName] = entrypointValue;
+        std::string entrypointPath = this->packagePath + "/" + entrypointValue;
+        this->entrypoints[entrypointName] = entrypointPath;
 
         // Check if entrypointValue exists?
-        if (!fileExist(entrypointValue)) {
-            std::cout << "Entrypoint does not exist: " << entrypointValue << std::endl;
+        if (!fileExist(entrypointPath)) {
+            std::cout << "Entrypoint does not exist: " << entrypointPath << std::endl;
             exit(1);
         }
     }
@@ -69,9 +72,21 @@ void BalancePackage::populate()
 
 bool BalancePackage::execute()
 {
-    // Load json file into properties
-    this->load();
-    this->populate();
+    if (fileExist(this->packageJsonPath)) {
+        // Load json file into properties
+        this->load();
+        this->populate();
+    } else {
+        // Find all balance scripts and add as entrypoints
+        for (const auto & entry : fs::directory_iterator(this->packagePath)) {
+            auto extension = entry.path().extension().string();
+            if (extension == ".bl") {
+                std::string filename = entry.path().filename().string();
+                std::string filenameWithoutExtension = filename.substr(0, filename.find_last_of("."));
+                this->entrypoints[filenameWithoutExtension] = entry.path();
+            }
+        }
+    }
 
     return this->compileAndPersist();
 }
@@ -86,22 +101,43 @@ bool BalancePackage::compileAndPersist()
     bool compileSuccess = true;
     for (auto const &entryPoint : this->entrypoints)
     {
+        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
+        this->reset();
+
+        this->logger("Compiling entrypoint: " + entryPoint.second);
+
         // (PackageVisitor.cpp) Build import tree
         this->buildDependencyTree(entryPoint.second);
 
+        this->logger("Creating builtins entrypoint");
         createBuiltins();
 
         // Add builtins to modules
+        this->logger("Adding builtins to modules");
         this->addBuiltinsToModules();
 
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
+        this->logger("Building textual representations");
         this->buildTextualRepresentations();
 
+        // If language-server, build tokens TODO: Check if language-server
+        // this->buildLanguageServerTokens();
+
         // Type checking, also creates all class, class-methods and function definitions (textually only)
+        this->logger("Running type checking");
         bool success = this->typeChecking();
+        if (success) {
+            this->logger("Type checking: success");
+        } else {
+            this->logger("Type checking: fail");
+        }
         if (!success) {
             compileSuccess = false;
-            break;
+            continue;
+        }
+
+        if (this->isAnalyzeOnly) {
+            continue;
         }
 
         // Run loop that builds LLVM functions and handles cycles
@@ -118,9 +154,6 @@ bool BalancePackage::compileAndPersist()
 
         // Persist modules as binary
         this->writePackageToBinary(entryPoint.first);
-
-        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
-        this->reset();
     }
 
     return compileSuccess;
@@ -130,6 +163,7 @@ bool BalancePackage::compileAndPersist()
 bool BalancePackage::executeString(std::string program) {
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
+    modules["program"]->initializeModule();
     modules["program"]->generateASTFromString(program);
     this->currentModule = modules["program"];
 
@@ -263,6 +297,18 @@ void BalancePackage::buildTextualRepresentations()
     }
 }
 
+void BalancePackage::buildLanguageServerTokens() {
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        TokenVisitor visitor;
+        visitor.visit(this->currentModule->tree);
+    }
+}
+
 void BalancePackage::compile()
 {
     for (auto const &x : modules)
@@ -296,19 +342,23 @@ void BalancePackage::buildDependencyTree(std::string rootPath)
 {
     std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
     modules[rootPathWithoutExtension] = new BalanceModule(rootPathWithoutExtension, true);
+    modules[rootPathWithoutExtension]->initializeModule();
     this->currentModule = modules[rootPathWithoutExtension];
-    this->currentModule->generateASTFromPath(rootPath);
+    this->currentModule->generateASTFromPath();
     modules[rootPathWithoutExtension]->finishedDiscovery = true;
+
+    this->logger("Running PackageVisitor");
     PackageVisitor visitor;
     visitor.visit(this->currentModule->tree);
 
+    this->logger("Found " + std::to_string(modules.size()) + " modules");
     if (modules.size() > 1)
     {
         BalanceModule *module = getNextElementOrNull();
         while (module != nullptr)
         {
             this->currentModule = module;
-            this->currentModule->generateASTFromPath(module->filePath);
+            this->currentModule->generateASTFromPath();
             visitor.visit(module->tree);
             module->finishedDiscovery = true;
             module = getNextElementOrNull();
@@ -354,10 +404,10 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    if (verbose)
-    {
-        bmodule->module->print(llvm::errs(), nullptr);
-    }
+    // if (currentPackage->verboseLogging)
+    // {
+    //     bmodule->module->print(llvm::errs(), nullptr);
+    // }
 
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);
