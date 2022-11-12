@@ -4,6 +4,10 @@
     "description": "Balance programming language support",
     "version": "0.0.1",
     "publisher": "JeppeRask",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/balancelang/balance"
+    },
     "engines": {
         "vscode": "^1.72.0"
     },
@@ -29,6 +33,11 @@
                     "type": "string",
                     "default": "/usr/bin/balance",
                     "description": "Path to the balance compiler"
+                },
+                "balance.tcpServer": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether to connect to the language server using TCP."
                 }
             }
         }

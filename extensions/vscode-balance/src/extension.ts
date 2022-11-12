@@ -12,16 +12,17 @@ import {
 
 export interface BalanceConfiguration {
     compilerPath: string;
+    tcpServer: boolean;
 }
 
 let client: LanguageClient;
-const DEBUG = true;
 
 const config: vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('balance');
 
 function getConfiguration(): BalanceConfiguration {
     return {
         compilerPath: config.get<string>('compilerPath', "/usr/bin/balance"),
+        tcpServer: config.get<boolean>('tcpServer', false)
     };
 }
 
@@ -38,7 +39,7 @@ export async function activate(context: vscode.ExtensionContext) {
         debug: runExecutable
     };
 
-    if (DEBUG) {
+    if (configuration.tcpServer) {
         serverOptions = () => {
             const socket = net.connect({ port: 9333 });
             const result: StreamInfo = {
