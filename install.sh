@@ -1,6 +1,6 @@
 # cmake
 sudo apt update
-sudo apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre gdb
+sudo apt install -y git g++ software-properties-common lsb-release wget zlib1g-dev pkg-config cmake uuid-dev openjdk-11-jre gdb libboost-dev
 
 sudo apt clean all
 
