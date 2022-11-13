@@ -25,7 +25,7 @@ void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
     bmodule->importedClasses[bclass->name->toString()] = ibclass;
 
     // Create BalanceImportedFunction for each class method
-    for (auto const &x : bclass->methods) {
+    for (auto const &x : bclass->getMethods()) {
         BalanceFunction *bfunction = x.second;
         BalanceImportedFunction *ibfunction = new BalanceImportedFunction(bmodule, bfunction);
         ibclass->methods[bfunction->name] = ibfunction;

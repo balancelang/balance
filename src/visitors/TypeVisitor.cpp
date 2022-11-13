@@ -168,7 +168,13 @@ std::any TypeVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExp
     if (bclass == nullptr) {
         BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(accessedType);
         if (ibclass == nullptr) {
-            // TODO: Handle
+            BalanceInterface * binterface = currentPackage->currentModule->getInterface(accessedType->base);
+            if (binterface == nullptr) {
+                // TODO: Handle
+                // TODO: Check imported interface
+            } else {
+                currentPackage->currentModule->accessedType = binterface;
+            }
         } else {
             currentPackage->currentModule->accessedType = ibclass->bclass;
         }
@@ -275,7 +281,7 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     // Check if we are accessing a type
     if (currentPackage->currentModule->accessedType != nullptr) {
         // check if function exists
-        BalanceFunction * bfunction = currentPackage->currentModule->accessedType->methods[functionName];
+        BalanceFunction * bfunction = currentPackage->currentModule->accessedType->getMethod(functionName);
         if (bfunction == nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Unknown method. Type " + currentPackage->currentModule->accessedType->name->toString() + " does not have a method called " + functionName);
             return new BalanceTypeString("Unknown");
@@ -368,7 +374,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
     BalanceFunction *bfunction;
 
     if (currentPackage->currentModule->currentClass != nullptr) {
-        bfunction = currentPackage->currentModule->currentClass->methods[functionName];
+        bfunction = currentPackage->currentModule->currentClass->getMethod(functionName);
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }
@@ -546,6 +552,7 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
 
     if (currentPackage->currentModule->currentClass == nullptr) {
         // TODO: Throw error as we're not currently parsing a class
+        throw std::runtime_error("Can't visit extends/implements when not parsing class.");
     }
 
     for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
@@ -554,11 +561,11 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
         // TODO: Handle imported interfaces
 
         // Check if class implements all functions
-        for (auto const &x : binterface->methods) {
+        for (auto const &x : binterface->getMethods()) {
             BalanceFunction * interfaceFunction = x.second;
 
             // Check if class implements function
-            BalanceFunction * classFunction = currentPackage->currentModule->currentClass->methods[interfaceFunction->name];
+            BalanceFunction * classFunction = currentPackage->currentModule->currentClass->getMethod(interfaceFunction->name);
             if (classFunction == nullptr) {
                 currentPackage->currentModule->addTypeError(ctx, "Missing interface implementation of function " + interfaceFunction->name + ", required by interface " + binterface->name->toString());
                 continue;

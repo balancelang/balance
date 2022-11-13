@@ -1,15 +1,15 @@
 interface MyInterface {
-    someFunction(Int a, Int b) -> Int
-    someFunction2(Int a) -> None
+    def someFunction(Int a, Int b) -> Int
+    def someFunction2(Int a) -> None
 }
 
 class MyClass implements MyInterface {
-    someFunction(Int a, Int b) -> Int {
+    def someFunction(Int a, Int b) -> Int {
         // ...
         return 0
     }
 
-    someFunction2(Int a) -> None {
+    def someFunction2(Int a) -> None {
         // ...
     }
 }

@@ -34,6 +34,7 @@
     - Sockets
     - File handles
     - overloads
+    - no transitive imports
     - support dictionary initializer expression, e.g.
         class A {
             Int a

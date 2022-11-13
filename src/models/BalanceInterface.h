@@ -1,6 +1,7 @@
 #ifndef BALANCE_INTERFACE_H
 #define BALANCE_INTERFACE_H
 
+#include "BalanceType.h"
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
 #include "BalanceModule.h"
@@ -11,12 +12,8 @@
 class BalanceModule;
 class BalanceFunction;
 
-
-class BalanceInterface
-{
+class BalanceInterface : public BalanceType {
 public:
-    BalanceTypeString * name;
-    map<string, BalanceFunction *> methods = {};
     BalanceModule *module;
     llvm::StructType *structType = nullptr;
     BalanceInterface(BalanceTypeString * name)

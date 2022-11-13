@@ -2,6 +2,7 @@
 #define BALANCE_MODULE_H
 
 #include "BalanceScopeBlock.h"
+#include "BalanceType.h"
 #include "BalanceClass.h"
 #include "BalanceInterface.h"
 #include "BalanceFunction.h"
@@ -83,7 +84,7 @@ public:
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
     llvm::Value *accessedValue = nullptr;
 
-    BalanceClass * accessedType = nullptr;     // Used by TypeVisitor.cpp
+    BalanceType * accessedType = nullptr;     // Used by TypeVisitor.cpp
 
     llvm::Module *module;
 

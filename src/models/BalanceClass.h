@@ -1,6 +1,7 @@
 #ifndef BALANCE_CLASS_H
 #define BALANCE_CLASS_H
 
+#include "BalanceType.h"
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
 #include "BalanceModule.h"
@@ -16,12 +17,10 @@ class BalanceImportedConstructor;
 class BalanceInterface;
 
 
-class BalanceClass
+class BalanceClass : public BalanceType
 {
 public:
-    BalanceTypeString * name;
     map<string, BalanceProperty *> properties = {};
-    map<string, BalanceFunction *> methods = {};
     map<string, BalanceInterface *> interfaces = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;

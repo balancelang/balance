@@ -148,7 +148,7 @@ std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinit
 
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentClass != nullptr) {
-        bfunction = currentPackage->currentModule->currentClass->methods[functionName];
+        bfunction = currentPackage->currentModule->currentClass->getMethod(functionName);
     } else {
         bfunction = currentPackage->currentModule->functions[functionName];
     }

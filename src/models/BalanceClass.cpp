@@ -11,7 +11,7 @@ bool BalanceClass::finalized() {
         }
     }
 
-    for (auto const &x : this->methods) {
+    for (auto const &x : this->getMethods()) {
         if (!x.second->finalized()) {
             return false;
         }

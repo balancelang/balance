@@ -696,7 +696,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                             toStringFunction = ibclass->methods["toString"]->function;
                         }
                     } else {
-                        toStringFunction = bclass->methods["toString"]->function;
+                        toStringFunction = bclass->getMethod("toString")->function;
                     }
 
                     if (toStringFunction == nullptr) {
@@ -846,13 +846,13 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                     if (bclass == nullptr) {
                         // TODO: Throw error.
                     } else {
-                        function = bclass->methods[functionName]->function;
+                        function = bclass->getMethod(functionName)->function;
                     }
                 } else {
                     function = ibClass->methods[functionName]->function;
                 }
             } else {
-                function = bclass->methods[functionName]->function;
+                function = bclass->getMethod(functionName)->function;
             }
             FunctionType *functionType = function->getFunctionType();
 
@@ -1019,7 +1019,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     BalanceFunction *bfunction;
 
     if (currentPackage->currentModule->currentClass != nullptr) {
-        bfunction = currentPackage->currentModule->currentClass->methods[functionName];
+        bfunction = currentPackage->currentModule->currentClass->getMethod(functionName);
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }

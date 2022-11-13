@@ -119,7 +119,7 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
     string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
 
     if (currentPackage->currentModule->currentClass != nullptr) {
-        if (currentPackage->currentModule->currentClass->methods[functionName] != nullptr) {
+        if (currentPackage->currentModule->currentClass->getMethod(functionName) != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
             return std::any();
         }
@@ -155,7 +155,7 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
 
     // Check if we are parsing a class method
     if (currentPackage->currentModule->currentClass != nullptr) {
-        currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, returnType);
+        currentPackage->currentModule->currentClass->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
     } else {
         currentPackage->currentModule->functions[functionName] = new BalanceFunction(functionName, parameters, returnType);
     }
@@ -199,7 +199,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
     if (currentPackage->currentModule->currentInterface != nullptr) {
         string functionName = ctx->IDENTIFIER()->getText();
 
-        if (currentPackage->currentModule->currentInterface->methods[functionName] != nullptr) {
+        if (currentPackage->currentModule->currentInterface->getMethod(functionName) != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
             return std::any();
         }
@@ -224,7 +224,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
             returnType = new BalanceTypeString("None");
         }
 
-        currentPackage->currentModule->currentInterface->methods[functionName] = new BalanceFunction(functionName, parameters, returnType);
+        currentPackage->currentModule->currentInterface->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
     }
     return nullptr;
 }

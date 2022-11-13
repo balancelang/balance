@@ -29,6 +29,8 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <network/uri.hpp>
+#include <mutex>
+
 
 using namespace boost::asio::ip;
 using namespace std;
@@ -36,6 +38,7 @@ using namespace std;
 extern BalancePackage *currentPackage;
 std::string _address = "127.0.0.1";
 std::string _port = "9333";
+std::mutex languageServerLock;
 
 class DummyLog : public lsp::Log {
   public:
@@ -146,6 +149,8 @@ public:
 
     void initialize() {
         this->endpoint->registerHandler([&](const td_initialize::request &req) -> lsp::ResponseOrError<td_initialize::response> {
+            const std::lock_guard<std::mutex> lock(languageServerLock);
+
             td_initialize::response rsp;
             rsp.id = req.id;
 
@@ -169,6 +174,7 @@ public:
         });
 
         this->endpoint->registerHandler([&](Notify_InitializedNotification::notify &notify) {
+            const std::lock_guard<std::mutex> lock(languageServerLock);
             try {
                 this->initializePackage(this->workspaceRootPath);
             } catch (const std::exception &exc) {
@@ -183,12 +189,14 @@ public:
         });
 
         this->endpoint->registerHandler([=](Notify_Exit::notify &notify) {
+            const std::lock_guard<std::mutex> lock(languageServerLock);
             std::cout << "Stopping.." << std::endl;
             std::cout << notify.ToJson() << std::endl;
             this->server->stop();
         });
 
         this->endpoint->registerHandler([&](const td_semanticTokens_full::request &req) -> lsp::ResponseOrError<td_semanticTokens_full::response> {
+            const std::lock_guard<std::mutex> lock(languageServerLock);
             td_semanticTokens_full::response rsp;
             rsp.id = req.id;
 

@@ -42,6 +42,9 @@ class TokenVisitor : public BalanceParserBaseVisitor {
     std::any visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) override;
     std::any visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) override;
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
+    std::any visitInterfaceDefinition(BalanceParser::InterfaceDefinitionContext *ctx) override;
+    std::any visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) override;
+    std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
 };
 
 #endif
