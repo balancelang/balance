@@ -1,7 +1,7 @@
 #include "ForwardDeclarationVisitor.h"
 
 #include "Visitor.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../Utilities.h"
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"

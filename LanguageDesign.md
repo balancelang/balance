@@ -57,6 +57,8 @@
             echo lsOut > test.txt
         }
 
+    - operator overloading?
+
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do
     - traits

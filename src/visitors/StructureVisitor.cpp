@@ -1,6 +1,6 @@
 #include "StructureVisitor.h"
 
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../models/BalanceTypeString.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"

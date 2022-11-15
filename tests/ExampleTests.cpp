@@ -1,6 +1,6 @@
 #include "CompileTests.h"
 #include "../src/Main.h"
-#include "../src/Package.h"
+#include "../src/BalancePackage.h"
 #include "ASTTests.h"
 
 #include <cstdio>

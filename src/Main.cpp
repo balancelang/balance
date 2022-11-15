@@ -1,6 +1,6 @@
 #include "Main.h"
 #include "Builtins.h"
-#include "Package.h"
+#include "BalancePackage.h"
 #include "Utilities.h"
 #include "visitors/Visitor.h"
 #include "language-server/LanguageServer.h"

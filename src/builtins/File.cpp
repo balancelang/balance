@@ -1,6 +1,6 @@
 #include "File.h"
 #include "../Builtins.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
@@ -105,19 +105,19 @@ void createMethod_read() {
     Type * returnType = stringClass->structType->getPointerTo();
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
 
-    llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
+    llvm::Function * readFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", readFunc);
 
     BalanceFunction * bfunction = new BalanceFunction(functionName, {}, new BalanceTypeString("String"));
     currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
-    bfunction->function = closeFunc;
+    bfunction->function = readFunc;
     bfunction->returnType = returnType;
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    Function::arg_iterator args = closeFunc->arg_begin();
+    Function::arg_iterator args = readFunc->arg_begin();
     llvm::Value *thisPointer = args++;
 
     int intIndex = currentPackage->currentModule->currentClass->properties["filePointer"]->index;
@@ -212,7 +212,7 @@ void createMethod_read() {
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 
-    bool hasError = verifyFunction(*closeFunc, &llvm::errs());
+    bool hasError = verifyFunction(*readFunc, &llvm::errs());
     if (hasError) {
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
         // exit(1);
@@ -289,6 +289,12 @@ void createMethod_write() {
     currentPackage->currentModule->builder->CreateCall(fwriteFunc, arguments);
     currentPackage->currentModule->builder->CreateRetVoid();
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+
+    bool hasError = verifyFunction(*writeFunc, &llvm::errs());
+    if (hasError) {
+        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
+        // exit(1);
+    }
 }
 
 void createType__File() {
@@ -313,6 +319,7 @@ void createType__File() {
     createMethod_close();
 
     // Create write method
+    // TODO: This currently prevents us from printing module IR
     createMethod_write();
 
     // Create read method

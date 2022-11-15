@@ -113,7 +113,7 @@ FetchContent_MakeAvailable(lspcpp)
 add_executable(balance
                src/Main.cpp
                src/Builtins.cpp
-               src/Package.cpp
+               src/BalancePackage.cpp
                src/Utilities.cpp
                src/models/BalanceType.cpp
                src/models/BalanceClass.cpp
@@ -128,6 +128,7 @@ add_executable(balance
                src/visitors/StructureVisitor.cpp
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
+               src/visitors/VTableVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp

@@ -1,5 +1,5 @@
 #include "TypeVisitor.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../models/BalanceLambda.h"
 
 using namespace antlr4;

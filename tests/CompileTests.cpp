@@ -1,5 +1,5 @@
 #include "CompileTests.h"
-#include "../src/Package.h"
+#include "../src/BalancePackage.h"
 #include "../src/Main.h"
 #include "../src/visitors/Visitor.h"
 #include "ASTTests.h"

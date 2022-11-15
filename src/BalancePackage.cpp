@@ -1,4 +1,4 @@
-#include "Package.h"
+#include "BalancePackage.h"
 #include "Main.h"
 #include "Utilities.h"
 #include "visitors/PackageVisitor.h"
@@ -8,6 +8,7 @@
 #include "visitors/LLVMTypeVisitor.h"
 #include "visitors/TypeVisitor.h"
 #include "visitors/TokenVisitor.h"
+#include "visitors/VTableVisitor.h"
 
 #include "config.h"
 
@@ -120,9 +121,6 @@ bool BalancePackage::compileAndPersist()
         this->logger("Building textual representations");
         this->buildTextualRepresentations();
 
-        // If language-server, build tokens TODO: Check if language-server
-        // this->buildLanguageServerTokens();
-
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         this->logger("Running type checking");
         bool success = this->typeChecking();
@@ -148,6 +146,9 @@ bool BalancePackage::compileAndPersist()
 
         // Make sure all modules have forward declarations of imported classes etc.
         this->buildForwardDeclarations();
+
+        // Build vtables for interfaces etc.
+        this->buildVTables();
 
         // (Visitor.cpp) Compile everything, now that functions, classes etc exist
         this->compile();
@@ -243,6 +244,18 @@ void BalancePackage::buildStructures()
             std::cout << "Killed type visitor loop as it exceeded max iterations. Please file this as a bug." << std::endl;
             exit(1);
         }
+    }
+}
+
+void BalancePackage::buildVTables() {
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        VTableVisitor visitor;
+        visitor.visit(bmodule->tree);
     }
 }
 
@@ -404,10 +417,16 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    // if (currentPackage->verboseLogging)
-    // {
-    //     bmodule->module->print(llvm::errs(), nullptr);
-    // }
+    if (currentPackage->verboseLogging)
+    {
+        bmodule->module->print(llvm::errs(), nullptr);
+    }
+
+    // std::string moduleString;
+    // raw_string_ostream OS(moduleString);
+    // OS << *bmodule->module;
+    // OS.flush();
+    // std::cout << moduleString << std::endl;
 
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);

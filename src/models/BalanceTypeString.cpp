@@ -1,6 +1,6 @@
 #include "BalanceTypeString.h"
 #include "../visitors/Visitor.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 extern BalancePackage *currentPackage;
 

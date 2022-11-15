@@ -1,7 +1,7 @@
 ﻿#ifndef LANGUAGE_SERVER_H
 #define LANGUAGE_SERVER_H
 
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../visitors/TokenVisitor.h"
 #include "../visitors/TypeVisitor.h"
 

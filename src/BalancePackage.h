@@ -75,6 +75,7 @@ public:
     void buildTextualRepresentations();
     void buildStructures();
     void buildForwardDeclarations();
+    void buildVTables();
     void buildConstructors();
     void addBuiltinsToModules();
     bool typeChecking();

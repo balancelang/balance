@@ -1,6 +1,6 @@
 #include "String.h"
 #include "../models/BalanceClass.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../models/BalanceProperty.h"
 
 #include "llvm/IR/LLVMContext.h"

@@ -1,6 +1,6 @@
 #include "LLVMTypeVisitor.h"
 
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "Visitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"

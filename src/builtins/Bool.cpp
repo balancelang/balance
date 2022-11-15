@@ -1,6 +1,6 @@
 #include "Bool.h"
 #include "../Builtins.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 #include "../models/BalanceTypeString.h"
 
