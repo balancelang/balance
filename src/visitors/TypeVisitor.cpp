@@ -551,7 +551,6 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
     string text = ctx->getText();
 
     if (currentPackage->currentModule->currentClass == nullptr) {
-        // TODO: Throw error as we're not currently parsing a class
         throw std::runtime_error("Can't visit extends/implements when not parsing class.");
     }
 

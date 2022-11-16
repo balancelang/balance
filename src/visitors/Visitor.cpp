@@ -153,7 +153,7 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
         bclass = ibclass->bclass;
         constructor = ibclass->constructor->constructor;
     } else {
-        // TODO: throw error
+        throw std::runtime_error("Failed to find type: " + className->toString());
     }
 
     auto structMemoryPointer = llvm::CallInst::CreateMalloc(
@@ -413,7 +413,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
                 if (bclass == nullptr) {
                     BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClassFromStructName(className);
                     if (ibClass == nullptr) {
-                        // TODO: Throw error.
+                        throw std::runtime_error("Failed to find type: " + className);
                     } else {
                         bclass = ibClass->bclass;
                     }
@@ -700,7 +700,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                     }
 
                     if (toStringFunction == nullptr) {
-                        // TODO: Throw error
+                        throw std::runtime_error("Failed to find toString method for type: " + structName);
                     }
 
                     auto args = ArrayRef<Value *>{value};
@@ -844,7 +844,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 if (ibClass == nullptr) {
                     bclass = currentPackage->builtins->getClassFromStructName(className);
                     if (bclass == nullptr) {
-                        // TODO: Throw error.
+                        throw std::runtime_error("Failed to find method " + functionName + " for type: " + className);
                     } else {
                         function = bclass->getMethod(functionName)->function;
                     }

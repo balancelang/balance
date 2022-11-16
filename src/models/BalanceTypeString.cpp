@@ -44,7 +44,7 @@ void BalanceTypeString::populateTypes() {
             if (bclass == nullptr) {
                 BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(this);
                 if (ibclass == nullptr) {
-                    // TODO: Throw error
+                    throw std::runtime_error("Failed to populate type: " + this->toString());
                 } else {
                     this->type = ibclass->bclass->structType->getPointerTo();
                 }

@@ -26,6 +26,8 @@ public:
     llvm::StructType *structType = nullptr;
     llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)
     bool hasBody;
+    llvm::StructType *vTableStructType = nullptr;
+    int vtableTypeIndex = 0;
     BalanceModule *module;
     BalanceClass(BalanceTypeString * name)
     {

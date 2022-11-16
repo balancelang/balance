@@ -127,7 +127,7 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
             genericToStringFunction = ibclass->methods["toString"]->function;
             genericType = ibclass->bclass->type != nullptr ? ibclass->bclass->type : ibclass->bclass->structType->getPointerTo();
         } else {
-            // TODO: Throw error
+            throw std::runtime_error("Failed to find toString method from type: " + arrayClass->name->toString());
         }
     }
 

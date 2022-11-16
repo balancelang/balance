@@ -248,7 +248,7 @@ std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext
         if (bclass == nullptr) {
             BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(btypeString);
             if (ibclass == nullptr) {
-                // TODO: Throw error
+                throw std::runtime_error("Failed to find type: " + btypeString->toString());
             } else {
                 if (ibclass->bclass->finalized()) {
                     if (!bprop->finalized()) {

@@ -141,14 +141,14 @@ bool BalancePackage::compileAndPersist()
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();
 
+        // Build vtables for interfaces etc.
+        this->buildVTables();
+
         // Make sure all classes have constructors (we need constructor function to make forward declaration)
         this->buildConstructors();
 
         // Make sure all modules have forward declarations of imported classes etc.
         this->buildForwardDeclarations();
-
-        // Build vtables for interfaces etc.
-        this->buildVTables();
 
         // (Visitor.cpp) Compile everything, now that functions, classes etc exist
         this->compile();
@@ -421,12 +421,6 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     {
         bmodule->module->print(llvm::errs(), nullptr);
     }
-
-    // std::string moduleString;
-    // raw_string_ostream OS(moduleString);
-    // OS << *bmodule->module;
-    // OS.flush();
-    // std::cout << moduleString << std::endl;
 
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);
