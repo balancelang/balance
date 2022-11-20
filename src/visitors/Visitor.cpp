@@ -763,7 +763,38 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     //     
     // }
     } else {
+        // Means we're invoking function on an element
 
+        BalanceClass *bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedValue->type);
+        if (bclass == nullptr) {
+            BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedValue->type);
+            if (ibClass == nullptr) {
+                throw std::runtime_error("Failed to find method " + functionName + " for type: " + currentPackage->currentModule->accessedValue->type->toString());
+            } else {
+                bclass = ibClass->bclass;
+            }
+        }
+
+        BalanceFunction * bfunction = bclass->getMethod(functionName);
+        // TODO: check nullptr is handled in type-checker
+
+        vector<Value *> functionArguments;
+        // Add "this" as first argument
+        functionArguments.push_back(currentPackage->currentModule->accessedValue->value);
+
+        // Don't consider accessedValue when parsing arguments
+        BalanceValue * backup = currentPackage->currentModule->accessedValue;
+        currentPackage->currentModule->accessedValue = nullptr;
+        for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
+            BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+            functionArguments.push_back(bvalue->value);
+        }
+        currentPackage->currentModule->accessedValue = backup;
+
+        ArrayRef<Value *> argumentsReference(functionArguments);
+        Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function->getFunctionType(), (Value *)bfunction->function, argumentsReference);
+
+        return new BalanceValue(bfunction->returnTypeString, llvmValue);
     }
 
 

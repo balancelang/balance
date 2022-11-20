@@ -90,6 +90,7 @@ string execExample(const char* cmd) {
 }
 
 string runExample(string filePath) {
+    std::cout << "Running example: " << filePath << std::endl;
     ifstream inputStream;
     inputStream.open(filePath);
     stringstream strStream;
