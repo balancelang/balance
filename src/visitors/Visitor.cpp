@@ -436,13 +436,12 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
     if (!value->type->isSimpleType() && value->type->base != "Lambda") {
-        // We don't malloc here, since we're just allocating a pointer to the struct (malloced in visitClassInitializerExpression)
         Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
         currentPackage->currentModule->builder->CreateStore(value->value, alloca);
         value = new BalanceValue(value->type, alloca);
     }
     currentPackage->currentModule->setValue(variableName, value);
-    return value;
+    return nullptr;
 }
 
 any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) {
@@ -467,7 +466,8 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
         return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, ptr));
     }
 
-    return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, variable->value));
+    currentPackage->currentModule->setValue(variableName, value);
+    return nullptr;
 }
 
 any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {

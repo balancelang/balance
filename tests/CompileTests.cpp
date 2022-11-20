@@ -90,6 +90,7 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
+    std::cout << "Program: " << program << std::endl;
     BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(program);
     return exec("./program");
