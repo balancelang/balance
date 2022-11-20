@@ -7,6 +7,7 @@
 #include "../Utilities.h"
 #include "../models/BalanceProperty.h"
 #include "../models/BalanceTypeString.h"
+#include "../models/BalanceValue.h"
 
 #include "clang/Driver/Driver.h"
 #include "clang/Basic/Diagnostic.h"
@@ -60,10 +61,8 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace std;
 
-llvm::Value *anyToValue(any anyVal);
 Type *getBuiltinType(BalanceTypeString * typeString);
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull);
-void LogError(string errorMessage);
 
 class BalanceVisitor : public BalanceParserBaseVisitor
 {
@@ -90,6 +89,8 @@ public:
     any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
     any visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) override;
     any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
+
+    BalanceValue * visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx);
 };
 
 #endif

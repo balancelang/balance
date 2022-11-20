@@ -17,6 +17,8 @@ public:
         this->generics = generics;
     }
 
+    bool isSimpleType();
+    bool isFloatingPointType();
     std::string toString();
     bool finalized();
     void populateTypes();

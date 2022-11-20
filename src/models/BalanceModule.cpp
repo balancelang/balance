@@ -1,4 +1,5 @@
 #include "BalanceModule.h"
+#include "BalanceValue.h"
 #include "../BalancePackage.h"
 
 #include "ParserRuleContext.h"
@@ -126,11 +127,11 @@ BalanceTypeString *BalanceModule::getTypeValue(std::string variableName) {
     return nullptr;
 }
 
-llvm::Value *BalanceModule::getValue(std::string variableName) {
+BalanceValue *BalanceModule::getValue(std::string variableName) {
     BalanceScopeBlock *scope = this->currentScope;
     while (scope != nullptr) {
         // Check variables etc
-        llvm::Value *tryVal = scope->symbolTable[variableName];
+        BalanceValue *tryVal = scope->symbolTable[variableName];
         if (tryVal != nullptr) {
             return tryVal;
         }
@@ -141,8 +142,8 @@ llvm::Value *BalanceModule::getValue(std::string variableName) {
     return nullptr;
 }
 
-void BalanceModule::setValue(std::string variableName, llvm::Value *value) {
-    this->currentScope->symbolTable[variableName] = value;
+void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
+    this->currentScope->symbolTable[variableName] = bvalue;
 }
 
 bool BalanceModule::finalized() {

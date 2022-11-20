@@ -82,7 +82,7 @@ public:
     BalanceScopeBlock *currentScope;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
-    llvm::Value *accessedValue = nullptr;
+    BalanceValue * accessedValue = nullptr;
 
     BalanceType * accessedType = nullptr;     // Used by TypeVisitor.cpp
 
@@ -133,8 +133,8 @@ public:
     BalanceImportedFunction * getImportedFunction(std::string functionName);
 
     BalanceTypeString *getTypeValue(std::string variableName);
-    llvm::Value *getValue(std::string variableName);
-    void setValue(std::string variableName, llvm::Value *value);
+    BalanceValue *getValue(std::string variableName);
+    void setValue(std::string variableName, BalanceValue *bvalue);
     bool finalized();
 
     bool hasTypeErrors();

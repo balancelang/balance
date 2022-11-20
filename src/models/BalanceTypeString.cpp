@@ -4,6 +4,25 @@
 
 extern BalancePackage *currentPackage;
 
+bool BalanceTypeString::isSimpleType() {
+    if (this->base == "Int") {
+        return true;
+    } else if (this->base == "Bool") {
+        return true;
+    } else if (this->base == "Double") {
+        return true;
+    } else if (this->base == "None") {
+        return true;
+    }
+
+    return false;
+}
+
+bool BalanceTypeString::isFloatingPointType() {
+    // We might introduce other sized floating point types
+    return this->base == "Double";
+}
+
 std::string BalanceTypeString::toString() {
     std::string result = this->base;
     auto genericsCount = this->generics.size();

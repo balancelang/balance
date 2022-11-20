@@ -2,6 +2,7 @@
 #define BALANCE_SCOPE_BLOCK_H
 
 #include "BalanceTypeString.h"
+#include "BalanceValue.h"
 
 #include "llvm/IR/BasicBlock.h"
 #include <map>
@@ -11,7 +12,7 @@ class BalanceScopeBlock
 public:
     llvm::BasicBlock *block;
     BalanceScopeBlock *parent;
-    std::map<std::string, llvm::Value *> symbolTable;
+    std::map<std::string, BalanceValue *> symbolTable;
     std::map<std::string, BalanceTypeString *> typeSymbolTable;
 
     bool isTerminated = false;
