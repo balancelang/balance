@@ -132,6 +132,11 @@ void examplesFilesTest() {
     assertEqual("0123456789\n", result, "Files");
 }
 
+void examplesInterfacesTest() {
+    string result = runExample("../examples/interfaces.bl");
+    assertEqual("5\n7\n", result, "Interfaces");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
@@ -140,4 +145,5 @@ void runExamplesTestSuite() {
     examplesFunctionsTest();
     examplesLambdasTest();
     examplesFilesTest();
+    examplesInterfacesTest();
 }

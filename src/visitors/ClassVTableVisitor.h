@@ -1,5 +1,5 @@
-#ifndef V_TABLE_VISITOR_H
-#define V_TABLE_VISITOR_H
+#ifndef CLASS_V_TABLE_VISITOR_H
+#define CLASS_V_TABLE_VISITOR_H
 
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -13,7 +13,7 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace std;
 
-class VTableVisitor : public BalanceParserBaseVisitor {
+class ClassVTableVisitor : public BalanceParserBaseVisitor {
 public:
     std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
 };

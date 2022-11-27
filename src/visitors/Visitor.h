@@ -91,6 +91,7 @@ public:
     any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
 
     BalanceValue * visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx);
+    BalanceValue * visitFunctionCall__open(BalanceParser::FunctionCallContext *ctx);
 };
 
 #endif

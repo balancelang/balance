@@ -233,28 +233,20 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     } else if (ctx->access) {
         std::string accessName = ctx->access->getText();
 
-        // if (PointerType *PT = dyn_cast<PointerType>(valueMember->getType())) {
-        //     if (PT->getPointerElementType()->isStructTy()) {
-        //         // get struct type
-        //         std::string className = PT->getPointerElementType()->getStructName().str();
+        BalanceClass * bclass = currentPackage->currentModule->getClass(valueMember->type);
+        if (bclass == nullptr) {
+            BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(valueMember->type);
+            if (ibclass == nullptr) {
+                // TODO: Throw error
+            } else {
+                bclass = ibclass->bclass;
+            }
+        }
 
-        //         TODO: Implement, and add test for this case
-        //         BalanceClass * bclass = currentPackage->currentModule->getClass(className);
-        //         if (bclass == nullptr) {
-        //             BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(className);
-        //             if (ibclass == nullptr) {
-        //                 // TODO: Throw error
-        //             } else {
-        //                 bclass = ibclass->bclass;
-        //             }
-        //         }
-
-        //         auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-        //         auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bclass->properties[accessName]->index, true));
-        //         auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember, {zeroValue, indexValue});
-        //         currentPackage->currentModule->builder->CreateStore(value, ptr);
-        //     }
-        // }
+        auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bclass->properties[accessName]->index, true));
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
+        currentPackage->currentModule->builder->CreateStore(value->value, ptr);
     }
 
     return nullptr;
@@ -376,54 +368,53 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
 any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) {
     std::string variableName = ctx->variable()->IDENTIFIER()->getText();
 
-    // TODO: Shouldn't this whole if-statement be handled by MemberAccessExpression
-    // if (currentPackage->currentModule->accessedValue != nullptr) {
-    //     BalanceClass *bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedValue->type);
-    //     if (bclass == nullptr) {
-    //         BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedValue->type);
-    //         if (ibClass == nullptr) {
-    //             throw std::runtime_error("Failed to find type: " + currentPackage->currentModule->accessedValue->type->toString());
-    //         } else {
-    //             bclass = ibClass->bclass;
-    //         }
-    //     }
+    // Check if we're accessing a property on a type
+    if (currentPackage->currentModule->accessedValue != nullptr) {
+        BalanceClass *bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedValue->type);
+        if (bclass == nullptr) {
+            BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedValue->type);
+            if (ibClass == nullptr) {
+                throw std::runtime_error("Failed to find type: " + currentPackage->currentModule->accessedValue->type->toString());
+            } else {
+                bclass = ibClass->bclass;
+            }
+        }
 
-    //     // check if it is a public property
-    //     BalanceProperty *bproperty = bclass->getProperty(variableName);
-    //     if (bproperty == nullptr) {
-    //         // TODO: Handle property not existing
-    //         // TODO: Move this check to type-checking so we can just assume this exists
-    //     }
+        // check if it is a public property
+        BalanceProperty *bproperty = bclass->getProperty(variableName);
+        if (bproperty == nullptr) {
+            // TODO: Handle property not existing
+            // TODO: Move this check to type-checking so we can just assume this exists
+        }
 
-    //     if (!bproperty->isPublic) {
-    //         // TODO: Handle property not being public (e.g. inaccessible from Balance)
-    //     }
+        if (!bproperty->isPublic) {
+            // TODO: Handle property not being public (e.g. inaccessible from Balance)
+        }
 
-    //     Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    //     Value *propertyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
-    //     Value *propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(bclass->structType, currentPackage->currentModule->accessedValue->value, {zero, propertyIndex});
-    //     return new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(propertyPointerValue));
-    // }
-
-    // BalanceValue *val = currentPackage->currentModule->getValue(variableName);
-    // if (val == nullptr && currentPackage->currentModule->currentClass != nullptr) {
-    //     // TODO: When does this happen?
-    //     // TODO: Check if variableName is in currentClass->properties
-    //     // TODO: Is this already checked in type-checking?
-
-    //     int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
-    //     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    //     auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
-    //     BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
-    //     Type *structType = thisValue->value->getType()->getPointerElementType();
-
-    //     auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
-    //     return new BalanceValue(val->type, currentPackage->currentModule->builder->CreateLoad(ptr));
-
-    // }
+        Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        Value *propertyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
+        Value *propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(bclass->structType, currentPackage->currentModule->accessedValue->value, {zero, propertyIndex});
+        return new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(propertyPointerValue));
+    }
 
     BalanceValue * value = currentPackage->currentModule->getValue(variableName);
-    if (value->type->isSimpleType()) {
+
+    // Check if it is a class property
+    if (value == nullptr && currentPackage->currentModule->currentClass != nullptr) {
+        // TODO: Check if variableName is in currentClass->properties
+        // TODO: Is this already checked in type-checking?
+        BalanceProperty * bproperty = currentPackage->currentModule->currentClass->properties[variableName];
+        auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+        auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
+        BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
+        Type *structType = thisValue->value->getType()->getPointerElementType();
+
+        auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
+        value = new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(ptr));
+    }
+
+    // TODO: Should we pass lambda around as Pointer->Pointer->Function?
+    if (value->type->isSimpleType() || value->type->base == "Lambda") {
         return value;
     } else {
         return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
@@ -633,6 +624,45 @@ any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
     return new BalanceValue(new BalanceTypeString("String"), stringMemoryPointer);
 }
 
+BalanceValue * BalanceVisitor::visitFunctionCall__open(BalanceParser::FunctionCallContext *ctx) {
+    Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen"); // TODO: Move this to separate module
+    BalanceClass *stringClass = currentPackage->builtins->getClassFromStructName("String");
+    vector<Value *> functionArguments;
+    for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
+        BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+        functionArguments.push_back(bvalue->value);
+    }
+
+    Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    Value *stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
+    Value *pathPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[0], {zero, stringPointerIndex});
+    Value *pathValue = currentPackage->currentModule->builder->CreateLoad(pathPointerValue);
+    Value *modePointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[1], {zero, stringPointerIndex});
+    Value *modeValue = currentPackage->currentModule->builder->CreateLoad(modePointerValue);
+
+    auto args = ArrayRef<Value *>({pathValue, modeValue});
+    Value *filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
+
+    // Create File struct which holds this and return pointer to the struct
+    BalanceClass *fileClass = currentPackage->builtins->classes["File"];
+
+    auto structSize = ConstantExpr::getSizeOf(fileClass->structType);
+    auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->structType->getPointerTo(), fileClass->structType, structSize, nullptr, nullptr, "");
+    currentPackage->currentModule->builder->Insert(pointer);
+
+    ArrayRef<Value *> argumentsReference{pointer};
+    currentPackage->currentModule->builder->CreateCall(fileClass->constructor, argumentsReference); // TODO: should it have a constructor?
+
+    // Get reference to 0th property (filePointer) and assign
+    int intIndex = fileClass->properties["filePointer"]->index;
+    auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
+
+    auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->structType, pointer, {zero, index});
+    currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
+
+    return new BalanceValue(new BalanceTypeString("File"), pointer);
+}
+
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
     FunctionCallee printFunc = currentPackage->currentModule->getImportedFunction("print")->function;
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
@@ -669,6 +699,11 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         // Then the print function can handle invoking toString on parameters
         // TODO: Or prefer overloading print with typed versions?
         return visitFunctionCall__print(ctx);
+    }
+
+    if (functionName == "open") {
+        // TODO: Same as above
+        return visitFunctionCall__open(ctx);
     }
 
     if (currentPackage->currentModule->accessedValue == nullptr) {
@@ -716,67 +751,37 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(function, argumentsReference);
             return new BalanceValue(returnType, llvmValue);
         }
-
-    //     auto ty = val->getType();
-    //     if (val->getType()->getPointerElementType()->isFunctionTy()) {
-    //         vector<Value *> functionArguments;
-
-    //         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-    //             any anyVal = visit(argument);
-    //             llvm::Value *castVal = anyToValue(anyVal);
-    //             functionArguments.push_back(castVal);
-    //         }
-
-    //         ArrayRef<Value *> argumentsReference(functionArguments);
-
-    //         if (FunctionType *FT = dyn_cast<FunctionType>(val->getType()->getPointerElementType())) {
-    //             ArrayRef<Value *> argumentsReference(functionArguments);
-    //             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(FT, val, argumentsReference);
-    //             // TODO: Find returnType of lambda
-    //             return new BalanceValue(new BalanceTypeString("Any"), llvmValue);
-    //         }
-
-    //         // TODO: Throw error
-
-    //     } else if (val->getType()->getPointerElementType()->isPointerTy()) {
-    //         Value *loaded = currentPackage->currentModule->builder->CreateLoad(val);
-    //         vector<Value *> functionArguments;
-
-    //         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-    //             any anyVal = visit(argument);
-    //             llvm::Value *castVal = anyToValue(anyVal);
-    //             functionArguments.push_back(castVal);
-    //         }
-
-    //         if (PointerType *PT = dyn_cast<PointerType>(val->getType()->getPointerElementType())) {
-    //             if (FunctionType *FT = dyn_cast<FunctionType>(PT->getPointerElementType())) {
-    //                 ArrayRef<Value *> argumentsReference(functionArguments);
-    //                 Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(FT, loaded, argumentsReference);
-    //                 // TODO: Find returnType of lambda
-    //                 return new BalanceValue(new BalanceTypeString("Any"), llvmValue);
-    //             }
-    //         }
-
-    //         // TODO: Throw error
-    //     }
-    // } else {
-    //     
-    // }
     } else {
         // Means we're invoking function on an element
 
+        BalanceFunction * bfunction = nullptr;
         BalanceClass *bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedValue->type);
         if (bclass == nullptr) {
             BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedValue->type);
             if (ibClass == nullptr) {
-                throw std::runtime_error("Failed to find method " + functionName + " for type: " + currentPackage->currentModule->accessedValue->type->toString());
+                BalanceInterface * binterface = currentPackage->currentModule->getInterface(currentPackage->currentModule->accessedValue->type->base);
+                if (binterface == nullptr) {
+                    throw std::runtime_error("Failed to find method " + functionName + " for type: " + currentPackage->currentModule->accessedValue->type->toString());
+                } else {
+                    // Look up function in vtable
+
+                    // vtable is always stored as 0th element in struct
+                    StructType * structType = dyn_cast<StructType>(currentPackage->currentModule->accessedValue->value->getType());
+
+                    auto vtableZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                    auto vtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                    auto vtableGEP = currentPackage->currentModule->builder->CreateGEP(structType, currentPackage->currentModule->accessedValue->value, {vtableZeroValue, vtableIndexValue});
+                    auto vtableValue = currentPackage->currentModule->builder->CreateLoad(vtableGEP);
+
+                    int i = 123;
+                }
             } else {
-                bclass = ibClass->bclass;
+                bfunction = ibClass->methods[functionName]->bfunction;
             }
+        } else {
+            bfunction = bclass->getMethod(functionName);
         }
 
-        BalanceFunction * bfunction = bclass->getMethod(functionName);
-        // TODO: check nullptr is handled in type-checker
 
         vector<Value *> functionArguments;
         // Add "this" as first argument
@@ -796,235 +801,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
 
         return new BalanceValue(bfunction->returnTypeString, llvmValue);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-    // TODO: Make a search through scope, parent scopes, builtins etc.
-    // if (currentPackage->currentModule->accessedValue == nullptr && functionName == "print") {
-    //     // FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
-    //     FunctionCallee printFunc = currentPackage->currentModule->getImportedFunction("print")->function;
-    //     vector<Value *> functionArguments;
-    //     for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-    //         BalanceValue * value = any_cast<BalanceValue *>(visit(argument));
-    //         Function * toStringFunction = nullptr;
-    //         BalanceClass * bclass = currentPackage->currentModule->getClass(value->type);
-    //         if (bclass == nullptr) {
-    //             BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(value->type);
-    //             if (ibclass != nullptr) {
-    //                 toStringFunction = ibclass->methods["toString"]->function;
-    //             }
-    //         } else {
-    //             toStringFunction = bclass->getMethod("toString")->function;
-    //         }
-
-    //         if (toStringFunction == nullptr) {
-    //             throw std::runtime_error("Failed to find toString method for type: " + value->type->toString());
-    //         }
-
-    //         auto args = ArrayRef<Value *>{value->value};
-    //         Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
-
-    //         auto printArgs = ArrayRef<Value *>{stringValue};
-    //         Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    //         return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-
-    //         // if (PointerType *PT = dyn_cast<PointerType>(value->getType())) {
-    //         //     if (PT->getPointerElementType()->isStructTy()) {
-    //         //         std::string structName = PT->getPointerElementType()->getStructName().str();
-    //         //         // invoke .toString() on the struct
-    //         //         Function * toStringFunction = nullptr;
-    //         //         BalanceClass * bclass = currentPackage->currentModule->getClassFromStructName(structName);
-    //         //         if (bclass == nullptr) {
-    //         //             BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromStructName(structName);
-    //         //             if (ibclass != nullptr) {
-    //         //                 toStringFunction = ibclass->methods["toString"]->function;
-    //         //             }
-    //         //         } else {
-    //         //             toStringFunction = bclass->getMethod("toString")->function;
-    //         //         }
-
-    //         //         if (toStringFunction == nullptr) {
-    //         //             throw std::runtime_error("Failed to find toString method for type: " + structName);
-    //         //         }
-
-    //         //         auto args = ArrayRef<Value *>{value};
-    //         //         Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction, args);
-
-    //         //         auto printArgs = ArrayRef<Value *>{stringValue};
-    //         //         Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    //         //         return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-    //         //     } else if (PT->getElementType()->isArrayTy()) {
-    //         //         // TODO: Implement Array.toString() and invoke that instead of directly calling printf
-    //         //         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    //         //         auto argsBefore = ArrayRef<llvm::Value *>{geti8StrVal(*currentPackage->currentModule->module, "[", "args", true)};
-    //         //         FunctionCallee printfFunc = currentPackage->builtins->module->getFunction("printf");
-    //         //         (llvm::Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, argsBefore);
-    //         //         int numElements = PT->getElementType()->getArrayNumElements();
-    //         //         // TODO: Optimize this, so we generate ONE string e.g. "%d, %d, %d, %d\n"
-    //         //         // Also, make a function that does this, which takes value, type and whether to linebreak?
-    //         //         for (int i = 0; i < numElements; i++) {
-    //         //             auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, i, true));
-    //         //             auto ptr = currentPackage->currentModule->builder->CreateGEP(value, {zero, index});
-    //         //             llvm::Value *valueAtIndex = (Value *)currentPackage->currentModule->builder->CreateLoad(ptr);
-    //         //             if (i < numElements - 1) {
-    //         //                 auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d, ", "args", true), valueAtIndex};
-    //         //                 (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-    //         //             } else {
-    //         //                 auto args = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true), valueAtIndex};
-    //         //                 (Value *)currentPackage->currentModule->builder->CreateCall(printfFunc, args);
-    //         //             }
-    //         //         }
-    //         //         auto argsAfter = ArrayRef<Value *>{geti8StrVal(*currentPackage->currentModule->module, "]\n", "args", true)};
-    //         //         Value * llvmValue = (Value *) currentPackage->currentModule->builder->CreateCall(printfFunc, argsAfter);
-    //         //         return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-    //         //     }
-    //         // } else if (IntegerType *IT = dyn_cast<IntegerType>(value->getType())) {
-    //         //     int width = value->getType()->getIntegerBitWidth();
-    //         //     if (width == 1) {
-    //         //         BalanceImportedClass *boolClass = currentPackage->currentModule->getImportedClassFromStructName("Bool");
-    //         //         BalanceImportedFunction *boolToStringFunc = boolClass->methods["toString"];
-    //         //         auto args = ArrayRef<Value *>{value};
-    //         //         Value *stringValue = currentPackage->currentModule->builder->CreateCall(boolToStringFunc->function, args);
-
-    //         //         auto printArgs = ArrayRef<Value *>{stringValue};
-    //         //         Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    //         //         return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-    //         //     } else {
-    //         //         BalanceImportedClass *intClass = currentPackage->currentModule->getImportedClassFromStructName("Int");
-    //         //         BalanceImportedFunction *intToStringFunc = intClass->methods["toString"];
-    //         //         auto args = ArrayRef<Value *>{value};
-    //         //         Value *stringValue = currentPackage->currentModule->builder->CreateCall(intToStringFunc->function, args);
-
-    //         //         auto printArgs = ArrayRef<Value *>{stringValue};
-    //         //         Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    //         //         return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-    //         //     }
-    //         // } else if (value->getType()->isFloatingPointTy()) {
-    //         //     BalanceImportedClass *doubleClass = currentPackage->currentModule->getImportedClassFromStructName("Double");
-    //         //     BalanceImportedFunction *doubleToStringFunc = doubleClass->methods["toString"];
-    //         //     auto args = ArrayRef<Value *>{value};
-    //         //     Value *stringValue = currentPackage->currentModule->builder->CreateCall(doubleToStringFunc->function, args);
-
-    //         //     auto printArgs = ArrayRef<Value *>{stringValue};
-    //         //     Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    //         //     return new BalanceValue(new BalanceTypeString("None"), llvmValue);
-    //         // }
-    //         break;
-    //     }
-    // } else if (currentPackage->currentModule->accessedValue == nullptr && functionName == "open") {
-    //     // Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen"); // TODO: Move this to separate module
-    //     // BalanceClass *stringClass = currentPackage->builtins->getClassFromStructName("String");
-    //     // vector<Value *> functionArguments;
-    //     // for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-    //     //     any anyVal = visit(argument);
-    //     //     llvm::Value *value = anyToValue(anyVal);
-    //     //     functionArguments.push_back(value);
-    //     // }
-
-    //     // Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    //     // Value *stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    //     // Value *pathPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[0], {zero, stringPointerIndex});
-    //     // Value *pathValue = currentPackage->currentModule->builder->CreateLoad(pathPointerValue);
-    //     // Value *modePointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, functionArguments[1], {zero, stringPointerIndex});
-    //     // Value *modeValue = currentPackage->currentModule->builder->CreateLoad(modePointerValue);
-
-    //     // auto args = ArrayRef<Value *>({pathValue, modeValue});
-    //     // Value *filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
-
-    //     // // Create File struct which holds this and return pointer to the struct
-    //     // BalanceClass *fileClass = currentPackage->builtins->classes["File"];
-
-    //     // auto structSize = ConstantExpr::getSizeOf(fileClass->structType);
-    //     // auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->structType->getPointerTo(), fileClass->structType, structSize, nullptr, nullptr, "");
-    //     // currentPackage->currentModule->builder->Insert(pointer);
-
-    //     // ArrayRef<Value *> argumentsReference{pointer};
-    //     // currentPackage->currentModule->builder->CreateCall(fileClass->constructor, argumentsReference); // TODO: should it have a constructor?
-
-    //     // // Get reference to 0th property (filePointer) and assign
-    //     // int intIndex = fileClass->properties["filePointer"]->index;
-    //     // auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
-
-    //     // auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->structType, pointer, {zero, index});
-    //     // currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
-
-    //     // return new BalanceValue(new BalanceTypeString("File"), pointer);
-    // } else {
-    //     if (currentPackage->currentModule->accessedValue != nullptr) {
-    //         // Means we're invoking function on an element
-    //         Type *elementType = currentPackage->currentModule->accessedValue->getType();
-    //         vector<Value *> functionArguments;
-    //         std::string className;
-
-    //         if (PointerType *PT = dyn_cast<PointerType>(currentPackage->currentModule->accessedValue->getType())) {
-    //             // TODO: Check that it is actually struct
-    //             className = PT->getElementType()->getStructName().str();
-    //         } else if (elementType->isIntegerTy()) {
-    //             int width = elementType->getIntegerBitWidth();
-    //             if (width == 1) {
-    //                 className = "Bool";
-    //             } else if (width == 32) {
-    //                 className = "Int";
-    //             }
-    //         } else if (elementType->isFloatingPointTy()) {
-    //             className = "Double";
-    //         }
-
-    //         // Add "this" as first argument
-    //         functionArguments.push_back(currentPackage->currentModule->accessedValue);
-
-    //         // Don't consider accessedValue when parsing arguments
-    //         llvm::Value * backup = currentPackage->currentModule->accessedValue;
-    //         currentPackage->currentModule->accessedValue = nullptr;
-    //         for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-    //             any anyVal = visit(argument);
-    //             llvm::Value *castVal = anyToValue(anyVal);
-    //             functionArguments.push_back(castVal);
-    //         }
-    //         currentPackage->currentModule->accessedValue = backup;
-
-    //         Function *function;
-    //         // TODO: Make a function that does this search and else returns nullptr
-    //         BalanceClass *bclass = currentPackage->currentModule->getClassFromStructName(className);
-    //         if (bclass == nullptr) {
-    //             BalanceImportedClass *ibClass = currentPackage->currentModule->getImportedClassFromStructName(className);
-    //             if (ibClass == nullptr) {
-    //                 bclass = currentPackage->builtins->getClassFromStructName(className);
-    //                 if (bclass == nullptr) {
-    //                     throw std::runtime_error("Failed to find method " + functionName + " for type: " + className);
-    //                 } else {
-    //                     function = bclass->getMethod(functionName)->function;
-    //                 }
-    //             } else {
-    //                 function = ibClass->methods[functionName]->function;
-    //             }
-    //         } else {
-    //             function = bclass->getMethod(functionName)->function;
-    //         }
-    //         FunctionType *functionType = function->getFunctionType();
-
-    //         ArrayRef<Value *> argumentsReference(functionArguments);
-    //         Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(functionType, (Value *)function, argumentsReference);
-
-    //         return new BalanceValue(new BalanceTypeString("File"), llvmValue);
-    //     } else {
-    //         // TODO: Handle
-    //     }
-    // }
-
     // TODO: Should functions be referenced with getValue as well, so we get the closest lambda/func
-
-
-
     // return any();
 }
 

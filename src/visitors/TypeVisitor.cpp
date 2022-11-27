@@ -249,8 +249,27 @@ std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
     std::string variableName = ctx->IDENTIFIER()->getText();
     BalanceTypeString *tryVal = currentPackage->currentModule->getTypeValue(variableName);
     if (tryVal == nullptr) {
-        currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
-        return new BalanceTypeString("Unknown");
+        // Check if we're accessing a type property
+        if (currentPackage->currentModule->accessedType == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
+            return new BalanceTypeString("Unknown");
+        } else {
+            BalanceClass * bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedType->name);
+            if (bclass == nullptr) {
+                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedType->name);
+                if (ibclass == nullptr) {
+                    currentPackage->currentModule->addTypeError(ctx, "Unknown class name: " + currentPackage->currentModule->accessedType->name->toString());
+                    return new BalanceTypeString("Unknown");
+                } else {
+                    bclass = ibclass->bclass;
+                }
+            }
+            if (bclass->properties[variableName] == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on class " + bclass->name->toString());
+                return new BalanceTypeString("Unknown");
+            }
+            int i = 123;
+        }
     }
     return tryVal;
 }
@@ -325,15 +344,15 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
     }
 
-    // Temporary hack until we have a good way to store builtins
-    if (functionName == "print" || functionName == "open") {
-        return returnType;
-    }
-
     // Parse arguments
     for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
         BalanceTypeString * typeString = any_cast<BalanceTypeString *>(visit(argument));
         actualParameters.push_back(typeString);
+    }
+
+    // Temporary hack until we have a good way to store builtins
+    if (functionName == "print" || functionName == "open") {
+        return returnType;
     }
 
     for (int i = 0; i < expectedParameters.size(); i++) {

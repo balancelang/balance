@@ -147,6 +147,12 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 }
 
 bool BalanceModule::finalized() {
+    for (auto const &x : this->interfaces) {
+        if (!x.second->finalized()) {
+            return false;
+        }
+    }
+
     for (auto const &x : this->classes) {
         if (!x.second->finalized()) {
             return false;

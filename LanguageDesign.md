@@ -58,6 +58,9 @@
         }
 
     - operator overloading?
+    - assignment as side-effect?
+        if (var a = a < 5) { ...            (sets var a = true/false inside the if-block)
+        print(var a = x.getString())        equivalent to var a = x.getString(); print(a)
 
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do

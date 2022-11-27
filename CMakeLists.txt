@@ -129,7 +129,8 @@ add_executable(balance
                src/visitors/StructureVisitor.cpp
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
-               src/visitors/VTableVisitor.cpp
+               src/visitors/ClassVTableVisitor.cpp
+               src/visitors/InterfaceVTableVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp

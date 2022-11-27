@@ -1,4 +1,4 @@
-#include "VTableVisitor.h"
+#include "ClassVTableVisitor.h"
 
 #include "../BalancePackage.h"
 #include "../models/BalanceLambda.h"
@@ -7,7 +7,7 @@ using namespace antlr4;
 
 extern BalancePackage *currentPackage;
 
-std::any VTableVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
+std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     // TODO: Do we need this? Can we do it in Utilities::createDefaultConstructor ?
     std::string text = ctx->getText();
     string className = ctx->className->getText();
@@ -23,17 +23,23 @@ std::any VTableVisitor::visitClassDefinition(BalanceParser::ClassDefinitionConte
     for (auto const &x : bclass->getMethods()) {
         BalanceFunction *bfunction = x.second;
         functions.push_back(bfunction->function->getType());
+        // TODO: Store vtableIndex for each function here?
     }
 
     ArrayRef<Type *> propertyTypesRef(functions);
     vTableStructType->setBody(propertyTypesRef, false);
 
-    // Build a new vector of the old struct-elements, and push the vtable pointer
+    // Build a new vector of the old struct-elements, with vtable pointer as 0th element
     vector<Type *> types;
     for (auto x : bclass->structType->elements()) {
         types.push_back(x);
     }
     bclass->vtableTypeIndex = types.size();
+
+    // for (auto x : bclass->properties) {
+    //     x.second->index += 1;
+    // }
+
     types.push_back(vTableStructType->getPointerTo());
     ArrayRef<Type *> vTableArrayRef(types);
     bclass->structType->setBody(vTableArrayRef);

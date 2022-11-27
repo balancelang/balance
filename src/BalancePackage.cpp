@@ -8,7 +8,8 @@
 #include "visitors/LLVMTypeVisitor.h"
 #include "visitors/TypeVisitor.h"
 #include "visitors/TokenVisitor.h"
-#include "visitors/VTableVisitor.h"
+#include "visitors/InterfaceVTableVisitor.h"
+#include "visitors/ClassVTableVisitor.h"
 
 #include "config.h"
 
@@ -254,7 +255,17 @@ void BalancePackage::buildVTables() {
         this->currentModule = bmodule;
 
         // Visit entire tree
-        VTableVisitor visitor;
+        InterfaceVTableVisitor visitor;
+        visitor.visit(bmodule->tree);
+    }
+
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        ClassVTableVisitor visitor;
         visitor.visit(bmodule->tree);
     }
 }
