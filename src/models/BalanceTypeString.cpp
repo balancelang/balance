@@ -23,6 +23,10 @@ bool BalanceTypeString::isFloatingPointType() {
     return this->base == "Double";
 }
 
+bool BalanceTypeString::isInterfaceType() {
+    return this->isInterface;
+}
+
 std::string BalanceTypeString::toString() {
     std::string result = this->base;
     auto genericsCount = this->generics.size();

@@ -4,7 +4,7 @@
 
 Example of syntax:
 ```
-def fib(Int n) -> Int {
+fib(Int n): Int {
     if (n <= 1) {
         return n
     }

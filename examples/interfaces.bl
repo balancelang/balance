@@ -1,21 +1,22 @@
 interface MyInterface {
-    def someFunction(Int a, Int b) -> Int
-    def someFunction2(Int a) -> None
+    someFunction(Int a, Int b): Int
+    someFunction2(Int a): None
 }
 
 class MyClass implements MyInterface {
-    def someFunction(Int a, Int b) -> Int {
+    someFunction(Int a, Int b): Int {
         return a + b
     }
 
-    def someFunction2(Int a) -> None {
+    someFunction2(Int a): None {
         print(a + 2)
     }
 }
 
-def takesInterface(x: MyInterface) {
+takesInterface(MyInterface x) {
     var y = x.someFunction(2,3)
     print(y)
     x.someFunction2(y)
-    print(z)
 }
+
+takesInterface(new MyClass())

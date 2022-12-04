@@ -13,10 +13,10 @@ var b = 123  // not fine
 
 
 
-def funcTakesIntReturnsInt(Int a) -> Int {  // fine
+funcTakesIntReturnsInt(Int a): Int {  // fine
     return 123
 }
 
-def funcTakesIntReturnsInt(Int a) -> Int {  // not fine (while we not yet support overloads)
+funcTakesIntReturnsInt(Int a): Int {  // not fine (while we not yet support overloads)
     return 123
 }

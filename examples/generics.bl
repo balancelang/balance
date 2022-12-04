@@ -1,4 +1,4 @@
-def returnsArray() -> Array<Int> {
+returnsArray(): Array<Int> {
     return [1,2,3]
 }
 

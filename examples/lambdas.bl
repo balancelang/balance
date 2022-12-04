@@ -1,5 +1,5 @@
 // Lambda which takes Int and returns Int
-var lambda1 = (Int w) -> Int {
+var lambda1 = (Int w): Int {
     print(w)
     return w * 2
 }
@@ -16,7 +16,7 @@ lambda2()
 
 
 // Lambda which takes a lambda (Int -> Int) and returns a lambda (Int -> None)
-def functionTakesLambda(Lambda<Int, Int> x) -> Lambda<Int, None> {
+functionTakesLambda(Lambda<Int, Int> x): Lambda<Int, None> {
     var q = x(5)
     return (Int x) {
         print("Hello")
@@ -25,3 +25,8 @@ def functionTakesLambda(Lambda<Int, Int> x) -> Lambda<Int, None> {
 
 var output = functionTakesLambda(lambda1)
 output(5555)
+
+// '(Int) -> Int' is same as Lambda<Int, Int>
+functionTakesShorthandLambda((Int) -> Int x): None {
+    x(5)
+}

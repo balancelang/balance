@@ -155,7 +155,8 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
         bfunction = currentPackage->currentModule->functions[functionName];
     }
 
-    for (BalanceParameter *bparameter : bfunction->parameters) {
+    for (int i = 0; i < bfunction->parameters.size(); i++) {
+        BalanceParameter *bparameter = bfunction->parameters[i];
         if (bparameter->type == nullptr) {
             Type *type = getBuiltinType(bparameter->balanceTypeString);
             if (type != nullptr) {
@@ -170,7 +171,13 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
                             // TODO: Imported interface
                             throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
                         } else {
-                            bparameter->type = binterface->structType->getPointerTo();
+                            if (currentPackage->currentModule->currentInterface != nullptr && i == 0) {
+                                bparameter->type = llvm::Type::getInt64PtrTy(*currentPackage->context);
+                            } else {
+                                StructType * fatPointerStructType = currentPackage->currentModule->getImportedClass(new BalanceTypeString("FatPointer"))->bclass->structType;
+                                bparameter->type = fatPointerStructType->getPointerTo();
+                                bparameter->balanceTypeString->isInterface = true;
+                            }
                         }
                     } else {
                         if (ibclass->bclass->structType != nullptr) {

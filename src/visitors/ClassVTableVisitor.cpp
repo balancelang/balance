@@ -8,7 +8,6 @@ using namespace antlr4;
 extern BalancePackage *currentPackage;
 
 std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
-    // TODO: Do we need this? Can we do it in Utilities::createDefaultConstructor ?
     std::string text = ctx->getText();
     string className = ctx->className->getText();
 
@@ -16,33 +15,20 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
     BalanceClass *bclass = currentPackage->currentModule->getClass(btypeString);
 
-    StructType *vTableStructType = StructType::create(*currentPackage->context, className + "_vtable");
-    bclass->vTableStructType = vTableStructType;
-    std::vector<Type *> functions = {};
+    // For each interface implemented by class, define this class' implementation of that interface's vtable type
+    for (auto const &x : bclass->interfaces) {
+        BalanceInterface * binterface = x.second;
 
-    for (auto const &x : bclass->getMethods()) {
-        BalanceFunction *bfunction = x.second;
-        functions.push_back(bfunction->function->getType());
-        // TODO: Store vtableIndex for each function here?
+        vector<Constant *> values;
+        for (auto const &y : binterface->getMethods()) {
+            values.push_back(bclass->getMethod(y.first)->function);
+        }
+
+        ArrayRef<Constant *> valuesRef(values);
+        Constant * vTableData = ConstantStruct::get(binterface->vTableStructType, valuesRef);
+        GlobalVariable * vTableDataVariable = new GlobalVariable(*currentPackage->currentModule->module, binterface->vTableStructType, true, GlobalValue::ExternalLinkage, vTableData, className + "_" + binterface->name->toString() + "_vtable");
+        bclass->interfaceVTables[x.first] = vTableDataVariable;
     }
-
-    ArrayRef<Type *> propertyTypesRef(functions);
-    vTableStructType->setBody(propertyTypesRef, false);
-
-    // Build a new vector of the old struct-elements, with vtable pointer as 0th element
-    vector<Type *> types;
-    for (auto x : bclass->structType->elements()) {
-        types.push_back(x);
-    }
-    bclass->vtableTypeIndex = types.size();
-
-    // for (auto x : bclass->properties) {
-    //     x.second->index += 1;
-    // }
-
-    types.push_back(vTableStructType->getPointerTo());
-    ArrayRef<Type *> vTableArrayRef(types);
-    bclass->structType->setBody(vTableArrayRef);
 
     return std::any();
 }

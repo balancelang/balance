@@ -367,8 +367,10 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
 
             if (binterface != nullptr) {
                 BalanceClass * bclass = currentPackage->currentModule->getClass(actualParameters[i]);
-                // TODO: Imported class
-                if (bclass->interfaces[binterface->name->base] == nullptr) {
+                if (bclass == nullptr) {
+                    // TODO: Imported class
+                    currentPackage->currentModule->addTypeError(ctx, "Unknown parameter type, " + actualParameters[i]->toString());
+                } else if (bclass->interfaces[binterface->name->base] == nullptr) {
                     currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. " + bclass->name->toString() + " does not implement interface " + binterface->name->toString());
                 }
             } else {
@@ -576,7 +578,11 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
     for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
         std::string interfaceName = type->getText();
         BalanceInterface * binterface = currentPackage->currentModule->getInterface(interfaceName);
-        // TODO: Handle imported interfaces
+        if (binterface == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Unknown interface " + interfaceName);
+            continue;
+            // TODO: Handle imported interfaces
+        }
 
         // Check if class implements all functions
         for (auto const &x : binterface->getMethods()) {

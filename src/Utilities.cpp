@@ -137,23 +137,6 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
         currentPackage->currentModule->builder->CreateStore(initialValue, ptr);
     }
 
-    // Initialize vtable pointer
-    // if (bclass->vTableStructType != nullptr) {
-    //     auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    //     auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bclass->vtableTypeIndex, true));
-    //     Type *structType = thisValue->getType()->getPointerElementType();
-    //     auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue, {zero, index});
-
-    //     vector<Constant *> values;
-    //     for (auto m : bclass->getMethods()) {
-    //         values.push_back(m.second->function);
-    //     }
-    //     ArrayRef<Constant *> valuesRef(values);
-    //     Constant * vTableData = ConstantStruct::get(bclass->vTableStructType, valuesRef);
-    //     GlobalVariable * vTableDataVariable = new GlobalVariable(*currentPackage->currentModule->module, bclass->vTableStructType, true, GlobalValue::CommonLinkage, vTableData, bclass->name->toString() + "_vtable_data");
-    //     currentPackage->currentModule->builder->CreateStore(vTableDataVariable, ptr);
-    // }
-
     // Return void
     currentPackage->currentModule->builder->CreateRetVoid();
 

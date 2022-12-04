@@ -51,6 +51,7 @@
             }
             ^-- awaits all tasks and continues when all are done, leaving q and b with the results
             the {} block can only contain awaitable expressions
+            Nested awaits?
     - built-in support for running OS commands
         os {
             lsOut, lsErr, lsRc = ls -l
@@ -61,6 +62,8 @@
     - assignment as side-effect?
         if (var a = a < 5) { ...            (sets var a = true/false inside the if-block)
         print(var a = x.getString())        equivalent to var a = x.getString(); print(a)
+    - constrained values?
+        - E.g. Regex strings, only ints between 0..10
 
 - What if main didn't take "string[] args", but something smarter, more CLI appropriate?
 - Wont-do

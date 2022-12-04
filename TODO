@@ -7,3 +7,4 @@ interfaces
 - test missing function implementation
 - test wrong return type
 - test wrong parameters
+- test class doesnt implement interface

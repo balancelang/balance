@@ -28,7 +28,7 @@
             "patterns": [
                 {
                     "name": "storage.type",
-                    "match": "\\b(class|def)\\b"
+                    "match": "\\b(class)\\b"
                 }
             ]
         },

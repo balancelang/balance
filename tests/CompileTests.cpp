@@ -127,13 +127,13 @@ void createPrintArray() {
 }
 
 void createFunctionAndInvoke() {
-    string program = "def test(Int a) -> None {\nprint(a)\n}\ntest(55)";
+    string program = "test(Int a): None {\nprint(a)\n}\ntest(55)";
     string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createLambdaAndInvoke() {
-    string program = "var lamb = (Int a) -> None {\nprint(a)\n}\nlamb(55)";
+    string program = "var lamb = (Int a): None -> {\nprint(a)\n}\nlamb(55)";
     string result = run(program);
     assertEqual("55\n", result, program);
 }

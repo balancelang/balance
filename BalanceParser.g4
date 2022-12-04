@@ -96,6 +96,7 @@ parameterList
 balanceType
     : (IDENTIFIER | NONE)                                               # SimpleType
     | base=IDENTIFIER '<' typeList '>'                                  # GenericType
+    | '(' typeList ')' '->' balanceType                                 # LambdaType
     ;
 
 typeList
@@ -123,7 +124,7 @@ functionCall
     ;
 
 functionSignature
-    : DEF IDENTIFIER OPEN_PARENS parameterList CLOSE_PARENS returnType?
+    : IDENTIFIER OPEN_PARENS parameterList CLOSE_PARENS returnType?
     ;
 
 functionDefinition
@@ -168,12 +169,12 @@ classProperty
     ;
 
 lambda
-    : OPEN_PARENS parameterList CLOSE_PARENS returnType? OPEN_BRACE WS* functionBlock WS* CLOSE_BRACE WS*
+    : OPEN_PARENS parameterList CLOSE_PARENS returnType? '->' OPEN_BRACE WS* functionBlock WS* CLOSE_BRACE WS*
     // | OPEN_PARENS parameterList CLOSE_PARENS '->' expression     // single-expression
     ;
 
 returnType
-    : '->' balanceType
+    : COLON balanceType
     ;
 
 block

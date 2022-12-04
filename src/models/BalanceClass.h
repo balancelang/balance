@@ -22,6 +22,7 @@ class BalanceClass : public BalanceType
 public:
     map<string, BalanceProperty *> properties = {};
     map<string, BalanceInterface *> interfaces = {};
+    map<string, llvm::Value *> interfaceVTables = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;
     llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)

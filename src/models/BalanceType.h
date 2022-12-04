@@ -29,6 +29,14 @@ public:
         }
         return nullptr;
     }
+
+    int getMethodIndex(std::string key) {
+        auto it = this->methods.find(key);
+        if (it == this->methods.end()) {
+            return -1;
+        }
+        return std::distance(this->methods.begin(), it);
+    }
 };
 
 #endif

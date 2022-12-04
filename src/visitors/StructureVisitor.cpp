@@ -104,6 +104,20 @@ std::any StructureVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx
     }
 }
 
+std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::vector<BalanceTypeString *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
+        BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(type));
+        generics.push_back(typeString);
+    }
+
+    BalanceTypeString *returnTypeString = any_cast<BalanceTypeString *>(visit(ctx->balanceType()));
+    generics.push_back(returnTypeString);
+
+    return new BalanceTypeString("Lambda", generics);
+}
+
 std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
     std::string base = ctx->base->getText();
     std::vector<BalanceTypeString *> generics;

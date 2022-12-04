@@ -2,7 +2,16 @@
 
 ## [Unreleased]
 
+## [0.0.9]
+### Added
+- Support for interfaces
+### Removed
+- Removed 'def' keyword
+- Require arrows for lambdas
+- Return types defined with colon instead of arrow
+
 ## [0.0.8]
+### Added
 - Initial language server implementation.
 
 ## [0.0.7]
@@ -35,5 +44,4 @@
 ### Added
 - Initial setup of ANTLR4 lexer/parser and LLVM backend
 - Support for types: Int, Double, Bool, None, Array
-- Support for constructs: if-statement, while-loop, function def, function calls, builtin print function
-
+- Support for constructs: if-statement, while-loop, functions, function calls, builtin print function

@@ -204,7 +204,6 @@ std::any TokenVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefiniti
 }
 
 std::any TokenVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
-    this->addToken(ctx->DEF()->getSymbol(), SemanticTokenType::ls_keyword);
     this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_method);
 
     visit(ctx->parameterList());
