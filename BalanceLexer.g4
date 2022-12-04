@@ -2,7 +2,6 @@ lexer grammar BalanceLexer;
 
 SingleLineComment   : '//' ~[\r\n]* -> channel(HIDDEN);
 
-DEF                 : 'def';
 RETURN              : 'return';
 IF                  : 'if';
 ELSE                : 'else';
@@ -13,6 +12,8 @@ FALSE               : 'false';
 TRUE                : 'true';
 WHILE               : 'while';
 CLASS               : 'class';
+INTERFACE           : 'interface';
+IMPLEMENTS          : 'implements';
 NEW                 : 'new';
 FROM                : 'from';
 IMPORT              : 'import';
@@ -29,6 +30,7 @@ CLOSE_PARENS        : ')';
 DOT                 : '.';
 
 COMMA               : ',';
+COLON               : ':';
 SEMICOLON           : ';';
 PLUS                : '+';
 MINUS               : '-';

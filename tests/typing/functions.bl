@@ -1,6 +1,6 @@
 // Copied from lambdas
 
-def lamb(Int a) -> None {
+lamb(Int a): None -> {
     a = 55                  // fine
     a = "abc"               // not fine
 
@@ -10,12 +10,12 @@ lamb(555)                   // fine
 lamb("abc")                 // not fine
 
 
-def lamb2(Int a) -> Int {
+lamb2(Int a): Int -> {
     print(a)
     // Missing return
 }
 
-def lamb3(Int a) -> String {
+lamb3(Int a): String -> {
     print(a)
 
     return 123              // wrong return type

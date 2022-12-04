@@ -1,0 +1,10 @@
+- test duplicate class name
+- test duplicate parameter name in same function signature
+
+
+interfaces
+- test duplicate interface name
+- test missing function implementation
+- test wrong return type
+- test wrong parameters
+- test class doesnt implement interface

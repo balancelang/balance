@@ -1,6 +1,6 @@
 #include "Bool.h"
 #include "../Builtins.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
@@ -38,9 +38,10 @@ void createMethod_Double_toString() {
     llvm::Function * doubleToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", doubleToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    currentPackage->currentModule->currentClass->methods[functionName]->function = doubleToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
+    bfunction->function = doubleToStringFunc;
+    bfunction->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

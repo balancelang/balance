@@ -5,11 +5,11 @@ from fileB import someFunc
 class MyClass {
     Int a
 
-    def getA() -> Int {
+    getA(): Int {
         return a
     }
 
-    def setA(Int value) -> None {
+    setA(Int value): None {
         a = value
     }
 }

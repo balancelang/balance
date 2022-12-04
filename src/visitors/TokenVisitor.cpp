@@ -37,6 +37,8 @@ std::any TokenVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContex
     // class name
     this->addToken(ctx->className, SemanticTokenType::ls_class);
 
+    visit(ctx->classExtendsImplements());
+
     // class elements
     visitChildren(ctx);
 
@@ -106,13 +108,7 @@ std::any TokenVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx
 }
 
 std::any TokenVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    this->addToken(ctx->DEF()->getSymbol(), SemanticTokenType::ls_keyword);
-    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_method);
-
-    visit(ctx->parameterList());
-    if (ctx->returnType()) {
-        visit(ctx->returnType());
-    }
+    visit(ctx->functionSignature());
     visit(ctx->functionBlock());
 
     return std::any();
@@ -144,10 +140,11 @@ std::any TokenVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) 
 }
 
 std::any TokenVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx) {
+    auto text = ctx->getText();
     auto token = ctx->STRING()->getSymbol();
     unsigned int line = token->getLine() - 1;
     unsigned int columnStart = token->getCharPositionInLine();
-    unsigned int length = token->getText().size();
+    unsigned int length = token->getText().size() + 2;      // + 2 because quotes are not included
 
     // Grammar removes the quotes, so we add them again here
     this->addToken(line, columnStart, length, SemanticTokenType::ls_string);
@@ -188,5 +185,39 @@ std::any TokenVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *c
 std::any TokenVisitor::visitParameter(BalanceParser::ParameterContext *ctx) {
     visit(ctx->type);
     this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_variable);
+    return std::any();
+}
+
+std::any TokenVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefinitionContext *ctx) {
+    std::string text = ctx->getText();
+
+    // class keyword
+    this->addToken(ctx->INTERFACE()->getSymbol(), SemanticTokenType::ls_keyword);
+
+    // class name
+    this->addToken(ctx->interfaceName, SemanticTokenType::ls_class);
+
+    // class elements
+    visitChildren(ctx);
+
+    return std::any();
+}
+
+std::any TokenVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
+    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_method);
+
+    visit(ctx->parameterList());
+    if (ctx->returnType()) {
+        visit(ctx->returnType());
+    }
+    return std::any();
+}
+
+std::any TokenVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) {
+    std::string text = ctx->getText();
+    if (ctx->IMPLEMENTS()) {
+        this->addToken(ctx->IMPLEMENTS()->getSymbol(), SemanticTokenType::ls_keyword);
+        visit(ctx->interfaces);
+    }
     return std::any();
 }

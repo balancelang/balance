@@ -11,12 +11,16 @@ public:
     std::string base;                                   // E.g. "Array" in "Array<Int>"
     llvm::Type * type = nullptr;
     std::vector<BalanceTypeString *> generics;          // E.g. ["String", "Int"] in Dictionary<String, Int>
+    bool isInterface = false;
 
     BalanceTypeString(std::string base, std::vector<BalanceTypeString *> generics = {}) {
         this->base = base;
         this->generics = generics;
     }
 
+    bool isSimpleType();
+    bool isInterfaceType();
+    bool isFloatingPointType();
     std::string toString();
     bool finalized();
     void populateTypes();

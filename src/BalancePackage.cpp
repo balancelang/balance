@@ -1,4 +1,4 @@
-#include "Package.h"
+#include "BalancePackage.h"
 #include "Main.h"
 #include "Utilities.h"
 #include "visitors/PackageVisitor.h"
@@ -8,6 +8,8 @@
 #include "visitors/LLVMTypeVisitor.h"
 #include "visitors/TypeVisitor.h"
 #include "visitors/TokenVisitor.h"
+#include "visitors/InterfaceVTableVisitor.h"
+#include "visitors/ClassVTableVisitor.h"
 
 #include "config.h"
 
@@ -120,9 +122,6 @@ bool BalancePackage::compileAndPersist()
         this->logger("Building textual representations");
         this->buildTextualRepresentations();
 
-        // If language-server, build tokens TODO: Check if language-server
-        // this->buildLanguageServerTokens();
-
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         this->logger("Running type checking");
         bool success = this->typeChecking();
@@ -143,6 +142,9 @@ bool BalancePackage::compileAndPersist()
         // Run loop that builds LLVM functions and handles cycles
         this->buildStructures();
 
+        // Build vtables for interfaces etc.
+        this->buildVTables();
+
         // Make sure all classes have constructors (we need constructor function to make forward declaration)
         this->buildConstructors();
 
@@ -161,6 +163,8 @@ bool BalancePackage::compileAndPersist()
 
 // TODO: Combine this function and the above
 bool BalancePackage::executeString(std::string program) {
+    this->reset();
+
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
     modules["program"]->initializeModule();
@@ -181,6 +185,9 @@ bool BalancePackage::executeString(std::string program) {
 
     // Run loop that builds LLVM functions and handles cycles
     this->buildStructures();
+
+    // Build vtables for interfaces etc.
+    this->buildVTables();
 
     // Make sure all classes have constructors (we need constructor function to make forward declaration)
     this->buildConstructors();
@@ -243,6 +250,28 @@ void BalancePackage::buildStructures()
             std::cout << "Killed type visitor loop as it exceeded max iterations. Please file this as a bug." << std::endl;
             exit(1);
         }
+    }
+}
+
+void BalancePackage::buildVTables() {
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        InterfaceVTableVisitor visitor;
+        visitor.visit(bmodule->tree);
+    }
+
+    for (auto const &x : modules)
+    {
+        BalanceModule *bmodule = x.second;
+        this->currentModule = bmodule;
+
+        // Visit entire tree
+        ClassVTableVisitor visitor;
+        visitor.visit(bmodule->tree);
     }
 }
 
@@ -404,10 +433,10 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    // if (currentPackage->verboseLogging)
-    // {
-    //     bmodule->module->print(llvm::errs(), nullptr);
-    // }
+    if (currentPackage->verboseLogging)
+    {
+        bmodule->module->print(llvm::errs(), nullptr);
+    }
 
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);

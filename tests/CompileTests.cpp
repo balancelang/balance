@@ -1,5 +1,5 @@
 #include "CompileTests.h"
-#include "../src/Package.h"
+#include "../src/BalancePackage.h"
 #include "../src/Main.h"
 #include "../src/visitors/Visitor.h"
 #include "ASTTests.h"
@@ -90,7 +90,8 @@ string exec(const char* cmd) {
 }
 
 string run(string program) {
-    BalancePackage * package = new BalancePackage("", "");
+    std::cout << "Program: " << program << std::endl;
+    BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(program);
     return exec("./program");
 }
@@ -126,13 +127,13 @@ void createPrintArray() {
 }
 
 void createFunctionAndInvoke() {
-    string program = "def test(Int a) -> None {\nprint(a)\n}\ntest(55)";
+    string program = "test(Int a): None {\nprint(a)\n}\ntest(55)";
     string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createLambdaAndInvoke() {
-    string program = "var lamb = (Int a) -> None {\nprint(a)\n}\nlamb(55)";
+    string program = "var lamb = (Int a): None -> {\nprint(a)\n}\nlamb(55)";
     string result = run(program);
     assertEqual("55\n", result, program);
 }

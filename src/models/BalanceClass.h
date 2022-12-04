@@ -1,9 +1,11 @@
 #ifndef BALANCE_CLASS_H
 #define BALANCE_CLASS_H
 
+#include "BalanceType.h"
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
 #include "BalanceModule.h"
+#include "BalanceInterface.h"
 
 #include "llvm/IR/DerivedTypes.h"
 
@@ -12,18 +14,21 @@ class BalanceModule;
 class BalanceFunction;
 class BalanceProperty;
 class BalanceImportedConstructor;
+class BalanceInterface;
 
 
-class BalanceClass
+class BalanceClass : public BalanceType
 {
 public:
-    BalanceTypeString * name;
     map<string, BalanceProperty *> properties = {};
-    map<string, BalanceFunction *> methods = {};
+    map<string, BalanceInterface *> interfaces = {};
+    map<string, llvm::Value *> interfaceVTables = {};
     llvm::Function *constructor = nullptr;
     llvm::StructType *structType = nullptr;
     llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)
     bool hasBody;
+    llvm::StructType *vTableStructType = nullptr;
+    int vtableTypeIndex = 0;
     BalanceModule *module;
     BalanceClass(BalanceTypeString * name)
     {

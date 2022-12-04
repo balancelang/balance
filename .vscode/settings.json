@@ -82,7 +82,8 @@
         "source_location": "cpp",
         "ranges": "cpp",
         "cfenv": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "*.ipp": "cpp"
     },
     "cmake.sourceDirectory": "${workspaceFolder}/.",
     "editor.quickSuggestions": {

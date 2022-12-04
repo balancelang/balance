@@ -1,6 +1,6 @@
 #include "Main.h"
 #include "Builtins.h"
-#include "Package.h"
+#include "BalancePackage.h"
 #include "Utilities.h"
 #include "visitors/Visitor.h"
 #include "language-server/LanguageServer.h"
@@ -109,6 +109,7 @@ int main(int argc, char **argv) {
     bool isRunLanguageServer = false;
     bool languageServerTcp = false;
     bool verboseLogging = false;
+    bool isAnalyzeOnly = false;
     std::string entryPoint;
 
     std::vector<std::string> arguments;
@@ -137,6 +138,8 @@ int main(int argc, char **argv) {
             isRunLanguageServer = true;
         } else if (argument == "--language-server-tcp") {
             languageServerTcp = true;
+        } else if (argument == "--analyze-only") {
+            isAnalyzeOnly = true;
         } else {
             if (argument != "new" && argument != "run") {
                 entryPoint = argument;
@@ -156,8 +159,8 @@ int main(int argc, char **argv) {
         }
 
         // TODO: One day we might allow executing from a different directory
-        currentPackage = new BalancePackage("package.json", entryPoint);
-        currentPackage->verboseLogging = verboseLogging;
+        currentPackage = new BalancePackage("package.json", entryPoint, verboseLogging);
+        currentPackage->isAnalyzeOnly = isAnalyzeOnly;
         bool success = currentPackage->execute();
         return !success;
     } else {
@@ -172,7 +175,8 @@ int main(int argc, char **argv) {
         } else if (isRunLanguageServer) {
             runLanguageServer(languageServerTcp);
         } else {
-            currentPackage = new BalancePackage("", entryPoint);
+            currentPackage = new BalancePackage("", entryPoint, verboseLogging);
+            currentPackage->isAnalyzeOnly = isAnalyzeOnly;
             bool success = currentPackage->executeAsScript();
             return !success;
         }

@@ -1,5 +1,5 @@
 #include "Builtins.h"
-#include "Package.h"
+#include "BalancePackage.h"
 #include "builtins/File.h"
 #include "builtins/Int.h"
 #include "builtins/String.h"
@@ -74,10 +74,7 @@ void createFunction__print()
 
     bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
     if (hasError) {
-        // TODO: Throw error
-        std::cout << "Error verifying function: " << bfunction->name << std::endl;
-        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        // exit(1);
+        throw std::runtime_error("Error verifying function: " + bfunction->name);
     }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
@@ -105,12 +102,40 @@ void createFunction__open()
     currentPackage->currentModule->functions["open"] = bfunction;
 }
 
+void createType__FatPointer() {
+    auto typeString = new BalanceTypeString("FatPointer");
+    BalanceClass * bclass = new BalanceClass(typeString);
+
+    currentPackage->currentModule->classes["FatPointer"] = bclass;
+    bclass->properties["thisPointer"] = new BalanceProperty("thisPointer", nullptr, 0, false);
+    bclass->properties["thisPointer"]->type = llvm::Type::getInt64PtrTy(*currentPackage->context);
+    bclass->properties["vtablePointer"] = new BalanceProperty("vtablePointer", nullptr, 1, true);
+    bclass->properties["vtablePointer"]->type = llvm::Type::getInt64PtrTy(*currentPackage->context);
+
+    currentPackage->currentModule->currentClass = bclass;
+    StructType *structType = StructType::create(*currentPackage->context, "FatPointer");
+    ArrayRef<Type *> propertyTypesRef({
+        bclass->properties["thisPointer"]->type,
+        bclass->properties["vtablePointer"]->type
+    });
+    structType->setBody(propertyTypesRef, false);
+    bclass->structType = structType;
+    bclass->hasBody = true;
+
+    // TODO: Might not be needed
+    createDefaultConstructor(currentPackage->currentModule, bclass);
+
+    currentPackage->currentModule->currentClass = nullptr;
+}
+
 void createFunctions() {
     createFunction__print();
     createFunction__open();
 }
 
 void createTypes() {
+    createType__FatPointer();
+
     createType__String();
     createType__Int();
     createType__Bool();

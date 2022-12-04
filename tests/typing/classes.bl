@@ -17,11 +17,11 @@ b = cls.getA()      // not fine (String != Int)
 class MyClass {
     Int a
 
-    def getA() -> Int {
+    getA(): Int {
         return a
     }
 
-    def setA(Int value) -> None {
+    setA(Int value): None {
         a = value
     }
 }

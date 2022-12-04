@@ -1,5 +1,5 @@
 #include "Utilities.h"
-#include "Package.h"
+#include "BalancePackage.h"
 #include "visitors/Visitor.h"
 #include "models/BalanceTypeString.h"
 
@@ -25,7 +25,7 @@ void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
     bmodule->importedClasses[bclass->name->toString()] = ibclass;
 
     // Create BalanceImportedFunction for each class method
-    for (auto const &x : bclass->methods) {
+    for (auto const &x : bclass->getMethods()) {
         BalanceFunction *bfunction = x.second;
         BalanceImportedFunction *ibfunction = new BalanceImportedFunction(bmodule, bfunction);
         ibclass->methods[bfunction->name] = ibfunction;
@@ -137,14 +137,12 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
         currentPackage->currentModule->builder->CreateStore(initialValue, ptr);
     }
 
+    // Return void
     currentPackage->currentModule->builder->CreateRetVoid();
 
     bool hasError = verifyFunction(*function, &llvm::errs());
     if (hasError) {
-        // TODO: Throw error
-        std::cout << "Error verifying default constructor for class: " << bclass->structType->getName().str() << std::endl;
-        currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        exit(1);
+        throw std::runtime_error("Error verifying default constructor for class: " + bclass->structType->getName().str());
     }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }

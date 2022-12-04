@@ -1,6 +1,6 @@
 #include "Bool.h"
 #include "../Builtins.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 #include "../models/BalanceTypeString.h"
 
@@ -31,9 +31,10 @@ void createMethod_Bool_toString() {
     llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    currentPackage->currentModule->currentClass->methods[functionName]->function = boolToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
+    bfunction->function = boolToStringFunc;
+    bfunction->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

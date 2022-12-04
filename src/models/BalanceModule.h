@@ -2,7 +2,9 @@
 #define BALANCE_MODULE_H
 
 #include "BalanceScopeBlock.h"
+#include "BalanceType.h"
 #include "BalanceClass.h"
+#include "BalanceInterface.h"
 #include "BalanceFunction.h"
 #include "BalanceLambda.h"
 #include "llvm/IR/IRBuilder.h"
@@ -17,6 +19,7 @@ using namespace antlr4;
 class BalanceImportedClass;
 class BalanceImportedFunction;
 class BalanceClass;
+class BalanceInterface;
 class BalanceFunction;
 
 class Position {
@@ -63,6 +66,7 @@ public:
     // Structures defined in this module
     std::map<std::string, BalanceClass *> classes = {};
     std::map<std::string, BalanceFunction *> functions = {};
+    std::map<std::string, BalanceInterface *> interfaces = {};
     std::map<std::string, llvm::Value *> globals = {};
 
     // Structures imported into this module
@@ -72,14 +76,15 @@ public:
 
     BalanceScopeBlock *rootScope;
     BalanceClass *currentClass = nullptr;
+    BalanceInterface *currentInterface = nullptr;
     BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
-    llvm::Value *accessedValue = nullptr;
+    BalanceValue * accessedValue = nullptr;
 
-    BalanceClass * accessedType = nullptr;     // Used by TypeVisitor.cpp
+    BalanceType * accessedType = nullptr;     // Used by TypeVisitor.cpp
 
     llvm::Module *module;
 
@@ -122,13 +127,14 @@ public:
     BalanceImportedClass * getImportedClass(BalanceTypeString * className);
     BalanceImportedClass * getImportedClassFromStructName(std::string structName);
     BalanceImportedClass * getImportedClassFromBaseName(std::string baseName);
+    BalanceInterface * getInterface(std::string interfaceName);
 
     BalanceFunction * getFunction(std::string functionName);
     BalanceImportedFunction * getImportedFunction(std::string functionName);
 
     BalanceTypeString *getTypeValue(std::string variableName);
-    llvm::Value *getValue(std::string variableName);
-    void setValue(std::string variableName, llvm::Value *value);
+    BalanceValue *getValue(std::string variableName);
+    void setValue(std::string variableName, BalanceValue *bvalue);
     bool finalized();
 
     bool hasTypeErrors();

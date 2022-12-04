@@ -1,0 +1,22 @@
+interface MyInterface {
+    someFunction(Int a, Int b): Int
+    someFunction2(Int a): None
+}
+
+class MyClass implements MyInterface {
+    someFunction(Int a, Int b): Int {
+        return a + b
+    }
+
+    someFunction2(Int a): None {
+        print(a + 2)
+    }
+}
+
+takesInterface(MyInterface x) {
+    var y = x.someFunction(2,3)
+    print(y)
+    x.someFunction2(y)
+}
+
+takesInterface(new MyClass())

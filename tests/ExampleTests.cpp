@@ -1,6 +1,6 @@
 #include "CompileTests.h"
 #include "../src/Main.h"
-#include "../src/Package.h"
+#include "../src/BalancePackage.h"
 #include "ASTTests.h"
 
 #include <cstdio>
@@ -90,12 +90,13 @@ string execExample(const char* cmd) {
 }
 
 string runExample(string filePath) {
+    std::cout << "Running example: " << filePath << std::endl;
     ifstream inputStream;
     inputStream.open(filePath);
     stringstream strStream;
     strStream << inputStream.rdbuf();
 
-    BalancePackage * package = new BalancePackage("", "");
+    BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(strStream.str());
     return execExample("./program");
 }
@@ -118,17 +119,22 @@ void examplesVariablesTest() {
 
 void examplesFunctionsTest() {
     string result = runExample("../examples/functions.bl");
-    assertEqual("80\nBecause this returns 'None', we can ommit '-> None'\n", result, "Functions");
+    assertEqual("80\nBecause this returns 'None', we can ommit ': None'\n", result, "Functions");
 }
 
 void examplesLambdasTest() {
     string result = runExample("../examples/lambdas.bl");
-    assertEqual("5\nThis implicitly returns None\n5\nHello\n", result, "Lambdas");
+    assertEqual("5\nThis implicitly returns None\n5\nHello\n7\n", result, "Lambdas");
 }
 
 void examplesFilesTest() {
     string result = runExample("../examples/files.bl");
     assertEqual("0123456789\n", result, "Files");
+}
+
+void examplesInterfacesTest() {
+    string result = runExample("../examples/interfaces.bl");
+    assertEqual("5\n7\n", result, "Interfaces");
 }
 
 void runExamplesTestSuite() {
@@ -139,4 +145,5 @@ void runExamplesTestSuite() {
     examplesFunctionsTest();
     examplesLambdasTest();
     examplesFilesTest();
+    examplesInterfacesTest();
 }

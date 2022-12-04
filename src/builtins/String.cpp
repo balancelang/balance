@@ -1,6 +1,6 @@
 #include "String.h"
 #include "../models/BalanceClass.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 #include "../models/BalanceProperty.h"
 
 #include "llvm/IR/LLVMContext.h"
@@ -42,9 +42,10 @@ void createMethod_String_toString_WITH_QUOTES() {
     llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    currentPackage->currentModule->currentClass->methods[functionName]->function = intToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
+    bfunction->function = intToStringFunc;
+    bfunction->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -160,9 +161,10 @@ void createMethod_String_toString() {
     llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
 
-    currentPackage->currentModule->currentClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    currentPackage->currentModule->currentClass->methods[functionName]->function = intToStringFunc;
-    currentPackage->currentModule->currentClass->methods[functionName]->returnType = getBuiltinType(new BalanceTypeString("String"));
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
+    bfunction->function = intToStringFunc;
+    bfunction->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();

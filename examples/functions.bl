@@ -1,9 +1,9 @@
-def funcTakesIntReturnsInt(Int a) -> Int {
+funcTakesIntReturnsInt(Int a): Int {
     return a + 55
 }
 
-def funcTakesNothingReturnsNothing() {
-    print("Because this returns 'None', we can ommit '-> None'")
+funcTakesNothingReturnsNothing() {
+    print("Because this returns 'None', we can ommit ': None'")
 }
 
 var a = funcTakesIntReturnsInt(25)

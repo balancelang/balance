@@ -1,8 +1,31 @@
 #include "BalanceTypeString.h"
 #include "../visitors/Visitor.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 extern BalancePackage *currentPackage;
+
+bool BalanceTypeString::isSimpleType() {
+    if (this->base == "Int") {
+        return true;
+    } else if (this->base == "Bool") {
+        return true;
+    } else if (this->base == "Double") {
+        return true;
+    } else if (this->base == "None") {
+        return true;
+    }
+
+    return false;
+}
+
+bool BalanceTypeString::isFloatingPointType() {
+    // We might introduce other sized floating point types
+    return this->base == "Double";
+}
+
+bool BalanceTypeString::isInterfaceType() {
+    return this->isInterface;
+}
 
 std::string BalanceTypeString::toString() {
     std::string result = this->base;
@@ -44,7 +67,7 @@ void BalanceTypeString::populateTypes() {
             if (bclass == nullptr) {
                 BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(this);
                 if (ibclass == nullptr) {
-                    // TODO: Throw error
+                    throw std::runtime_error("Failed to populate type: " + this->toString());
                 } else {
                     this->type = ibclass->bclass->structType->getPointerTo();
                 }

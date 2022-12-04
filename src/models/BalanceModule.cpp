@@ -1,5 +1,6 @@
 #include "BalanceModule.h"
-#include "../Package.h"
+#include "BalanceValue.h"
+#include "../BalancePackage.h"
 
 #include "ParserRuleContext.h"
 
@@ -40,6 +41,13 @@ void BalanceModule::generateASTFromPath() {
 void BalanceModule::generateASTFromString(std::string program) {
     this->antlrStream = new antlr4::ANTLRInputStream(program);
     this->generateASTFromStream(antlrStream);
+}
+
+BalanceInterface * BalanceModule::getInterface(std::string interfaceName) {
+    if (this->interfaces.find(interfaceName) != this->interfaces.end()) {
+        return this->interfaces[interfaceName];
+    }
+    return nullptr;
 }
 
 BalanceClass *BalanceModule::getClass(BalanceTypeString * className) {
@@ -119,11 +127,11 @@ BalanceTypeString *BalanceModule::getTypeValue(std::string variableName) {
     return nullptr;
 }
 
-llvm::Value *BalanceModule::getValue(std::string variableName) {
+BalanceValue *BalanceModule::getValue(std::string variableName) {
     BalanceScopeBlock *scope = this->currentScope;
     while (scope != nullptr) {
         // Check variables etc
-        llvm::Value *tryVal = scope->symbolTable[variableName];
+        BalanceValue *tryVal = scope->symbolTable[variableName];
         if (tryVal != nullptr) {
             return tryVal;
         }
@@ -134,11 +142,17 @@ llvm::Value *BalanceModule::getValue(std::string variableName) {
     return nullptr;
 }
 
-void BalanceModule::setValue(std::string variableName, llvm::Value *value) {
-    this->currentScope->symbolTable[variableName] = value;
+void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
+    this->currentScope->symbolTable[variableName] = bvalue;
 }
 
 bool BalanceModule::finalized() {
+    for (auto const &x : this->interfaces) {
+        if (!x.second->finalized()) {
+            return false;
+        }
+    }
+
     for (auto const &x : this->classes) {
         if (!x.second->finalized()) {
             return false;

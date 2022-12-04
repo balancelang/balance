@@ -31,9 +31,10 @@ public:
 
     std::function<void(std::string)> logger;
 
-    BalancePackage(std::string packageJsonPath, std::string entrypoint) {
+    BalancePackage(std::string packageJsonPath, std::string entrypoint, bool verboseLogging) {
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
+        this->verboseLogging = verboseLogging;
         this->context = new LLVMContext();
 
         // Get directory of packageJson
@@ -74,6 +75,7 @@ public:
     void buildTextualRepresentations();
     void buildStructures();
     void buildForwardDeclarations();
+    void buildVTables();
     void buildConstructors();
     void addBuiltinsToModules();
     bool typeChecking();

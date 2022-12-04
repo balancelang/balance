@@ -9,19 +9,19 @@ lamb("abc")                 // not fine
 lamb()                      // not fine
 lamb(1, 2)                  // not fine
 
-var lamb2 = (Int a) -> Int {
+var lamb2 = (Int a): Int -> {
     print(a)
     // Missing return
 }
 
-var lamb3 = (Int a) -> String {
+var lamb3 = (Int a): String -> {
     print(a)
 
     return 123              // wrong return type
 }
 
 
-def funcTakesLambda(Lambda<Int, Int> x) {
+funcTakesLambda(Lambda<Int, Int> x) {
 
 }
 

@@ -69,9 +69,9 @@ void createVariablesTestFloat() {
 }
 
 void createVariablesTestLambda() {
-    string program = "var myFunc = () {}";
+    string program = "var myFunc = () -> {}";
     string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var myFunc = (expression (lambda ( parameterList ) { functionBlock })))) <EOF>)))";
+    string expected = "(root (rootBlock (lineStatement (statement (assignment var myFunc = (expression (lambda ( parameterList ) -> { functionBlock })))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 

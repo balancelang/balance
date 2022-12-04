@@ -1,6 +1,6 @@
 #include "Array.h"
 #include "../Builtins.h"
-#include "../Package.h"
+#include "../BalancePackage.h"
 
 #include "../models/BalanceTypeString.h"
 
@@ -42,9 +42,10 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     llvm::Function * arrayToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->builtins->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", arrayToStringFunc);
 
-    arrayClass->methods[functionName] = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    arrayClass->methods[functionName]->function = arrayToStringFunc;
-    arrayClass->methods[functionName]->returnType = stringClass->structType->getPointerTo();
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
+    arrayClass->addMethod(functionName, bfunction);
+    bfunction->function = arrayToStringFunc;
+    bfunction->returnType = stringClass->structType->getPointerTo();
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->builtins->builder->GetInsertBlock();
@@ -118,7 +119,7 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Type * genericType = nullptr;
     BalanceClass * bclass = currentPackage->currentModule->getClass(arrayClass->name->generics[0]);
     if (bclass != nullptr) {
-        genericToStringFunction = bclass->methods["toString"]->function;
+        genericToStringFunction = bclass->getMethod("toString")->function;
         genericType = bclass->type != nullptr ? bclass->type : bclass->structType->getPointerTo();
     } else {
         BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(arrayClass->name->generics[0]);
@@ -126,7 +127,7 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
             genericToStringFunction = ibclass->methods["toString"]->function;
             genericType = ibclass->bclass->type != nullptr ? ibclass->bclass->type : ibclass->bclass->structType->getPointerTo();
         } else {
-            // TODO: Throw error
+            throw std::runtime_error("Failed to find toString method from type: " + arrayClass->name->toString());
         }
     }
 

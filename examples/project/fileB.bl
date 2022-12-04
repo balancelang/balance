@@ -1,5 +1,5 @@
 from fileA import MyClass
 
-def someFunc(MyClass a) -> None {
+someFunc(MyClass a): None {
     print(a.getA())
 }

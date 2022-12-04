@@ -1,10 +1,10 @@
 #include "LLVMTypeVisitor.h"
 
-#include "../Package.h"
-#include "Visitor.h"
+#include "../BalancePackage.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
+#include "Visitor.h"
 
 #include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
@@ -143,17 +143,20 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
     return nullptr;
 }
 
-std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
+std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
 
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentClass != nullptr) {
-        bfunction = currentPackage->currentModule->currentClass->methods[functionName];
+        bfunction = currentPackage->currentModule->currentClass->getMethod(functionName);
+    } else if (currentPackage->currentModule->currentInterface != nullptr) {
+        bfunction = currentPackage->currentModule->currentInterface->getMethod(functionName);
     } else {
         bfunction = currentPackage->currentModule->functions[functionName];
     }
 
-    for (BalanceParameter *bparameter : bfunction->parameters) {
+    for (int i = 0; i < bfunction->parameters.size(); i++) {
+        BalanceParameter *bparameter = bfunction->parameters[i];
         if (bparameter->type == nullptr) {
             Type *type = getBuiltinType(bparameter->balanceTypeString);
             if (type != nullptr) {
@@ -163,7 +166,19 @@ std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinit
                 if (bclass == nullptr) {
                     BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(bparameter->balanceTypeString);
                     if (ibclass == nullptr) {
-                        throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
+                        BalanceInterface *binterface = currentPackage->currentModule->getInterface(bparameter->balanceTypeString->base);
+                        if (binterface == nullptr) {
+                            // TODO: Imported interface
+                            throw std::runtime_error("Couldn't find type: " + bparameter->balanceTypeString->toString());
+                        } else {
+                            if (currentPackage->currentModule->currentInterface != nullptr && i == 0) {
+                                bparameter->type = llvm::Type::getInt64PtrTy(*currentPackage->context);
+                            } else {
+                                StructType * fatPointerStructType = currentPackage->currentModule->getImportedClass(new BalanceTypeString("FatPointer"))->bclass->structType;
+                                bparameter->type = fatPointerStructType->getPointerTo();
+                                bparameter->balanceTypeString->isInterface = true;
+                            }
+                        }
                     } else {
                         if (ibclass->bclass->structType != nullptr) {
                             bparameter->type = ibclass->bclass->structType->getPointerTo();
@@ -227,7 +242,7 @@ std::any LLVMTypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinit
 std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
     string typeString = ctx->type->getText();
-    BalanceTypeString * btypeString = new BalanceTypeString(typeString); // TODO: Parse generics
+    BalanceTypeString *btypeString = new BalanceTypeString(typeString); // TODO: Parse generics
     string name = ctx->name->getText();
 
     BalanceProperty *bprop = currentPackage->currentModule->currentClass->properties[name];
@@ -238,11 +253,11 @@ std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext
 
     Type *typeValue = getBuiltinType(btypeString);
     if (typeValue == nullptr) {
-        BalanceClass * bclass = currentPackage->currentModule->getClass(btypeString);
+        BalanceClass *bclass = currentPackage->currentModule->getClass(btypeString);
         if (bclass == nullptr) {
             BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(btypeString);
             if (ibclass == nullptr) {
-                // TODO: Throw error
+                throw std::runtime_error("Failed to find type: " + btypeString->toString());
             } else {
                 if (ibclass->bclass->finalized()) {
                     if (!bprop->finalized()) {
@@ -262,4 +277,30 @@ std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext
     }
 
     return nullptr;
+}
+
+std::any LLVMTypeVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefinitionContext *ctx) {
+    std::string text = ctx->getText();
+    string interfaceName = ctx->interfaceName->getText();
+
+    BalanceTypeString *btypeString = new BalanceTypeString(interfaceName);
+
+    BalanceInterface *binterface = currentPackage->currentModule->getInterface(btypeString->base);
+
+    if (binterface->finalized()) {
+        return nullptr;
+    }
+
+    currentPackage->currentModule->currentInterface = binterface;
+
+    // Visit all interface functions
+    for (auto const &x : ctx->interfaceElement()) {
+        if (x->functionSignature()) {
+            visit(x);
+        }
+    }
+
+    currentPackage->currentModule->currentInterface = nullptr;
+
+    return std::any();
 }
