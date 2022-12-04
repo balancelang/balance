@@ -821,7 +821,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                     auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                     auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerStructType, currentPackage->currentModule->accessedValue->value, {fatPointerThisZeroValue, fatPointerThisIndexValue});
                     Value * fatPointerThisValue = (Value *)currentPackage->currentModule->builder->CreateLoad(fatPointerThisPointer);
-                    BitCastInst *bitcastThisValueInstr = new BitCastInst(fatPointerThisValue, bfunction->parameters[0]->type); // PointerType::get(, 0));
+                    BitCastInst *bitcastThisValueInstr = new BitCastInst(fatPointerThisValue, bfunction->parameters[0]->type);
                     Value * bitcastThisValue = currentPackage->currentModule->builder->Insert(bitcastThisValueInstr);
 
                     // get fat pointer 'vtable' argument

@@ -124,7 +124,7 @@ void examplesFunctionsTest() {
 
 void examplesLambdasTest() {
     string result = runExample("../examples/lambdas.bl");
-    assertEqual("5\nThis implicitly returns None\n5\nHello\n", result, "Lambdas");
+    assertEqual("5\nThis implicitly returns None\n5\nHello\n7\n", result, "Lambdas");
 }
 
 void examplesFilesTest() {

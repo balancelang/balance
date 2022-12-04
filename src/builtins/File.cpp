@@ -320,7 +320,7 @@ void createType__File() {
 
     // Create write method
     // TODO: This currently prevents us from printing module IR
-    // createMethod_write();
+    createMethod_write();
 
     // Create read method
     createMethod_read();

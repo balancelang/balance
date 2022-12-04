@@ -163,6 +163,8 @@ bool BalancePackage::compileAndPersist()
 
 // TODO: Combine this function and the above
 bool BalancePackage::executeString(std::string program) {
+    this->reset();
+
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
     modules["program"]->initializeModule();
@@ -183,6 +185,9 @@ bool BalancePackage::executeString(std::string program) {
 
     // Run loop that builds LLVM functions and handles cycles
     this->buildStructures();
+
+    // Build vtables for interfaces etc.
+    this->buildVTables();
 
     // Make sure all classes have constructors (we need constructor function to make forward declaration)
     this->buildConstructors();
