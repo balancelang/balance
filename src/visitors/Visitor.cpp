@@ -421,12 +421,11 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
         value = new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(ptr));
     }
 
-    // TODO: Should we pass lambda around as Pointer->Pointer->Function?
-    if (value->type->isSimpleType() || value->type->base == "Lambda" || value->type->isInterfaceType()) {
-        return value;
-    } else {
+    // TODO: Figure out how we represent values generally - e.g. can we avoid pointer-to-pointers generally?
+    if (value->value->getType()->isPointerTy() && value->value->getType()->getPointerElementType()->isPointerTy()) {
         return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
     }
+    return value;
 }
 
 any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
@@ -711,7 +710,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     }
 
     if (functionName == "open") {
-        // TODO: Same as above
+        // TODO: Same as above, except it doesn't need 'Any'. Move to builtins?
         return visitFunctionCall__open(ctx);
     }
 

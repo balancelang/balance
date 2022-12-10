@@ -247,31 +247,39 @@ std::any TypeVisitor::visitMultiplicativeExpression(BalanceParser::Multiplicativ
 
 std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
     std::string variableName = ctx->IDENTIFIER()->getText();
-    BalanceTypeString *tryVal = currentPackage->currentModule->getTypeValue(variableName);
-    if (tryVal == nullptr) {
-        // Check if we're accessing a type property
-        if (currentPackage->currentModule->accessedType == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
-            return new BalanceTypeString("Unknown");
-        } else {
-            BalanceClass * bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedType->name);
-            if (bclass == nullptr) {
-                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedType->name);
-                if (ibclass == nullptr) {
-                    currentPackage->currentModule->addTypeError(ctx, "Unknown class name: " + currentPackage->currentModule->accessedType->name->toString());
+
+    // Check if we're accessing a type property
+    if (currentPackage->currentModule->accessedType != nullptr) {
+        BalanceClass * bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedType->name);
+        if (bclass == nullptr) {
+            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedType->name);
+            if (ibclass == nullptr) {
+                BalanceInterface * binterface = currentPackage->currentModule->getInterface(currentPackage->currentModule->accessedType->name->base);
+                if (binterface == nullptr) {
+                    currentPackage->currentModule->addTypeError(ctx, "Unknown type: " + currentPackage->currentModule->accessedType->name->toString());
                     return new BalanceTypeString("Unknown");
                 } else {
-                    bclass = ibclass->bclass;
+                    return binterface->name;
                 }
+            } else {
+                bclass = ibclass->bclass;
             }
-            if (bclass->properties[variableName] == nullptr) {
-                currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on class " + bclass->name->toString());
-                return new BalanceTypeString("Unknown");
-            }
-            int i = 123;
+        }
+        if (bclass->properties[variableName] != nullptr) {
+            return bclass->properties[variableName]->stringType;
+        } else {
+            currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on class " + bclass->name->toString());
+            return new BalanceTypeString("Unknown");
         }
     }
-    return tryVal;
+
+    BalanceTypeString *tryVal = currentPackage->currentModule->getTypeValue(variableName);
+    if (tryVal != nullptr) {
+        return tryVal;
+    }
+
+    currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
+    return new BalanceTypeString("Unknown");
 }
 
 std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
@@ -344,11 +352,16 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
     }
 
+    // Don't consider accessedType when parsing arguments
+    BalanceType * backup = currentPackage->currentModule->accessedType;
+    currentPackage->currentModule->accessedType = nullptr;
+
     // Parse arguments
     for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
         BalanceTypeString * typeString = any_cast<BalanceTypeString *>(visit(argument));
         actualParameters.push_back(typeString);
     }
+    currentPackage->currentModule->accessedType = backup;
 
     // Temporary hack until we have a good way to store builtins
     if (functionName == "print" || functionName == "open") {
