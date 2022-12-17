@@ -13,6 +13,7 @@ interfaces
 - test interface as function parameter
 - test reusing interface value value in function call that takes same interface value
 - test type checking with wrong interface type
+- test returning interface?
 
 classes
 - test class as property
@@ -20,3 +21,4 @@ classes
     - set
 - test nested class property
     - e.g. a.b.c.d
+- define None/null - how do we handle that?

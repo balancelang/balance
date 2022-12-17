@@ -150,7 +150,17 @@ std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentConte
             return std::any();
         }
 
-        if (!bproperty->stringType->equalTo(expression)) {
+        // Check if property is interface and expression implements
+        if (bproperty->stringType->isInterfaceType()) {
+            BalanceClass * expressionClass = currentPackage->currentModule->getClass(expression);
+            if (expressionClass == nullptr) {
+                // TODO: Test importedClass etc.
+            }
+
+            if (expressionClass->interfaces[bproperty->stringType->base] == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Type does not implement interface " + bproperty->stringType->toString());
+            }
+        } else if (!bproperty->stringType->equalTo(expression)) {
             currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bproperty->stringType->toString() + ", found " + expression->toString());
         }
     }
@@ -492,10 +502,28 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
 
 std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    // TODO: Everywhere we new up BalanceTypeString directly from text, we need a string -> BalanceTypeString converter that takes care of generics
-    BalanceTypeString * typeString = new BalanceTypeString(ctx->type->getText());
+    string typeName = ctx->type->getText();
+    string propertyName = ctx->name->getText();
+    // TODO: Parse generics
+    BalanceTypeString * typeString = new BalanceTypeString(typeName);
+    BalanceProperty * bproperty = currentPackage->currentModule->currentClass->properties[propertyName];
+
+    BalanceClass * bclass = currentPackage->currentModule->getClass(typeString);
+    if (bclass == nullptr) {
+        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(typeString);
+        if (ibclass == nullptr) {
+            BalanceInterface * binterface = currentPackage->currentModule->getInterface(typeName);
+            if (binterface == nullptr) {
+                // TODO: Check imported interface
+                currentPackage->currentModule->addTypeError(ctx, "Unknown class property type");
+            } else {
+                bproperty->stringType->isInterface = true;
+            }
+        }
+    }
+
     string name = ctx->name->getText();
-    currentPackage->currentModule->currentScope->typeSymbolTable[name] = typeString;
+    currentPackage->currentModule->currentScope->typeSymbolTable[name] = bproperty->stringType;
     return std::any();
 }
 

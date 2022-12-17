@@ -202,7 +202,85 @@ void operatorsThreeOperandsTest() {
     // 2.2 + false
     // 2.2 - false
 
+void classTest_classFunction() {
+    std::string program = R""""(
+class ClassA {
+    someFunction(Int a, Int b): Int {
+        return a + b
+    }
+}
 
+var clsA = new ClassA()
+print(clsA.someFunction(2,3))
+    )"""";
+    string result = run(program);
+    assertEqual("5\n", result, program);
+}
+
+void classTest_classProperty() {
+    std::string program = R""""(
+class ClassA {
+    Int x
+}
+
+var clsA = new ClassA()
+print(clsA.x)
+clsA.x = 55
+print(clsA.x)
+    )"""";
+    string result = run(program);
+    assertEqual("0\n55\n", result, program);
+}
+
+void classTest_classProperty_Interface() {
+    std::string program = R""""(
+interface MyInterface {
+    someFunction(Int a, Int b): Int
+}
+
+class ClassA implements MyInterface {
+    someFunction(Int a, Int b): Int {
+        print("Inside classA")
+        return a + b
+    }
+}
+
+class ClassB {
+    MyInterface a
+}
+
+var clsA = new ClassA()
+var clsB = new ClassB()
+clsB.a = clsA
+print(clsB.a.someFunction(2,3))
+    )"""";
+    string result = run(program);
+    assertEqual("Inside classA\n5\n", result, program);
+}
+
+void functionTakesInterface() {
+    std::string program = R""""(
+interface MyInterface {
+    someFunction(Int a, Int b): Int
+}
+
+class ClassA implements MyInterface {
+    someFunction(Int a, Int b): Int {
+        print("Inside classA")
+        return a + b
+    }
+}
+
+functionTakesInterface(MyInterface x): None {
+    print(x.someFunction(2,3))
+}
+
+var clsA = new ClassA()
+functionTakesInterface(clsA)
+    )"""";
+    string result = run(program);
+    assertEqual("Inside classA\n5\n", result, program);
+}
 
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");
@@ -217,6 +295,11 @@ void runCompileTestSuite() {
     createReassignment();
     operatorsTwoOperandsTest();
     operatorsThreeOperandsTest();
+
+    classTest_classFunction();
+    classTest_classProperty();
+    classTest_classProperty_Interface();
+    functionTakesInterface();
 }
 
 
