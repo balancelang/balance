@@ -15,14 +15,15 @@
     - while loops (+)
     - for loops
     - Pattern matching
-    - comments
+        - strict checking all types
+    - comments (+)
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword - checked exceptions
     - Classes (+)
-    - interfaces
+    - interfaces (+)
     - builtin serialization (JSON, XML, YAML)
     - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"
@@ -32,7 +33,7 @@
     - Cyclic dependencies (+)
     - Garbage collection
     - Sockets
-    - File handles
+    - File handles (+)
     - overloads
     - no transitive imports
     - support dictionary initializer expression, e.g.

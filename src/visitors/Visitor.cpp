@@ -241,20 +241,53 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     } else if (ctx->access) {
         std::string accessName = ctx->access->getText();
 
-        BalanceClass * bclass = currentPackage->currentModule->getClass(valueMember->type);
-        if (bclass == nullptr) {
-            BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(valueMember->type);
-            if (ibclass == nullptr) {
+        BalanceClass * valueMemberClass = currentPackage->currentModule->getClass(valueMember->type);
+        if (valueMemberClass == nullptr) {
+            BalanceImportedClass *importedValueMemberClass = currentPackage->currentModule->getImportedClass(valueMember->type);
+            if (importedValueMemberClass == nullptr) {
                 // TODO: Throw error
             } else {
-                bclass = ibclass->bclass;
+                valueMemberClass = importedValueMemberClass->bclass;
             }
         }
 
-        auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-        auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bclass->properties[accessName]->index, true));
-        auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
-        currentPackage->currentModule->builder->CreateStore(value->value, ptr);
+        // Check if property is an interface, then convert to fat pointer
+        BalanceProperty * bprop = valueMemberClass->getProperty(accessName);
+        if (bprop->stringType->isInterfaceType()) {
+            StructType * fatPointerStructType = currentPackage->currentModule->getImportedClass(new BalanceTypeString("FatPointer"))->bclass->structType;
+            llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerStructType);
+
+            // set fat pointer 'this' argument
+            auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerStructType, fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
+
+            BitCastInst *bitcastThisValueInstr = new BitCastInst(value->value, llvm::Type::getInt64PtrTy(*currentPackage->context));
+            Value * bitcastThisValue = currentPackage->currentModule->builder->Insert(bitcastThisValueInstr);
+            currentPackage->currentModule->builder->CreateStore(bitcastThisValue, fatPointerThisPointer);
+
+            // set fat pointer 'vtable' argument
+            auto fatPointerVtableZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
+            auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerStructType, fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
+
+            BalanceClass *bclass = currentPackage->currentModule->getClass(value->type);
+            // TODO: Do the whole importedsearch thing
+            Value * vtable = bclass->interfaceVTables[bprop->stringType->base];
+            BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
+            Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
+            currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
+
+            auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMemberClass->properties[accessName]->index, true));
+            auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
+            currentPackage->currentModule->builder->CreateStore(fatPointer, ptr);
+        } else {
+            auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMemberClass->properties[accessName]->index, true));
+            auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
+            currentPackage->currentModule->builder->CreateStore(value->value, ptr);
+        }
     }
 
     return nullptr;
@@ -421,12 +454,11 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
         value = new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(ptr));
     }
 
-    // TODO: Should we pass lambda around as Pointer->Pointer->Function?
-    if (value->type->isSimpleType() || value->type->base == "Lambda" || value->type->isInterfaceType()) {
-        return value;
-    } else {
+    // TODO: Figure out how we represent values generally - e.g. can we avoid pointer-to-pointers generally?
+    if (value->value->getType()->isPointerTy() && value->value->getType()->getPointerElementType()->isPointerTy()) {
         return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
     }
+    return value;
 }
 
 any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
@@ -711,7 +743,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     }
 
     if (functionName == "open") {
-        // TODO: Same as above
+        // TODO: Same as above, except it doesn't need 'Any'. Move to builtins?
         return visitFunctionCall__open(ctx);
     }
 
