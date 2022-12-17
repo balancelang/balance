@@ -1,6 +1,8 @@
 # Change Log
 
-## [Unreleased]
+## [0.0.10]
+### Added
+- Support for classes/interfaces as class properties
 
 ## [0.0.9]
 ### Added
