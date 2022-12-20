@@ -300,15 +300,11 @@ void BalancePackage::addBuiltinsToModules() {
         for (auto const &x : builtinsModule->functions) {
             BalanceFunction * bfunction = x.second;
             createImportedFunction(bmodule, bfunction);
-            BalanceImportedFunction * ibfunction = bmodule->getImportedFunction(bfunction->name);
-            importFunctionToModule(ibfunction, bmodule);
         }
 
         for (auto const &x : builtinsModule->classes) {
             BalanceClass * bclass = x.second;
             createImportedClass(bmodule, bclass);
-            BalanceImportedClass * ibclass = bmodule->getImportedClass(bclass->name);
-            importClassToModule(ibclass, bmodule);
         }
     }
 }

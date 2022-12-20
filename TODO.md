@@ -1,7 +1,9 @@
 # TODOs:
 - test duplicate class name
 - test duplicate parameter name in same function signature
-
+- test duplicate class/interface/variable names
+- test duplicate class/interface/variable names on import
+- make sure you can't 'new' up interfaces, builtins etc?
 
 interfaces
 - test duplicate interface name

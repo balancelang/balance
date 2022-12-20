@@ -21,6 +21,7 @@ class BalanceImportedFunction;
 class BalanceClass;
 class BalanceInterface;
 class BalanceFunction;
+class BalanceType;
 
 class Position {
 public:
@@ -70,8 +71,8 @@ public:
     std::map<std::string, llvm::Value *> globals = {};
 
     // Structures imported into this module
-    std::map<std::string, BalanceImportedClass *> importedClasses = {};
-    std::map<std::string, BalanceImportedFunction *> importedFunctions = {};
+    std::map<std::string, BalanceClass *> importedClasses = {};
+    std::map<std::string, BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
 
     BalanceScopeBlock *rootScope;
@@ -121,16 +122,8 @@ public:
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath();
     void generateASTFromString(std::string program);
-    BalanceClass * getClass(BalanceTypeString * className);
-    BalanceClass * getClassFromStructName(std::string structName);
-    BalanceClass * getClassFromBaseName(std::string baseName);
-    BalanceImportedClass * getImportedClass(BalanceTypeString * className);
-    BalanceImportedClass * getImportedClassFromStructName(std::string structName);
-    BalanceImportedClass * getImportedClassFromBaseName(std::string baseName);
-    BalanceInterface * getInterface(std::string interfaceName);
-
+    BalanceType * getType(BalanceTypeString * className);
     BalanceFunction * getFunction(std::string functionName);
-    BalanceImportedFunction * getImportedFunction(std::string functionName);
 
     BalanceTypeString *getTypeValue(std::string variableName);
     BalanceValue *getValue(std::string variableName);

@@ -133,33 +133,36 @@ std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentConte
         // TODO: Handle
     } else {
         std::string accessName = ctx->access->getText();
-        BalanceClass * bclass = currentPackage->currentModule->getClass(member);
-        if (bclass == nullptr) {
-            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(member);
-            if (ibclass == nullptr) {
-                // TODO: Handle
-            } else {
-                bclass = ibclass->bclass;
-            }
+        BalanceType * btype = currentPackage->currentModule->getType(member);
+        if (btype == nullptr) {
+            // TODO: Handle
         }
 
-        BalanceProperty  * bproperty = bclass->properties[accessName];
+        BalanceProperty * bproperty = btype->getProperty(accessName);
         if (bproperty == nullptr) {
             // Unknown class property
-            currentPackage->currentModule->addTypeError(ctx, "Unknown property. Type " + bclass->name->toString() + " does not have a property called " + accessName);
+            currentPackage->currentModule->addTypeError(ctx, "Unknown property. Type " + btype->name->toString() + " does not have a property named " + accessName);
             return std::any();
         }
 
         // Check if property is interface and expression implements
-        if (bproperty->stringType->isInterfaceType()) {
-            BalanceClass * expressionClass = currentPackage->currentModule->getClass(expression);
-            if (expressionClass == nullptr) {
-                // TODO: Test importedClass etc.
+        BalanceType * bpropertyType = currentPackage->currentModule->getType(bproperty->stringType);
+        if (bpropertyType->isInterface()) {
+            BalanceType * expressionType = currentPackage->currentModule->getType(expression);
+            if (expressionType == nullptr) {
+                // TODO: Throw error
             }
 
-            if (expressionClass->interfaces[bproperty->stringType->base] == nullptr) {
-                currentPackage->currentModule->addTypeError(ctx, "Type does not implement interface " + bproperty->stringType->toString());
+            if (expressionType->isInterface()) {
+                // TODO: Can this happen?
+            } else {
+                BalanceClass * expressionClass = (BalanceClass *) expressionType;
+
+                if (expressionClass->interfaces[bproperty->stringType->base] == nullptr) {
+                    currentPackage->currentModule->addTypeError(ctx, "Type does not implement interface " + bproperty->stringType->toString());
+                }
             }
+
         } else if (!bproperty->stringType->equalTo(expression)) {
             currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bproperty->stringType->toString() + ", found " + expression->toString());
         }
@@ -174,23 +177,11 @@ std::any TypeVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExp
     BalanceTypeString * accessedType = any_cast<BalanceTypeString *>(visit(ctx->member));
 
     // Store this value, so that visiting the access will use it as context
-    BalanceClass * bclass = currentPackage->currentModule->getClass(accessedType);
-    if (bclass == nullptr) {
-        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(accessedType);
-        if (ibclass == nullptr) {
-            BalanceInterface * binterface = currentPackage->currentModule->getInterface(accessedType->base);
-            if (binterface == nullptr) {
-                // TODO: Handle
-                // TODO: Check imported interface
-            } else {
-                currentPackage->currentModule->accessedType = binterface;
-            }
-        } else {
-            currentPackage->currentModule->accessedType = ibclass->bclass;
-        }
-    } else {
-        currentPackage->currentModule->accessedType = bclass;
+    BalanceType * btype = currentPackage->currentModule->getType(accessedType);
+    if (btype == nullptr) {
+        // TODO: Handle
     }
+    currentPackage->currentModule->accessedType = btype;
 
     BalanceTypeString *returnType = any_cast<BalanceTypeString *>(visit(ctx->access));
     currentPackage->currentModule->accessedType = nullptr;
@@ -260,27 +251,18 @@ std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
 
     // Check if we're accessing a type property
     if (currentPackage->currentModule->accessedType != nullptr) {
-        BalanceClass * bclass = currentPackage->currentModule->getClass(currentPackage->currentModule->accessedType->name);
-        if (bclass == nullptr) {
-            BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(currentPackage->currentModule->accessedType->name);
-            if (ibclass == nullptr) {
-                BalanceInterface * binterface = currentPackage->currentModule->getInterface(currentPackage->currentModule->accessedType->name->base);
-                if (binterface == nullptr) {
-                    currentPackage->currentModule->addTypeError(ctx, "Unknown type: " + currentPackage->currentModule->accessedType->name->toString());
-                    return new BalanceTypeString("Unknown");
-                } else {
-                    return binterface->name;
-                }
-            } else {
-                bclass = ibclass->bclass;
-            }
-        }
-        if (bclass->properties[variableName] != nullptr) {
-            return bclass->properties[variableName]->stringType;
-        } else {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on class " + bclass->name->toString());
+        BalanceType * btype = currentPackage->currentModule->getType(currentPackage->currentModule->accessedType->name);
+        if (btype == nullptr) {
             return new BalanceTypeString("Unknown");
         }
+
+        BalanceProperty * bproperty = btype->getProperty(variableName);
+        if (bproperty == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on type " + btype->name->toString());
+            return new BalanceTypeString("Unknown");
+        }
+
+        return bproperty->stringType;
     }
 
     BalanceTypeString *tryVal = currentPackage->currentModule->getTypeValue(variableName);
@@ -343,14 +325,8 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             // Get function
             BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName);
             if (bfunction == nullptr) {
-                // Check if imported
-                BalanceImportedFunction *ibfunction = currentPackage->currentModule->getImportedFunction(functionName);
-                if (ibfunction == nullptr) {
-                    currentPackage->currentModule->addTypeError(ctx, "Unknown function: " + functionName);
-                    return new BalanceTypeString("Unknown");
-                } else {
-                    bfunction = ibfunction->bfunction;
-                }
+                currentPackage->currentModule->addTypeError(ctx, "Unknown function: " + functionName);
+                return new BalanceTypeString("Unknown");
             }
 
             returnType = bfunction->returnTypeString;
@@ -385,20 +361,26 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
         }
 
         if (!expectedParameters[i]->equalTo(actualParameters[i])) {
-            BalanceInterface * binterface = currentPackage->currentModule->getInterface(expectedParameters[i]->base);
-            // TODO: Imported interface
+            BalanceType * expectedType = currentPackage->currentModule->getType(expectedParameters[i]);
+            BalanceType * actualType = currentPackage->currentModule->getType(actualParameters[i]);
 
-            if (binterface != nullptr) {
-                BalanceClass * bclass = currentPackage->currentModule->getClass(actualParameters[i]);
-                if (bclass == nullptr) {
-                    // TODO: Imported class
-                    currentPackage->currentModule->addTypeError(ctx, "Unknown parameter type, " + actualParameters[i]->toString());
-                } else if (bclass->interfaces[binterface->name->base] == nullptr) {
-                    currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. " + bclass->name->toString() + " does not implement interface " + binterface->name->toString());
+            if (actualType == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown parameter type. Expected " + expectedType->name->toString() + ", found: " + actualType->name->toString());
+            }
+
+            // Check if we're expecting interface and type doesn't implement
+            if (expectedType->isInterface()) {
+                // TODO: What if actualType is interface?
+                if (actualType->isInterface()) {
+                    // TODO: Check if interface is same
+                } else {
+                    BalanceClass * actualClass = (BalanceClass *) actualType;
+                    if (actualClass->interfaces[expectedType->name->base] == nullptr) {
+                        currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. " + actualClass->name->toString() + " does not implement interface " + expectedType->name->toString());
+                    }
                 }
             } else {
-                // TODO: Check if expected parameter is interface, and instance implements interface
-                currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + expectedParameters[i]->toString() + ", found " + actualParameters[i]->toString());
+                currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + expectedType->name->toString() + ", found: " + actualType->name->toString());
             }
         }
     }
@@ -443,12 +425,17 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 std::any TypeVisitor::visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) {
     BalanceTypeString * className = new BalanceTypeString(ctx->IDENTIFIER()->getText());
 
-    BalanceClass * bclass = currentPackage->currentModule->getClass(className);
-    if (bclass == nullptr) {
-        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(className);
-        if (ibclass == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown class name: " + className->toString());
-        }
+    BalanceType * btype = currentPackage->currentModule->getType(className);
+    if (btype == nullptr) {
+        currentPackage->currentModule->addTypeError(ctx, "Unknown type: " + className->toString());
+    }
+
+    if (btype->isInterface()) {
+        currentPackage->currentModule->addTypeError(ctx, "Can't initialize interfaces: " + className->toString());
+    }
+
+    if (btype->isSimpleType) {
+        currentPackage->currentModule->addTypeError(ctx, "Can't initialize simple types: " + className->toString());
     }
 
     // TODO: When we introduce constructors and other initializers, add type-checking here.
@@ -465,12 +452,9 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
 
     BalanceTypeString * btypestring = new BalanceTypeString(className); // TODO: Clean this up
 
-    BalanceClass * bclass = currentPackage->currentModule->getClass(btypestring);
+    BalanceClass * bclass = (BalanceClass *) currentPackage->currentModule->getType(btypestring);
     if (bclass == nullptr) {
-        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(btypestring);
-        if (ibclass == nullptr) {
-            // TODO: Handle
-        }
+        // TODO: Handle
     }
 
     currentPackage->currentModule->currentClass = bclass;
@@ -505,22 +489,17 @@ std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ct
     string typeName = ctx->type->getText();
     string propertyName = ctx->name->getText();
     // TODO: Parse generics
-    BalanceTypeString * typeString = new BalanceTypeString(typeName);
     BalanceProperty * bproperty = currentPackage->currentModule->currentClass->properties[propertyName];
 
-    BalanceClass * bclass = currentPackage->currentModule->getClass(typeString);
-    if (bclass == nullptr) {
-        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(typeString);
-        if (ibclass == nullptr) {
-            BalanceInterface * binterface = currentPackage->currentModule->getInterface(typeName);
-            if (binterface == nullptr) {
-                // TODO: Check imported interface
-                currentPackage->currentModule->addTypeError(ctx, "Unknown class property type");
-            } else {
-                bproperty->stringType->isInterface = true;
-            }
-        }
+    BalanceType * btype = currentPackage->currentModule->getType(new BalanceTypeString(typeName));
+    if (btype == nullptr) {
+        currentPackage->currentModule->addTypeError(ctx, "Unknown class property type");
     }
+
+    // // TODO: This is clumsy, where should interface information live?
+    // if (btype->isInterface()) {
+    //     bproperty->stringType->isInterface = true;
+    // }
 
     string name = ctx->name->getText();
     currentPackage->currentModule->currentScope->typeSymbolTable[name] = bproperty->stringType;
@@ -618,12 +597,18 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
 
     for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
         std::string interfaceName = type->getText();
-        BalanceInterface * binterface = currentPackage->currentModule->getInterface(interfaceName);
-        if (binterface == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown interface " + interfaceName);
+        BalanceType * btype = currentPackage->currentModule->getType(new BalanceTypeString(interfaceName));
+        if (btype == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Unknown interface: " + interfaceName);
             continue;
-            // TODO: Handle imported interfaces
         }
+
+        if (!btype->isInterface()) {
+            currentPackage->currentModule->addTypeError(ctx, "This is not an interface: " + interfaceName);
+            continue;
+        }
+
+        BalanceInterface * binterface = (BalanceInterface *) btype;
 
         // Check if class implements all functions
         for (auto const &x : binterface->getMethods()) {

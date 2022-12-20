@@ -15,7 +15,6 @@ class BalanceFunction;
 class BalanceInterface : public BalanceType {
 public:
     BalanceModule *module;
-    llvm::StructType *structType = nullptr;
     llvm::StructType *vTableStructType = nullptr;
 
     BalanceInterface(BalanceTypeString * name)

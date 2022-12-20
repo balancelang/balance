@@ -20,7 +20,6 @@ void createMethod_String_toString_WITH_QUOTES() {
     llvm::FunctionType * memcpyDeclarationType = llvm::FunctionType::get(memcpyReturnType, memcpyParams, false);
     currentPackage->builtins->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
 
-
     std::string functionName = "toString";
     std::string functionNameWithClass = "String_" + functionName;
 
@@ -54,17 +53,17 @@ void createMethod_String_toString_WITH_QUOTES() {
     Function::arg_iterator args = intToStringFunc->arg_begin();
     llvm::Value * stringValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
-    int pointerIndex = stringClass->properties["stringPointer"]->index;
+    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
+    int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringValue, {pointerZeroValue, pointerIndexValue});
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringValue, {pointerZeroValue, pointerIndexValue});
     auto existingStringValue = currentPackage->currentModule->builder->CreateLoad(pointerGEP);
 
-    int sizeIndex = stringClass->properties["length"]->index;
+    int sizeIndex = stringType->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringValue, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringValue, {sizeZeroValue, sizeIndexValue});
     auto existingSizeValue = currentPackage->currentModule->builder->CreateLoad(sizeGEP);
     Value * sizeIncludingQuotes = currentPackage->currentModule->builder->CreateAdd(existingSizeValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 2, true)));
     Value * sizeIncludingQuotesAndNull = currentPackage->currentModule->builder->CreateAdd(sizeIncludingQuotes, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
@@ -84,16 +83,16 @@ void createMethod_String_toString_WITH_QUOTES() {
     auto newStringPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        stringClass->structType,                                // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(stringClass->structType),       // size, matches input type?
+        stringType->getInternalType(),                                // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringType->getInternalType()),       // size, matches input type?
         nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(newStringPointer);
 
     ArrayRef<Value *> argumentsReference{newStringPointer};
-    currentPackage->currentModule->builder->CreateCall(stringClass->constructor, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), argumentsReference);
 
-    auto newStringPointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, newStringPointer, {pointerZeroValue, pointerIndexValue});
-    auto newStringSizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, newStringPointer, {sizeZeroValue, sizeIndexValue});
+    auto newStringPointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), newStringPointer, {pointerZeroValue, pointerIndexValue});
+    auto newStringSizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), newStringPointer, {sizeZeroValue, sizeIndexValue});
 
     // Insert start quote (ASCII 34)
     Value * quoteValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 34, true));
@@ -179,7 +178,7 @@ void createMethod_String_toString() {
 
 void createType__String() {
     auto typeString = new BalanceTypeString("String");
-    BalanceClass * bclass = new BalanceClass(typeString);
+    BalanceClass * bclass = new BalanceClass(typeString, currentPackage->currentModule);
 
     // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
     currentPackage->currentModule->classes["String"] = bclass;
@@ -198,7 +197,7 @@ void createType__String() {
         // TODO: We could have an optional pointer to the next part of the string
     });
     structType->setBody(propertyTypesRef, false);
-    bclass->structType = structType;
+    bclass->internalType = structType;
     bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);

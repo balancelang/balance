@@ -31,16 +31,4 @@ public:
     bool finalized();
 };
 
-class BalanceImportedFunction {
-public:
-    BalanceModule * module;                 // The module importing the function
-    BalanceFunction * bfunction;            // The source function
-    llvm::Function * function = nullptr;    // The re-declared function in the module
-
-    BalanceImportedFunction(BalanceModule * module, BalanceFunction * bfunction) {
-        this->module = module;
-        this->bfunction = bfunction;
-    }
-};
-
 #endif

@@ -68,7 +68,7 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
 
     // TODO: check for duplicate className
 
-    BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className));
+    BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className), currentPackage->currentModule);
     currentPackage->currentModule->currentClass = bclass;
     currentPackage->currentModule->classes[className] = bclass;
 
@@ -194,7 +194,8 @@ std::any StructureVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefi
     // TODO: check for duplicate interfaceName
 
     BalanceInterface *binterface = new BalanceInterface(new BalanceTypeString(interfaceName));
-    binterface->structType = llvm::StructType::create(*currentPackage->context, interfaceName);
+    binterface->name->isInterface = true;
+    binterface->internalType = llvm::StructType::create(*currentPackage->context, interfaceName);
     currentPackage->currentModule->currentInterface = binterface;
     currentPackage->currentModule->interfaces[interfaceName] = binterface;
 

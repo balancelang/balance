@@ -43,72 +43,60 @@ void BalanceModule::generateASTFromString(std::string program) {
     this->generateASTFromStream(antlrStream);
 }
 
-BalanceInterface * BalanceModule::getInterface(std::string interfaceName) {
-    if (this->interfaces.find(interfaceName) != this->interfaces.end()) {
-        return this->interfaces[interfaceName];
-    }
-    return nullptr;
-}
-
-BalanceClass *BalanceModule::getClass(BalanceTypeString * className) {
-    std::string structName = className->toString();
-    return this->getClassFromStructName(structName);
-}
-
-BalanceClass * BalanceModule::getClassFromStructName(std::string structName) {
-    if (this->classes.find(structName) != this->classes.end()) {
-        return this->classes[structName];
-    }
-    return nullptr;
-}
-
-BalanceClass * BalanceModule::getClassFromBaseName(std::string baseName) {
+// TODO: Should this take a std::string instead? Do we ever need the generics when retrieving a type?
+BalanceType * BalanceModule::getType(BalanceTypeString * typeName) {
     for (auto const &x : classes)
     {
         BalanceClass * bclass = x.second;
-        if (bclass->name->base == baseName) {
+        if (bclass->name->equalTo(typeName)) {
             return bclass;
         }
     }
 
-    return nullptr;
-}
-
-BalanceImportedClass *BalanceModule::getImportedClass(BalanceTypeString * className) {
-    std::string structName = className->toString();
-    return this->getImportedClassFromStructName(structName);
-}
-
-BalanceImportedClass * BalanceModule::getImportedClassFromStructName(std::string structName) {
-    if (this->importedClasses.find(structName) != this->importedClasses.end()) {
-        return this->importedClasses[structName];
-    }
-    return nullptr;
-}
-
-BalanceImportedClass * BalanceModule::getImportedClassFromBaseName(std::string baseName) {
-    for (auto const &x : importedClasses)
+    for (auto const &x : interfaces)
     {
-        BalanceImportedClass * ibclass = x.second;
-        if (ibclass->bclass->name->base == baseName) {
-            return ibclass;
+        BalanceInterface * binterface = x.second;
+        if (binterface->name->base == typeName->base) {
+            return binterface;
         }
     }
+
+    for (auto const &x : importedClasses)
+    {
+        BalanceClass * bclass = x.second;
+        if (bclass->name->equalTo(typeName)) {
+            return bclass;
+        }
+    }
+
+    // for (auto const &x : importedInterfaces)
+    // {
+    //     BalanceClass * bclass = x.second;
+    //     if (bclass->name->base == className->base) {
+    //         return bclass;
+    //     }
+    // }
 
     return nullptr;
 }
 
 BalanceFunction *BalanceModule::getFunction(std::string functionName) {
-    if (this->functions.find(functionName) != this->functions.end()) {
-        return this->functions[functionName];
+    for (auto const &x : functions)
+    {
+        BalanceFunction * bfunction = x.second;
+        if (bfunction->name == functionName) {
+            return bfunction;
+        }
     }
-    return nullptr;
-}
 
-BalanceImportedFunction *BalanceModule::getImportedFunction(std::string functionName) {
-    if (this->importedFunctions.find(functionName) != this->importedFunctions.end()) {
-        return this->importedFunctions[functionName];
+    for (auto const &x : importedFunctions)
+    {
+        BalanceFunction * bfunction = x.second;
+        if (bfunction->name == functionName) {
+            return bfunction;
+        }
     }
+
     return nullptr;
 }
 

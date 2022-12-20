@@ -60,28 +60,17 @@ bool BalanceTypeString::finalized() {
 
 void BalanceTypeString::populateTypes() {
     if (this->type == nullptr) {
-        // BalanceTypeString * thisTypeString = this;
         llvm::Type * t = getBuiltinType(this);
         if (t == nullptr) {
-            BalanceClass * bclass = currentPackage->currentModule->getClass(this);
-            if (bclass == nullptr) {
-                BalanceImportedClass *ibclass = currentPackage->currentModule->getImportedClass(this);
-                if (ibclass == nullptr) {
-                    throw std::runtime_error("Failed to populate type: " + this->toString());
-                } else {
-                    this->type = ibclass->bclass->structType->getPointerTo();
-                }
-            } else {
-                this->type = bclass->structType->getPointerTo();
+            BalanceType * btype = currentPackage->currentModule->getType(this);
+            if (btype == nullptr) {
+                throw std::runtime_error("Failed to populate type: " + this->toString());
             }
+            this->type = btype->getReferencableType();
         } else {
             this->type = t;
         }
     }
-
-    // for (BalanceTypeString * generic : this->generics) {
-    //     generic->populateTypes();
-    // }
 }
 
 bool BalanceTypeString::equalTo(BalanceTypeString * other) {

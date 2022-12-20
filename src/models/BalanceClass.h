@@ -13,56 +13,26 @@ class BalanceImportedFunction;
 class BalanceModule;
 class BalanceFunction;
 class BalanceProperty;
-class BalanceImportedConstructor;
 class BalanceInterface;
 
 
 class BalanceClass : public BalanceType
 {
 public:
-    map<string, BalanceProperty *> properties = {};
     map<string, BalanceInterface *> interfaces = {};
     map<string, llvm::Value *> interfaceVTables = {};
-    llvm::Function *constructor = nullptr;
-    llvm::StructType *structType = nullptr;
-    llvm::Type *type = nullptr; // Only used to builtin value types (Bool, Int, Double, ...)
     bool hasBody;
     llvm::StructType *vTableStructType = nullptr;
     int vtableTypeIndex = 0;
     BalanceModule *module;
-    BalanceClass(BalanceTypeString * name)
+    BalanceClass(BalanceTypeString * name, BalanceModule * module)
     {
         this->name = name;
+        this->module = module;
     }
 
     bool compareTypeString(BalanceTypeString * other);
     bool finalized();
-    BalanceProperty * getProperty(std::string propertyName);
-};
-
-class BalanceImportedClass {
-public:
-    BalanceModule * module;                                 // The module importing the function
-    BalanceClass * bclass;                                  // The source class
-    map<string, BalanceImportedFunction *> methods = {};    // The re-declared methods in the class
-    BalanceImportedConstructor * constructor = nullptr;
-
-    BalanceImportedClass(BalanceModule * module, BalanceClass * bclass) {
-        this->module = module;
-        this->bclass = bclass;
-    }
-};
-
-class BalanceImportedConstructor {
-public:
-    BalanceModule * module;
-    BalanceClass * bclass;
-    llvm::Function * constructor = nullptr;
-
-    BalanceImportedConstructor(BalanceModule * module, BalanceClass * bclass) {
-        this->module = module;
-        this->bclass = bclass;
-    }
 };
 
 #endif

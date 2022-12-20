@@ -43,26 +43,26 @@ void createMethod_Bool_toString() {
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
+    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
-        stringClass->structType,                                // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(stringClass->structType),       // size, matches input type?
+        stringType->getInternalType(),                         // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringType->getInternalType()),// size, matches input type?
         nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringClass->constructor, argumentsReference);
-    int pointerIndex = stringClass->properties["stringPointer"]->index;
+    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), argumentsReference);
+    int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
-    int sizeIndex = stringClass->properties["length"]->index;
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
+    int sizeIndex = stringType->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
 
     ArrayRef<Value *> arguments({
         stringMemoryPointer,
@@ -106,8 +106,9 @@ void createMethod_Bool_toString() {
 
 void createType__Bool() {
     auto typeString = new BalanceTypeString("Bool");
-    BalanceClass * bclass = new BalanceClass(typeString);
-    bclass->type = getBuiltinType(typeString);
+    BalanceClass * bclass = new BalanceClass(typeString, currentPackage->currentModule);
+    bclass->internalType = getBuiltinType(typeString);
+    bclass->isSimpleType = true;
 
     currentPackage->currentModule->classes["Bool"] = bclass;
     currentPackage->currentModule->currentClass = bclass;

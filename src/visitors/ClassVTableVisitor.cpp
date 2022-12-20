@@ -13,7 +13,7 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
     BalanceTypeString * btypeString = new BalanceTypeString(className);
 
-    BalanceClass *bclass = currentPackage->currentModule->getClass(btypeString);
+    BalanceClass *bclass = (BalanceClass *) currentPackage->currentModule->getType(btypeString);
 
     // For each interface implemented by class, define this class' implementation of that interface's vtable type
     for (auto const &x : bclass->interfaces) {

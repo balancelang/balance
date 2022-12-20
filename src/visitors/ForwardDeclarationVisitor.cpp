@@ -96,11 +96,18 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
 
             BalanceFunction * bfunction = importedModule->getFunction(importString);
             if (bfunction != nullptr) {
-                BalanceImportedFunction * ibfunction = currentPackage->currentModule->getImportedFunction(importString);
-                importFunctionToModule(ibfunction, currentPackage->currentModule);
-            } else if (importedModule->getClassFromBaseName(importString) != nullptr) {
-                BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClassFromBaseName(importString);
-                importClassToModule(ibclass, currentPackage->currentModule);
+                createImportedFunction(currentPackage->currentModule, bfunction);
+            } else {
+                BalanceType * btype = importedModule->getType(new BalanceTypeString(importString));
+                if (btype == nullptr) {
+                    // TODO: Handle
+                }
+
+                if (btype->isInterface()) {
+                    // TODO: Handle importing interfaces
+                } else {
+                    createImportedClass(currentPackage->currentModule, (BalanceClass *) btype);
+                }
             }
         }
     }

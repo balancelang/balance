@@ -76,7 +76,7 @@ std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinition
     string className = ctx->className->getText();  // TODO: Parse generics when syntax is implemented
     BalanceTypeString * btypeString = new BalanceTypeString(className);
 
-    BalanceClass *bclass = currentPackage->currentModule->getClass(btypeString);
+    BalanceClass * bclass = (BalanceClass *) currentPackage->currentModule->getType(btypeString);
     currentPackage->currentModule->currentClass = bclass;
 
     if (bclass->constructor == nullptr) {

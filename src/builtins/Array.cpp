@@ -22,11 +22,11 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     currentPackage->builtins->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
 
     BalanceParameter * valueParameter = new BalanceParameter(arrayClass->name, "value");
-    valueParameter->type = arrayClass->structType->getPointerTo();
+    valueParameter->type = arrayClass->getReferencableType();
 
     std::string functionName = "toString";
     std::string functionNameWithClass = arrayClass->name->toString() + "_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
+    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -35,17 +35,17 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        arrayClass->structType->getPointerTo()
+        arrayClass->getReferencableType()
     });
 
-    FunctionType *functionType = FunctionType::get(stringClass->structType->getPointerTo(), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
     llvm::Function * arrayToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->builtins->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", arrayToStringFunc);
 
     BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
     arrayClass->addMethod(functionName, bfunction);
     bfunction->function = arrayToStringFunc;
-    bfunction->returnType = stringClass->structType->getPointerTo();
+    bfunction->returnType = stringType->getReferencableType();
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->builtins->builder->GetInsertBlock();
@@ -57,19 +57,18 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Get length (N)
     ConstantInt * zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     ConstantInt * lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["length"]->index, true));
-    Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, lengthIndexValue});
+    Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->getInternalType(), arrayValue, {zeroValue, lengthIndexValue});
     Value * lengthValue = currentPackage->builtins->builder->CreateLoad(lengthPointerGEP);
 
     Value * lengthMinusOneValue = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
 
-
-    auto elementSize = ConstantExpr::getSizeOf(stringClass->structType->getPointerTo());
+    auto elementSize = ConstantExpr::getSizeOf(stringType->getReferencableType());
 
     // Allocate N string pointers
     auto arrayMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->builtins->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),                       // Size type, e.g. 'n' in malloc(n)
-        stringClass->structType->getPointerTo(),                                // output type, which we get pointer to?
+        stringType->getReferencableType(),                                      // output type, which we get pointer to?
         elementSize,                                                            // size of each element
         lengthValue,
         nullptr,
@@ -111,25 +110,13 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     currentPackage->builtins->builder->SetInsertPoint(loopBlock);
 
     auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["memoryPointer"]->index, true));
-    auto memoryPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->structType, arrayValue, {zeroValue, memoryPointerIndexValue});
+    auto memoryPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->getInternalType(), arrayValue, {zeroValue, memoryPointerIndexValue});
     Value * memoryPointerValue = currentPackage->builtins->builder->CreateLoad(memoryPointerGEP);
 
     // Get the correct toString-function for the generic type
-    Function * genericToStringFunction = nullptr;
-    Type * genericType = nullptr;
-    BalanceClass * bclass = currentPackage->currentModule->getClass(arrayClass->name->generics[0]);
-    if (bclass != nullptr) {
-        genericToStringFunction = bclass->getMethod("toString")->function;
-        genericType = bclass->type != nullptr ? bclass->type : bclass->structType->getPointerTo();
-    } else {
-        BalanceImportedClass * ibclass = currentPackage->currentModule->getImportedClass(arrayClass->name->generics[0]);
-        if (ibclass != nullptr) {
-            genericToStringFunction = ibclass->methods["toString"]->function;
-            genericType = ibclass->bclass->type != nullptr ? ibclass->bclass->type : ibclass->bclass->structType->getPointerTo();
-        } else {
-            throw std::runtime_error("Failed to find toString method from type: " + arrayClass->name->toString());
-        }
-    }
+    BalanceType * btype = currentPackage->currentModule->getType(arrayClass->name->generics[0]);
+    Function * genericToStringFunction = btype->getMethod("toString")->function;
+    Type * genericType = btype->getReferencableType();
 
     // Load the i'th element
     Value * ithIndexValue = currentPackage->builtins->builder->CreateLoad(countVariablePtr);
@@ -142,8 +129,8 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // get length of ith string
     auto stringLengthZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto stringLengthIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    auto ithElementLengthGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, ithElementStringValue, {stringLengthZeroValue, stringLengthIndex});
+    auto stringLengthIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    auto ithElementLengthGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), ithElementStringValue, {stringLengthZeroValue, stringLengthIndex});
     auto ithElementLengthValue = currentPackage->builtins->builder->CreateLoad(ithElementLengthGEP);
 
     // Update sum
@@ -152,7 +139,7 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     currentPackage->builtins->builder->CreateStore(newSumValue, totalLengthVariablePtr);
 
     // Create GEP of ith output array index
-    auto ithElementOutputGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType->getPointerTo(), arrayMemoryPointer, {ithIndexValue});
+    auto ithElementOutputGEP = currentPackage->builtins->builder->CreateGEP(stringType->getReferencableType(), arrayMemoryPointer, {ithIndexValue});
     // Store ith-string in ith array index
     currentPackage->builtins->builder->CreateStore(ithElementStringValue, ithElementOutputGEP);
 
@@ -232,19 +219,19 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Value * existingByteOffsetInLoop = currentPackage->builtins->builder->CreateLoad(currentByteOffsetPtr);
 
     // Load current string
-    auto ithMemcpyIndexValueGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType->getPointerTo(), arrayMemoryPointer, {existingMemcpyIndexInLoop});
+    auto ithMemcpyIndexValueGEP = currentPackage->builtins->builder->CreateGEP(stringType->getReferencableType(), arrayMemoryPointer, {existingMemcpyIndexInLoop});
     Value * ithMemcpyElement = currentPackage->builtins->builder->CreateLoad(ithMemcpyIndexValueGEP);
 
     // Get GEP for current string length and load
     auto currentStringLengthZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto currentStringLengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    auto currentStringLengthGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, ithMemcpyElement, {currentStringLengthZeroValue, currentStringLengthIndexValue});
+    auto currentStringLengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    auto currentStringLengthGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), ithMemcpyElement, {currentStringLengthZeroValue, currentStringLengthIndexValue});
     Value * currentStringLengthValue = currentPackage->builtins->builder->CreateLoad(currentStringLengthGEP);
 
     // Get GEP for current string memory
     auto currentStringMemoryZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto currentStringMemoryIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    auto currentStringMemoryGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, ithMemcpyElement, {currentStringMemoryZeroValue, currentStringMemoryIndexValue});
+    auto currentStringMemoryIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    auto currentStringMemoryGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), ithMemcpyElement, {currentStringMemoryZeroValue, currentStringMemoryIndexValue});
     Value * currentStringMemoryValue = currentPackage->builtins->builder->CreateLoad(currentStringMemoryGEP);
 
     // Calculate destination address + byteOffset
@@ -296,19 +283,19 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     Value * lastElementByteOffset = currentPackage->builtins->builder->CreateLoad(currentByteOffsetPtr);
 
     // Load current string
-    auto lastElementGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType->getPointerTo(), arrayMemoryPointer, {lastElementIndex});
+    auto lastElementGEP = currentPackage->builtins->builder->CreateGEP(stringType->getReferencableType(), arrayMemoryPointer, {lastElementIndex});
     Value * lastElement = currentPackage->builtins->builder->CreateLoad(lastElementGEP);
 
     // Get GEP for current string length and load
     auto lastElementZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto lastElementLengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    auto lastElementLengthGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, lastElement, {lastElementZeroValue, lastElementLengthIndexValue});
+    auto lastElementLengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    auto lastElementLengthGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), lastElement, {lastElementZeroValue, lastElementLengthIndexValue});
     Value * lastElementLengthValue = currentPackage->builtins->builder->CreateLoad(lastElementLengthGEP);
 
     // Get GEP for current string memory
     auto lastElementMemoryZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto lastElementMemoryIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    auto lastElementMemoryGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, lastElement, {lastElementMemoryZeroValue, lastElementMemoryIndexValue});
+    auto lastElementMemoryIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    auto lastElementMemoryGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), lastElement, {lastElementMemoryZeroValue, lastElementMemoryIndexValue});
     Value * lastElementMemoryValue = currentPackage->builtins->builder->CreateLoad(lastElementMemoryGEP);
 
     // Calculate destination address + byteOffset
@@ -339,24 +326,24 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     auto outputStringPointer = llvm::CallInst::CreateMalloc(
         currentPackage->builtins->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
-        stringClass->structType,                                    // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(stringClass->structType),           // size, matches input type?
+        stringType->getInternalType(),                              // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringType->getInternalType()),     // size, matches input type?
         nullptr,
         nullptr,
         ""
     );
     currentPackage->builtins->builder->Insert(outputStringPointer);
 
-    int outputStringPointerIndex = stringClass->properties["stringPointer"]->index;
+    int outputStringPointerIndex = stringType->properties["stringPointer"]->index;
     auto outputStringPointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto outputStringPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, outputStringPointerIndex, true));
-    auto outputStringGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, outputStringPointer, {outputStringPointerZeroValue, outputStringPointerIndexValue});
+    auto outputStringGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), outputStringPointer, {outputStringPointerZeroValue, outputStringPointerIndexValue});
 
     currentPackage->builtins->builder->CreateStore(finalStringMemory, outputStringGEP);
 
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    auto sizeGEP = currentPackage->builtins->builder->CreateGEP(stringClass->structType, outputStringPointer, {sizeZeroValue, sizeIndexValue});
+    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    auto sizeGEP = currentPackage->builtins->builder->CreateGEP(stringType->getInternalType(), outputStringPointer, {sizeZeroValue, sizeIndexValue});
     currentPackage->builtins->builder->CreateStore(finalSum, sizeGEP);
 
     currentPackage->builtins->builder->CreateRet(outputStringPointer);
@@ -364,7 +351,7 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 }
 
 void createType__Array(BalanceTypeString * typeString) {
-    BalanceClass * arrayClass = new BalanceClass(typeString);
+    BalanceClass * arrayClass = new BalanceClass(typeString, currentPackage->currentModule);
     currentPackage->builtins->classes[typeString->toString()] = arrayClass;
 
     arrayClass->properties["memoryPointer"] = new BalanceProperty("memoryPointer", nullptr, 0);
@@ -378,11 +365,11 @@ void createType__Array(BalanceTypeString * typeString) {
         arrayClass->properties["length"]->type,
     });
     structType->setBody(propertyTypesRef, false);
-    arrayClass->structType = structType;
+    arrayClass->internalType = structType;
     arrayClass->hasBody = true;
 
     // TODO: this doesn't seem like a good way to do it
-    typeString->type = arrayClass->structType->getPointerTo();
+    typeString->type = arrayClass->getReferencableType();
 
     createDefaultConstructor(currentPackage->builtins, arrayClass);
 

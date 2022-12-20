@@ -52,10 +52,10 @@ void createFunction__print()
     Function::arg_iterator args = printFunc->arg_begin();
     llvm::Value *stringStructPointer = args++;
 
-    BalanceClass * stringClass = currentPackage->builtins->getClass(new BalanceTypeString("String"));
+    BalanceType * stringType = currentPackage->builtins->getType(new BalanceTypeString("String"));
     Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringStructPointer, {zero, stringPointerIndex});
+    Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringStructPointer, {zero, stringPointerIndex});
     Value * stringValue = currentPackage->currentModule->builder->CreateLoad(stringPointerValue);
 
     // CreateCall to printf with stringPointer as argument.
@@ -82,10 +82,6 @@ void createFunction__print()
 
 void createFunction__open()
 {
-    // Create forward declaration of fopen
-    llvm::FunctionType * functionType = llvm::FunctionType::get(llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
-    currentPackage->currentModule->module->getOrInsertFunction("fopen", functionType);
-
     BalanceParameter * pathParameter = new BalanceParameter(new BalanceTypeString("String"), "path");
     pathParameter->type = getBuiltinType(new BalanceTypeString("String"));
 
@@ -97,14 +93,65 @@ void createFunction__open()
         modeParameter
     };
     BalanceFunction * bfunction = new BalanceFunction("open", parameters, new BalanceTypeString("File"));
-    BalanceClass * fileClass = currentPackage->builtins->getClass(new BalanceTypeString("File"));
-    bfunction->returnType = fileClass->structType->getPointerTo();
+    BalanceType * fileType = currentPackage->builtins->getType(new BalanceTypeString("File"));
+    bfunction->returnType = fileType->getReferencableType();
+
+    // Build llvm function and assign to bfunction
+
+    // Create forward declaration of fopen
+    llvm::FunctionType * fopenfunctionType = llvm::FunctionType::get(llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
+    currentPackage->currentModule->module->getOrInsertFunction("fopen", fopenfunctionType);
+    Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen");
+
+    // Create llvm::Function
+    ArrayRef<Type *> parametersReference({
+        pathParameter->type,
+        modeParameter->type
+    });
+    FunctionType *functionType = FunctionType::get(bfunction->returnType, parametersReference, false);
+    llvm::Function * openFunction = Function::Create(functionType, Function::ExternalLinkage, bfunction->name, currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, bfunction->name + "_body", openFunction);
+
+    // Store current block so we can return to it after function declaration
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    BalanceType *stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
+
+    Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto args = ArrayRef<Value *>(openFunction->arg_begin());
+    Value *filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
+
+    // Create File struct which holds this and return pointer to the struct
+    BalanceClass *fileClass = currentPackage->builtins->classes["File"];
+
+    auto structSize = ConstantExpr::getSizeOf(fileClass->getInternalType());
+    auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->getReferencableType(), fileClass->getInternalType(), structSize, nullptr, nullptr, "");
+    currentPackage->currentModule->builder->Insert(pointer);
+
+    ArrayRef<Value *> argumentsReference{pointer};
+    currentPackage->currentModule->builder->CreateCall(fileClass->constructor, argumentsReference); // TODO: should it have a constructor?
+
+    // Get reference to 0th property (filePointer) and assign
+    int intIndex = fileClass->properties["filePointer"]->index;
+    auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
+
+    auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->getInternalType(), pointer, {zero, index});
+    currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
+
+    currentPackage->currentModule->builder->CreateRet(pointer);
+
+    // Assign the llvm function to the bfunction
+    bfunction->function = openFunction;
     currentPackage->currentModule->functions["open"] = bfunction;
+
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
 void createType__FatPointer() {
+    // TODO: Make sure you can't instantiate this from balance
     auto typeString = new BalanceTypeString("FatPointer");
-    BalanceClass * bclass = new BalanceClass(typeString);
+    BalanceClass * bclass = new BalanceClass(typeString, currentPackage->currentModule);
 
     currentPackage->currentModule->classes["FatPointer"] = bclass;
     bclass->properties["thisPointer"] = new BalanceProperty("thisPointer", nullptr, 0, false);
@@ -119,7 +166,7 @@ void createType__FatPointer() {
         bclass->properties["vtablePointer"]->type
     });
     structType->setBody(propertyTypesRef, false);
-    bclass->structType = structType;
+    bclass->internalType = structType;
     bclass->hasBody = true;
 
     // TODO: Might not be needed
@@ -141,7 +188,8 @@ void createTypes() {
     createType__Bool();
     createType__Double();
     createType__File();
-    // createType__Array(); // Arrays are lazily created with their generic types
+
+    // Arrays are lazily created with their generic types
 }
 
 void createBuiltins() {
@@ -150,7 +198,6 @@ void createBuiltins() {
     currentPackage->builtins = bmodule;
     currentPackage->currentModule = bmodule;
 
-    // TODO: Check if this works creating types multiple times with multiple modules
     createTypes();
     createFunctions();
 

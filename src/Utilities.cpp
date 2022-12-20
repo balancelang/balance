@@ -16,73 +16,56 @@ bool fileExist(std::string fileName) {
 }
 
 void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) {
-    BalanceImportedFunction *ibfunction = new BalanceImportedFunction(bmodule, bfunction);
+    BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnTypeString);
+    ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, bfunction->name, bmodule->module);
     bmodule->importedFunctions[bfunction->name] = ibfunction;
 }
 
 void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
-    BalanceImportedClass *ibclass = new BalanceImportedClass(bmodule, bclass);
+    BalanceClass *ibclass = new BalanceClass(bclass->name, bmodule);
+    // TODO: Figure out a better way to do this.
+    ibclass->internalType = bclass->internalType;
+    ibclass->constructor = bclass->constructor;
+    ibclass->isSimpleType = bclass->isSimpleType;
     bmodule->importedClasses[bclass->name->toString()] = ibclass;
 
-    // Create BalanceImportedFunction for each class method
+    // Import class properties
+    ibclass->properties = bclass->properties;
+
+    // Import each class method
     for (auto const &x : bclass->getMethods()) {
         BalanceFunction *bfunction = x.second;
-        BalanceImportedFunction *ibfunction = new BalanceImportedFunction(bmodule, bfunction);
+        BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnTypeString);
         ibclass->methods[bfunction->name] = ibfunction;
-    }
-
-    // And for constructor
-    ibclass->constructor = new BalanceImportedConstructor(bmodule, bclass);
-}
-
-void importFunctionToModule(BalanceImportedFunction *ibfunction, BalanceModule *bmodule) {
-    vector<Type *> functionParameterTypes;
-    vector<std::string> functionParameterNames;
-    for (BalanceParameter *bparameter : ibfunction->bfunction->parameters) {
-        functionParameterTypes.push_back(bparameter->type);
-        functionParameterNames.push_back(bparameter->name);
-    }
-    ArrayRef<Type *> parametersReference(functionParameterTypes);
-    FunctionType *functionType = FunctionType::get(ibfunction->bfunction->returnType, parametersReference, false);
-
-    ibfunction->function = Function::Create(functionType, Function::ExternalLinkage, ibfunction->bfunction->name, bmodule->module);
-}
-
-void importClassToModule(BalanceImportedClass *ibclass, BalanceModule *bmodule) {
-    for (auto const &x : ibclass->methods) {
-        BalanceImportedFunction *ibfunction = x.second;
-        vector<Type *> functionParameterTypes;
-        vector<std::string> functionParameterNames;
-
-        for (BalanceParameter *bparameter : ibfunction->bfunction->parameters) {
-            functionParameterTypes.push_back(bparameter->type);
-            functionParameterNames.push_back(bparameter->name);
-        }
-        ArrayRef<Type *> parametersReference(functionParameterTypes);
-        FunctionType *functionType = FunctionType::get(ibfunction->bfunction->returnType, parametersReference, false);
-
-        std::string functionNameWithClass = ibclass->bclass->name->toString() + "_" + ibfunction->bfunction->name;
-        ibfunction->function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, bmodule->module);
+        std::string functionNameWithClass = ibclass->name->toString() + "_" + ibfunction->name;
+        ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, functionNameWithClass, bmodule->module);
     }
 
     // Import constructor
-    if (ibclass->bclass->structType != nullptr) {
-        std::string constructorName = ibclass->bclass->structType->getName().str() + "_constructor";
-        FunctionType *constructorType = ibclass->bclass->constructor->getFunctionType();
-        ibclass->constructor->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+    if (bclass->internalType != nullptr && !bclass->isSimpleType) {
+        if (ibclass->constructor != nullptr) {
+            // TODO: We will need to differentiate constructors when allowing constructor-overloading
+            std::string constructorName = ibclass->name->toString() + "_constructor";
+            FunctionType *constructorType = ibclass->constructor->getFunctionType();
+            ibclass->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+        } else {
+            // TODO: Should this be able to happen? Internal types e.g.?
+        }
+    } else {
+        // TODO: Can this happen?
     }
 
-    // TODO: Handle class properties as well - maybe they dont need forward declaration?
+    // TODO: Does the type as a whole need forward declarations?
 }
 
 void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
-    std::string constructorName = bclass->structType->getName().str() + "_constructor";
+    std::string constructorName = bclass->name->toString() + "_constructor";
     vector<Type *> functionParameterTypes;
 
     // TODO: Constructor should return Type of class?
     Type *returnType = getBuiltinType(new BalanceTypeString("None"));
 
-    ArrayRef<Type *> parametersReference{bclass->structType->getPointerTo()};
+    ArrayRef<Type *> parametersReference{bclass->getReferencableType()};
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
     Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, bmodule->module);
     bclass->constructor = function;
@@ -142,7 +125,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
 
     bool hasError = verifyFunction(*function, &llvm::errs());
     if (hasError) {
-        throw std::runtime_error("Error verifying default constructor for class: " + bclass->structType->getName().str());
+        throw std::runtime_error("Error verifying default constructor for class: " + bclass->name->toString());
     }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }

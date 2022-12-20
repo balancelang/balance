@@ -12,7 +12,7 @@ void createMethod_close() {
     std::string functionNameWithClass = "File_" + functionName;
 
     ArrayRef<Type *> parametersReference({
-        currentPackage->currentModule->currentClass->structType->getPointerTo()  // this argument
+        currentPackage->currentModule->currentClass->getReferencableType() // this argument
     });
 
     Type * returnType = llvm::Type::getVoidTy(*currentPackage->context);
@@ -96,13 +96,13 @@ void createMethod_read() {
 
     std::string functionName = "read";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClassFromStructName("String");
+    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     ArrayRef<Type *> parametersReference({
-        currentPackage->currentModule->currentClass->structType->getPointerTo()  // File "this" argument
+        currentPackage->currentModule->currentClass->getReferencableType()  // File "this" argument
     });
 
-    Type * returnType = stringClass->structType->getPointerTo();
+    Type * returnType = stringType->getReferencableType();
     FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
 
     llvm::Function * readFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
@@ -186,25 +186,25 @@ void createMethod_read() {
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
         llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
-        stringClass->structType,                                    // output type, which we get pointer to?
-        ConstantExpr::getSizeOf(stringClass->structType),           // size, matches input type?
+        stringType->getInternalType(),                             // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringType->getInternalType()),    // size, matches input type?
         nullptr,
         nullptr,
         ""
     );
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
-    int pointerIndex = stringClass->properties["stringPointer"]->index;
+    int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
-    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
 
     currentPackage->currentModule->builder->CreateStore(memoryPointer, pointerGEP);
 
-    int sizeIndex = stringClass->properties["length"]->index;
+    int sizeIndex = stringType->properties["length"]->index;
     auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
-    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
 
     Value * bitcastedFileSizeValue = currentPackage->currentModule->builder->CreateIntCast(fileSizeValue, llvm::Type::getInt32Ty(*currentPackage->context), false);
     currentPackage->currentModule->builder->CreateStore(bitcastedFileSizeValue, sizeGEP);
@@ -233,11 +233,11 @@ void createMethod_write() {
 
     std::string functionName = "write";
     std::string functionNameWithClass = "File_" + functionName;
-    BalanceClass * stringClass = currentPackage->builtins->getClassFromBaseName("String");
+    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     ArrayRef<Type *> parametersReference({
-        currentPackage->currentModule->currentClass->structType->getPointerTo(),  // this argument
-        stringClass->structType->getPointerTo()
+        currentPackage->currentModule->currentClass->getReferencableType(),  // this argument
+        stringType->getReferencableType()
     });
 
     Type * returnType = llvm::Type::getVoidTy(*currentPackage->context);
@@ -271,10 +271,10 @@ void createMethod_write() {
     Value * filePtr  = currentPackage->currentModule->builder->CreateLoad(ptr);
 
     // Pull out string pointer and string size
-    Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["stringPointer"]->index, true));
-    Value * stringLengthIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringClass->properties["length"]->index, true));
-    Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringPointer, {zero, stringPointerIndex});
-    Value * stringLengthValue = currentPackage->currentModule->builder->CreateGEP(stringClass->structType, stringPointer, {zero, stringLengthIndex});
+    Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    Value * stringLengthIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringPointer, {zero, stringPointerIndex});
+    Value * stringLengthValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringPointer, {zero, stringLengthIndex});
     Value * loadedPointerValue = currentPackage->currentModule->builder->CreateLoad(stringPointerValue);
     Value * loadedStringLengthValue = currentPackage->currentModule->builder->CreateLoad(stringLengthValue);
 
@@ -298,7 +298,7 @@ void createMethod_write() {
 }
 
 void createType__File() {
-    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("File"));
+    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("File"), currentPackage->currentModule);
     currentPackage->currentModule->classes["File"] = bclass;
     bclass->properties["filePointer"] = new BalanceProperty("filePointer", nullptr, 0);
     bclass->properties["filePointer"]->type = llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0);
@@ -310,7 +310,7 @@ void createType__File() {
         llvm::Type::getInt32PtrTy(*currentPackage->context)
     });
     structType->setBody(propertyTypesRef, false);
-    bclass->structType = structType;
+    bclass->internalType = structType;
     bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
