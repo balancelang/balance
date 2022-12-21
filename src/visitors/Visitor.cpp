@@ -642,45 +642,6 @@ any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
     return new BalanceValue(new BalanceTypeString("String"), stringMemoryPointer);
 }
 
-BalanceValue * BalanceVisitor::visitFunctionCall__open(BalanceParser::FunctionCallContext *ctx) {
-    Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen"); // TODO: Move this to separate module
-    BalanceType *stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
-    vector<Value *> functionArguments;
-    for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-        BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
-        functionArguments.push_back(bvalue->value);
-    }
-
-    Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    Value *stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
-    Value *pathPointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), functionArguments[0], {zero, stringPointerIndex});
-    Value *pathValue = currentPackage->currentModule->builder->CreateLoad(pathPointerValue);
-    Value *modePointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), functionArguments[1], {zero, stringPointerIndex});
-    Value *modeValue = currentPackage->currentModule->builder->CreateLoad(modePointerValue);
-
-    auto args = ArrayRef<Value *>({pathValue, modeValue});
-    Value *filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
-
-    // Create File struct which holds this and return pointer to the struct
-    BalanceClass *fileClass = currentPackage->builtins->classes["File"];
-
-    auto structSize = ConstantExpr::getSizeOf(fileClass->getInternalType());
-    auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileClass->getReferencableType(), fileClass->getInternalType(), structSize, nullptr, nullptr, "");
-    currentPackage->currentModule->builder->Insert(pointer);
-
-    ArrayRef<Value *> argumentsReference{pointer};
-    currentPackage->currentModule->builder->CreateCall(fileClass->constructor, argumentsReference); // TODO: should it have a constructor?
-
-    // Get reference to 0th property (filePointer) and assign
-    int intIndex = fileClass->properties["filePointer"]->index;
-    auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
-
-    auto ptr = currentPackage->currentModule->builder->CreateGEP(fileClass->getInternalType(), pointer, {zero, index});
-    currentPackage->currentModule->builder->CreateStore(filePointer, ptr);
-
-    return new BalanceValue(new BalanceTypeString("File"), pointer);
-}
-
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
     FunctionCallee printFunc = currentPackage->currentModule->getFunction("print")->function;
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
@@ -714,11 +675,6 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         // Then the print function can handle invoking toString on parameters
         // TODO: Or prefer overloading print with typed versions?
         return visitFunctionCall__print(ctx);
-    }
-
-    if (functionName == "open") {
-        // TODO: Same as above, except it doesn't need 'Any'. Move to builtins?
-        return visitFunctionCall__open(ctx);
     }
 
     if (currentPackage->currentModule->accessedValue == nullptr) {

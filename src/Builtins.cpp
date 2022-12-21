@@ -119,7 +119,18 @@ void createFunction__open()
     BalanceType *stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto args = ArrayRef<Value *>(openFunction->arg_begin());
+    auto functionArgs = openFunction->arg_begin();
+
+    Value * pathStringValue = functionArgs++;
+    Value * modeStringValue = functionArgs++;
+
+    Value *stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    Value *pathPointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), pathStringValue, {zero, stringPointerIndex});
+    Value *pathValue = currentPackage->currentModule->builder->CreateLoad(pathPointerValue);
+    Value *modePointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), modeStringValue, {zero, stringPointerIndex});
+    Value *modeValue = currentPackage->currentModule->builder->CreateLoad(modePointerValue);
+
+    auto args = ArrayRef<Value *>({pathValue, modeValue});
     Value *filePointer = currentPackage->currentModule->builder->CreateCall(fopenFunc, args);
 
     // Create File struct which holds this and return pointer to the struct

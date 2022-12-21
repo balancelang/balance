@@ -5,7 +5,7 @@
 - test duplicate class/interface/variable names on import
 - make sure you can't 'new' up interfaces, builtins etc?
 
-interfaces
+## interfaces
 - test duplicate interface name
 - test missing function implementation
 - test wrong return type
@@ -17,10 +17,17 @@ interfaces
 - test type checking with wrong interface type
 - test returning interface?
 
-classes
+## classes
 - test class as property
     - get
     - set
 - test nested class property
     - e.g. a.b.c.d
 - define None/null - how do we handle that?
+
+## Builtins
+- Some are imported by default (e.g. print, open, String, Int), others should be explicitly imported (and user-classes can therefore use these names)
+
+## Imports
+- Should be covered by test-suite
+- naming convention
