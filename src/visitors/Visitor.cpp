@@ -236,7 +236,7 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
 
         // Check if property is an interface, then convert to fat pointer
         BalanceProperty * bprop = valueMemberType->getProperty(accessName);
-        if (bprop->stringType->isInterfaceType()) {
+        if (bprop->stringType->isInterface) {
             BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
             llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
@@ -705,7 +705,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
                 BalanceParameter * bparameter = bfunction->parameters[i];
 
-                if (bparameter->balanceTypeString->isInterfaceType()) {
+                if (bparameter->balanceTypeString->isInterface) {
                     // TODO: Let BalanceValue tell us if its a FatPointer instead of pulling it out of the struct like this
                     std::string structName = bvalue->value->getType()->getPointerElementType()->getStructName().str();
                     if (structName != "FatPointer") {
@@ -837,7 +837,40 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
         // handled in visitFunctionDefinition, since we will not hit this method on implicit 'return None'
     } else {
         BalanceValue * bvalue = any_cast<BalanceValue *>(visit(ctx->expression()));
-        currentPackage->currentModule->builder->CreateRet(bvalue->value);
+        BalanceType * btype = currentPackage->currentModule->getType(bvalue->type);
+
+        BalanceFunction * bfunction = currentPackage->currentModule->currentFunction;
+        BalanceLambda * blambda = currentPackage->currentModule->currentLambda;
+
+        if ((bfunction != nullptr && bfunction->returnTypeString->isInterface || blambda != nullptr && blambda->returnTypeString->isInterface) && !btype->isInterface()) {
+            // Convert to fat pointer
+            BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
+            llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
+
+            // set fat pointer 'this' argument
+            auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
+
+            BitCastInst *bitcastThisValueInstr = new BitCastInst(bvalue->value, llvm::Type::getInt64PtrTy(*currentPackage->context));
+            Value * bitcastThisValue = currentPackage->currentModule->builder->Insert(bitcastThisValueInstr);
+            currentPackage->currentModule->builder->CreateStore(bitcastThisValue, fatPointerThisPointer);
+
+            // set fat pointer 'vtable' argument
+            auto fatPointerVtableZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
+            auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
+
+            BalanceClass * bclass = (BalanceClass *) btype;
+            Value * vtable = bclass->interfaceVTables[currentPackage->currentModule->currentFunction->returnTypeString->base];
+            BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
+            Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
+            currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
+
+            currentPackage->currentModule->builder->CreateRet(fatPointer);
+        } else {
+            currentPackage->currentModule->builder->CreateRet(bvalue->value);
+        }
         currentPackage->currentModule->currentScope->isTerminated = true;
     }
     return nullptr;
@@ -927,6 +960,8 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }
 
+    currentPackage->currentModule->currentFunction = bfunction;
+
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", bfunction->function);
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(functionBody, scope);
@@ -973,6 +1008,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
         // exit(1);
     }
 
+    currentPackage->currentModule->currentFunction = nullptr;
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
     return nullptr;

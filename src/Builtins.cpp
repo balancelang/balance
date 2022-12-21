@@ -6,6 +6,7 @@
 #include "builtins/Bool.h"
 #include "builtins/Double.h"
 #include "builtins/Array.h"
+#include "builtins/Lambda.h"
 
 #include "models/BalanceTypeString.h"
 
@@ -201,6 +202,7 @@ void createTypes() {
     createType__File();
 
     // Arrays are lazily created with their generic types
+    // TODO: Lambdas are lazily created with their generic types
 }
 
 void createBuiltins() {

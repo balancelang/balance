@@ -36,6 +36,7 @@
     - File handles (+)
     - overloads
     - no transitive imports
+    - default parameter values, e.g. func(Int a = 5)
     - support dictionary initializer expression, e.g.
         class A {
             Int a

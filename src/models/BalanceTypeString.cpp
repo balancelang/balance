@@ -23,10 +23,6 @@ bool BalanceTypeString::isFloatingPointType() {
     return this->base == "Double";
 }
 
-bool BalanceTypeString::isInterfaceType() {
-    return this->isInterface;
-}
-
 std::string BalanceTypeString::toString() {
     std::string result = this->base;
     auto genericsCount = this->generics.size();
@@ -75,5 +71,6 @@ void BalanceTypeString::populateTypes() {
 
 bool BalanceTypeString::equalTo(BalanceTypeString * other) {
     // TODO: Maybe implement a better way to check for equality
+    // 1. We at least need to check which module the type is from
     return this->toString() == other->toString();
 }

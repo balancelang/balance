@@ -4,6 +4,7 @@
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
+#include <exception>
 
 #include "llvm/IR/BasicBlock.h"
 
@@ -11,6 +12,11 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace std;
 
+
+
+struct StructureVisitorException : public std::exception
+{
+};
 
 class StructureVisitor : public BalanceParserBaseVisitor
 {

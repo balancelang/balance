@@ -66,7 +66,12 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
     string className = ctx->className->getText();
     string text = ctx->getText();
 
-    // TODO: check for duplicate className
+    // Check for duplicate className
+    BalanceType * btype = currentPackage->currentModule->getType(new BalanceTypeString(className));
+    if (btype != nullptr) {
+        currentPackage->currentModule->addTypeError(ctx, "Duplicate class, type already exist: " + btype->name->toString());
+        throw StructureVisitorException();
+    }
 
     BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className), currentPackage->currentModule);
     currentPackage->currentModule->currentClass = bclass;
@@ -135,13 +140,13 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
     if (currentPackage->currentModule->currentClass != nullptr) {
         if (currentPackage->currentModule->currentClass->getMethod(functionName) != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
-            return std::any();
+            throw StructureVisitorException();
         }
     } else {
         // TODO: Should we allow overriding functions in new scopes?
         if (currentPackage->currentModule->functions[functionName] != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
-            return std::any();
+            throw StructureVisitorException();
         }
     }
 
@@ -156,6 +161,15 @@ std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefini
     for (BalanceParser::ParameterContext *parameter : ctx->functionSignature()->parameterList()->parameter()) {
         string parameterName = parameter->identifier->getText();
         BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(parameter->balanceType()));
+
+        // Check for duplicate parameter name
+        for (auto param : parameters) {
+            if (param->name == parameterName) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate parameter name: " + parameterName);
+                throw StructureVisitorException();
+            }
+        }
+
         parameters.push_back(new BalanceParameter(typeString, parameterName));
     }
 
@@ -181,6 +195,12 @@ std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContex
     string text = ctx->getText();
     BalanceTypeString *typeString = new BalanceTypeString(ctx->type->getText());
     string name = ctx->name->getText();
+
+    // // Check for duplicate property name
+    // if (currentPackage->currentModule->currentClass->properties[name] != nullptr) {
+    //     currentPackage->currentModule->addTypeError(ctx, "Duplicate property name, property already exist: " + name);
+    //     throw StructureVisitorException();
+    // }
 
     int count = currentPackage->currentModule->currentClass->properties.size();
     currentPackage->currentModule->currentClass->properties[name] = new BalanceProperty(name, typeString, count);
@@ -216,7 +236,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
 
         if (currentPackage->currentModule->currentInterface->getMethod(functionName) != nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
-            return std::any();
+            throw StructureVisitorException();
         }
 
         vector<BalanceParameter *> parameters;
@@ -228,6 +248,15 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
         for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
             string parameterName = parameter->identifier->getText();
             BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(parameter->balanceType()));
+
+            // Check for duplicate parameter name
+            for (auto param : parameters) {
+                if (param->name == parameterName) {
+                    currentPackage->currentModule->addTypeError(ctx, "Duplicate parameter name: " + parameterName);
+                    throw StructureVisitorException();
+                }
+            }
+
             parameters.push_back(new BalanceParameter(typeString, parameterName));
         }
 

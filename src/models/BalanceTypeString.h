@@ -19,7 +19,6 @@ public:
     }
 
     bool isSimpleType();
-    bool isInterfaceType();
     bool isFloatingPointType();
     std::string toString();
     bool finalized();

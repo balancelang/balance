@@ -106,6 +106,8 @@ bool BalancePackage::compileAndPersist()
         // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
         this->reset();
 
+        bool success = true;
+
         this->logger("Compiling entrypoint: " + entryPoint.second);
 
         // (PackageVisitor.cpp) Build import tree
@@ -120,16 +122,15 @@ bool BalancePackage::compileAndPersist()
 
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->logger("Building textual representations");
-        this->buildTextualRepresentations();
+        success = this->buildTextualRepresentations();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
 
         // Type checking, also creates all class, class-methods and function definitions (textually only)
         this->logger("Running type checking");
-        bool success = this->typeChecking();
-        if (success) {
-            this->logger("Type checking: success");
-        } else {
-            this->logger("Type checking: fail");
-        }
+        success = this->typeChecking();
         if (!success) {
             compileSuccess = false;
             continue;
@@ -165,6 +166,7 @@ bool BalancePackage::compileAndPersist()
 bool BalancePackage::executeString(std::string program) {
     this->reset();
 
+    bool success = true;
     currentPackage = this;
     modules["program"] = new BalanceModule("program", true);
     modules["program"]->initializeModule();
@@ -175,10 +177,13 @@ bool BalancePackage::executeString(std::string program) {
     this->addBuiltinsToModules();
 
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
-    this->buildTextualRepresentations();
+    success = this->buildTextualRepresentations();
+    if (!success) {
+        return false;
+    }
 
     // Type checking, also creates all class, class-methods and function definitions (textually only)
-    bool success = this->typeChecking();
+    success = this->typeChecking();
     if (!success) {
         return false;
     }
@@ -309,17 +314,23 @@ void BalancePackage::addBuiltinsToModules() {
     }
 }
 
-void BalancePackage::buildTextualRepresentations()
+bool BalancePackage::buildTextualRepresentations()
 {
-    for (auto const &x : modules)
-    {
+    for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
-        this->currentModule = bmodule;
+        try {
+            this->currentModule = bmodule;
 
-        // Visit entire tree
-        StructureVisitor visitor;
-        visitor.visit(this->currentModule->tree);
+            // Visit entire tree
+            StructureVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+        } catch (const StructureVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
     }
+
+    return true;
 }
 
 void BalancePackage::buildLanguageServerTokens() {

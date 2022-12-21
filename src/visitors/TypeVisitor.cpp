@@ -6,6 +6,42 @@ using namespace antlr4;
 
 extern BalancePackage *currentPackage;
 
+// Returns whether a can be assigned to b
+bool canAssignTo(ParserRuleContext * ctx, BalanceTypeString * a, BalanceTypeString * b) {
+    if (a->base == "Lambda" || b->base == "Lambda") {
+        // Short-term hack for now.
+        return true;
+    }
+
+    BalanceType * aType = currentPackage->currentModule->getType(a);
+    BalanceType * bType = currentPackage->currentModule->getType(b);
+
+    // If a is interface, it can never be assigned to something not interface
+    if (!bType->isInterface() && aType->isInterface()) {
+        currentPackage->currentModule->addTypeError(ctx, "Can't assign interface to non-interface");
+        return false;
+    }
+
+    // If b is interface and a is not, check that a implements b
+    if (bType->isInterface() && !aType->isInterface()) {
+        BalanceClass * aClass = (BalanceClass *) aType;
+        if (aClass->interfaces[b->base] == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Type " + a->toString() + " does not implement interface " + b->toString());
+            return false;
+        }
+        return true;
+    }
+
+    // Do similar checks for inheritance, once implemented
+
+    if (!a->equalTo(b)) {
+        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + b->toString() + ", found " + a->toString());
+        return false;
+    }
+
+    return true;
+}
+
 std::string TypeVisitor::getText(antlr4::ParserRuleContext *ctx) {
     int a = ctx->start->getStartIndex();
     int b = ctx->stop->getStopIndex();
@@ -66,13 +102,13 @@ std::any TypeVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext
     BalanceTypeString * returnValue = any_cast<BalanceTypeString *>(visit(ctx->expression()));
 
     if (currentPackage->currentModule->currentFunction != nullptr) {
-        if (!returnValue->equalTo(currentPackage->currentModule->currentFunction->returnTypeString)) {
+        if (!canAssignTo(ctx, returnValue, currentPackage->currentModule->currentFunction->returnTypeString)) {
             currentPackage->currentModule->addTypeError(ctx, "Return types differ. Expected " + currentPackage->currentModule->currentFunction->returnTypeString->toString() + ", found " + returnValue->toString());
         }
         currentPackage->currentModule->currentFunction->hasExplicitReturn = true;
     }
     if (currentPackage->currentModule->currentLambda != nullptr) {
-        if (!returnValue->equalTo(currentPackage->currentModule->currentLambda->returnTypeString)) {
+        if (!canAssignTo(ctx, returnValue, currentPackage->currentModule->currentLambda->returnTypeString)) {
             currentPackage->currentModule->addTypeError(ctx, "Return types differ. Expected " + currentPackage->currentModule->currentLambda->returnTypeString->toString() + ", found " + returnValue->toString());
         }
         currentPackage->currentModule->currentLambda->hasExplicitReturn = true;
@@ -127,7 +163,7 @@ std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentConte
             currentPackage->currentModule->addTypeError(ctx, "Array index must be Int: " + text + ", found " + index->toString());
         }
 
-        if (member->base == "Array" && !member->generics[0]->equalTo(expression)) {
+        if (member->base == "Array" && !canAssignTo(ctx, expression, member->generics[0])) {
             currentPackage->currentModule->addTypeError(ctx, "Types are not equal in array assignment. Expected " + member->generics[0]->toString() + ", found " + expression->toString());
         }
         // TODO: Handle
@@ -145,27 +181,8 @@ std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentConte
             return std::any();
         }
 
-        // Check if property is interface and expression implements
-        BalanceType * bpropertyType = currentPackage->currentModule->getType(bproperty->stringType);
-        if (bpropertyType->isInterface()) {
-            BalanceType * expressionType = currentPackage->currentModule->getType(expression);
-            if (expressionType == nullptr) {
-                // TODO: Throw error
-            }
-
-            if (expressionType->isInterface()) {
-                // TODO: Can this happen?
-            } else {
-                BalanceClass * expressionClass = (BalanceClass *) expressionType;
-
-                if (expressionClass->interfaces[bproperty->stringType->base] == nullptr) {
-                    currentPackage->currentModule->addTypeError(ctx, "Type does not implement interface " + bproperty->stringType->toString());
-                }
-            }
-
-        } else if (!bproperty->stringType->equalTo(expression)) {
-            currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bproperty->stringType->toString() + ", found " + expression->toString());
-        }
+        // Check if expression can be assigned to property type, has the side-effect of reporting typeError
+        canAssignTo(ctx, expression, bproperty->stringType);
     }
 
     return std::any();

@@ -72,7 +72,7 @@ public:
     void buildDependencyTree(std::string rootPath);
     void writePackageToBinary(std::string entrypointName);
     BalanceModule * getNextElementOrNull();
-    void buildTextualRepresentations();
+    bool buildTextualRepresentations();
     void buildStructures();
     void buildForwardDeclarations();
     void buildVTables();
