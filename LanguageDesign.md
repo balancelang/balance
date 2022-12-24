@@ -15,11 +15,12 @@
     - while loops (+)
     - for loops
     - Pattern matching
-        - strict checking all types
+        - strict checking all types with enums, unions, etc.
     - comments (+)
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
+        - var { a, b, c } = getObj()
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword - checked exceptions
     - Classes (+)
@@ -35,7 +36,7 @@
     - Sockets
     - File handles (+)
     - overloads
-    - no transitive imports
+    - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
     - support dictionary initializer expression, e.g.
         class A {
@@ -59,7 +60,6 @@
             lsOut, lsErr, lsRc = ls -l
             echo lsOut > test.txt
         }
-
     - operator overloading?
     - assignment as side-effect?
         if (var a = a < 5) { ...            (sets var a = true/false inside the if-block)
