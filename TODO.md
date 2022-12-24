@@ -11,6 +11,10 @@
 ## classes
 - define None/null - how do we handle that?
 
+## Lambdas
+- check reassignment with correct type
+- check reassignment with incorrect type
+
 ## Builtins
 - Some are imported by default (e.g. print, open, String, Int), others should be explicitly imported (and user-classes can therefore use these names)
 

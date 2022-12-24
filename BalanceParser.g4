@@ -62,8 +62,17 @@ returnStatement
 
 // Should IDENTIFIER be variable?
 assignment
-    : VAR IDENTIFIER '=' expression                                     # NewAssignment
-    | IDENTIFIER '=' expression                                         # ExistingAssignment
+    : newAssignment
+    | existingAssignment
+    ;
+
+existingAssignment
+    : IDENTIFIER '=' expression
+    ;
+
+newAssignment
+    : VAR IDENTIFIER '=' expression
+    | balanceType IDENTIFIER '=' expression
     ;
 
 // Can these be implemented under 'assignment'?

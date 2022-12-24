@@ -125,6 +125,15 @@ std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ct
 
     BalanceType * value = any_cast<BalanceType *>(visit(ctx->expression()));
 
+    // If typed new-expression, check if LHS == RHS
+    if (ctx->balanceType()) {
+        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+        if (!canAssignTo(ctx, value, lhsType)) {
+            currentPackage->currentModule->addTypeError(ctx, "Can't assign " + value->toString() + " to " + lhsType->toString());
+            return std::any();
+        }
+    }
+
     currentPackage->currentModule->currentScope->symbolTable[variableName] = new BalanceValue(value, nullptr);
 
     return std::any();
@@ -291,6 +300,14 @@ std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
     // TODO: Figure out how we test if the class supports the generics
 
     return currentPackage->currentModule->getType(base, generics);
+}
+
+std::any TypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
+    if (ctx->IDENTIFIER()) {
+        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
+    } else {
+        return currentPackage->currentModule->getType(ctx->NONE()->getText());
+    }
 }
 
 std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
