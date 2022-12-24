@@ -43,6 +43,11 @@ std::any TypeRegistrationVisitor::visitInterfaceDefinition(BalanceParser::Interf
     string text = ctx->getText();
 
     // TODO: check for duplicate interfaceName
+    BalanceType * btype = currentPackage->currentModule->getType(interfaceName);
+    if (btype != nullptr) {
+        currentPackage->currentModule->addTypeError(ctx, "Duplicate interface, type already exist: " + btype->toString());
+        throw TypeRegistrationVisitorException();
+    }
 
     BalanceType *binterface = new BalanceType(currentPackage->currentModule, interfaceName);
     binterface->isInterface = true;

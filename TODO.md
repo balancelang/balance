@@ -4,28 +4,11 @@
 - make sure you can't 'new' up interfaces, builtins etc?
 
 ## interfaces
-- test duplicate parameter name in same interface method signature
-- test duplicate interface name
-- test missing function implementation
-- test wrong return type
-- test wrong parameters
-- test class doesnt implement interface
-- test interface as property type
-- test interface as function parameter
 - test reusing interface value value in function call that takes same interface value
 - test type checking with wrong interface type
-- test returning interface?
 - test array of interfaces
 
-## Lambdas
-- we don't malloc now - test what happens if invoking e.g. functions after getting lambda from function
-
 ## classes
-- test class as property
-    - get
-    - set
-- test nested class property
-    - e.g. a.b.c.d
 - define None/null - how do we handle that?
 
 ## Builtins

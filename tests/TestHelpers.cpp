@@ -30,7 +30,7 @@ string replaceCharacter(string input, char character, char replaceCharacter) {
 
 void assertEqual(string expected, string actual, string program) {
     if (actual == expected) {
-        cout << "OK   | Program: " << replaceCharacter(program, '\n', ';') << endl;
+        cout << "OK" << endl;
     } else {
         cout << endl;
 

@@ -4,6 +4,7 @@
 #include "../models/BalanceType.h"
 #include "../builtins/Array.h"
 #include "../builtins/Lambda.h"
+#include "../Utilities.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
@@ -190,11 +191,11 @@ std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContex
     BalanceType * btype = currentPackage->currentModule->getType(ctx->type->getText());
     string name = ctx->name->getText();
 
-    // // Check for duplicate property name
-    // if (currentPackage->currentModule->currentType->properties[name] != nullptr) {
-    //     currentPackage->currentModule->addTypeError(ctx, "Duplicate property name, property already exist: " + name);
-    //     throw StructureVisitorException();
-    // }
+    // Check for duplicate property name
+    if (currentPackage->currentModule->currentType->properties.find(name) != currentPackage->currentModule->currentType->properties.end()) {
+        currentPackage->currentModule->addTypeError(ctx, "Duplicate property name, property already exist: " + name);
+        throw StructureVisitorException();
+    }
 
     int count = currentPackage->currentModule->currentType->properties.size();
     currentPackage->currentModule->currentType->properties[name] = new BalanceProperty(name, btype, count);
@@ -224,7 +225,11 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
 
     if (currentPackage->currentModule->currentType != nullptr) {
         if (currentPackage->currentModule->currentType->getMethod(functionName) != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+            if (currentPackage->currentModule->currentType->isInterface) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
+            } else {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+            }
             throw StructureVisitorException();
         }
     } else {
