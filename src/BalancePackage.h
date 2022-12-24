@@ -73,6 +73,8 @@ public:
     void writePackageToBinary(std::string entrypointName);
     BalanceModule * getNextElementOrNull();
     bool buildTextualRepresentations();
+    void runLLVMFunctionVisitor();
+    bool registerTypes();
     void buildStructures();
     void buildForwardDeclarations();
     void buildVTables();

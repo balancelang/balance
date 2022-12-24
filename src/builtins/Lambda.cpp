@@ -5,18 +5,29 @@
 
 extern BalancePackage *currentPackage;
 
-void createType__Lambda() {
-    BalanceClass * bclass = new BalanceClass(new BalanceTypeString("Lambda"), currentPackage->currentModule);
-    currentPackage->currentModule->classes["Lambda"] = bclass;
+class BalanceType;
 
-    currentPackage->currentModule->currentClass = bclass;
-    StructType *structType = StructType::create(*currentPackage->context, "Lambda");
-    ArrayRef<Type *> propertyTypesRef({});
-    structType->setBody(propertyTypesRef, false);
-    bclass->internalType = structType;
+BalanceType * createType__Lambda(std::vector<BalanceType *> generics) {
+    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Lambda", generics);
+    currentPackage->currentModule->types[bclass->toString()] = bclass;
+
+    currentPackage->currentModule->currentType = bclass;
+
+    vector<Type *> functionParameterTypes;
+    //                                              -1 since last parameter is return
+    for (int i = 0; i < generics.size() - 1; i++) {
+        functionParameterTypes.push_back(generics[i]->getReferencableType());
+    }
+
+    ArrayRef<Type *> parametersReference(functionParameterTypes);
+
+    Type * returnType = generics.back()->getReferencableType();
+    bclass->internalType = FunctionType::get(returnType, parametersReference, false);
     bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 
-    currentPackage->currentModule->currentClass = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
+
+    return bclass;
 }

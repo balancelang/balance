@@ -2,7 +2,7 @@
 #include "../Builtins.h"
 #include "../BalancePackage.h"
 
-#include "../models/BalanceTypeString.h"
+#include "../models/BalanceType.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
@@ -10,8 +10,10 @@
 extern BalancePackage *currentPackage;
 
 void createMethod_Bool_toString() {
-    BalanceParameter * valueParameter = new BalanceParameter(new BalanceTypeString("Bool"), "value");
-    valueParameter->type = getBuiltinType(new BalanceTypeString("Bool"));
+    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(boolType, "value");
 
     std::string functionName = "toString";
     std::string functionNameWithClass = "Bool_" + functionName;
@@ -23,18 +25,17 @@ void createMethod_Bool_toString() {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        getBuiltinType(new BalanceTypeString("Bool"))
+        boolType->getReferencableType()
     });
 
-    FunctionType *functionType = FunctionType::get(getBuiltinType(new BalanceTypeString("String")), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
 
     llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    currentPackage->currentModule->currentClass->addMethod(functionName, bfunction);
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
+    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
     bfunction->function = boolToStringFunc;
-    bfunction->returnType = getBuiltinType(new BalanceTypeString("String"));
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -42,8 +43,6 @@ void createMethod_Bool_toString() {
 
     Function::arg_iterator args = boolToStringFunc->arg_begin();
     llvm::Value * boolValue = args++;
-
-    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
@@ -105,15 +104,14 @@ void createMethod_Bool_toString() {
 }
 
 void createType__Bool() {
-    auto typeString = new BalanceTypeString("Bool");
-    BalanceClass * bclass = new BalanceClass(typeString, currentPackage->currentModule);
-    bclass->internalType = getBuiltinType(typeString);
+    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Bool");
+    bclass->internalType = Type::getInt1Ty(*currentPackage->context);
     bclass->isSimpleType = true;
 
-    currentPackage->currentModule->classes["Bool"] = bclass;
-    currentPackage->currentModule->currentClass = bclass;
+    currentPackage->currentModule->types["Bool"] = bclass;
+    currentPackage->currentModule->currentType = bclass;
 
     createMethod_Bool_toString();
 
-    currentPackage->currentModule->currentClass = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
 }

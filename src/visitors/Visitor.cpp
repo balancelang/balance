@@ -1,6 +1,6 @@
 #include "Visitor.h"
 #include "../BalancePackage.h"
-#include "../models/BalanceClass.h"
+#include "../models/BalanceType.h"
 #include "../models/BalanceValue.h"
 #include "../builtins/Array.h"
 
@@ -62,50 +62,6 @@ using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
 
-Type *getBuiltinType(BalanceTypeString * typeString) {
-    if (typeString->base == "Int") {
-        return Type::getInt32Ty(*currentPackage->context);
-    } else if (typeString->base == "Bool") {
-        return Type::getInt1Ty(*currentPackage->context);
-    } else if (typeString->base == "String") {
-        return currentPackage->builtins->getType(typeString)->getReferencableType();
-    } else if (typeString->base == "Double") {
-        return Type::getDoubleTy(*currentPackage->context);
-    } else if (typeString->base == "None") {
-        return Type::getVoidTy(*currentPackage->context);
-    } else if (typeString->base == "Array") {
-        BalanceType * arrayType = currentPackage->builtins->getType(typeString);
-        if (arrayType == nullptr) {
-            // TODO: Try to push this out of Visitor.cpp and make it a pass before this step
-            BalanceTypeString * genericTypeString = typeString->generics[0];
-            if (!genericTypeString->finalized()) {
-                genericTypeString->populateTypes();
-            }
-            BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
-            createType__Array(typeString);
-            currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-
-            // Import class into module
-            arrayType = currentPackage->builtins->getType(typeString);
-            createImportedClass(currentPackage->currentModule, (BalanceClass *) arrayType);
-        }
-        return arrayType->getReferencableType();
-    } else if (typeString->base == "Lambda") {
-        vector<Type *> functionParameterTypes;
-        //                                              -1 since last parameter is return
-        for (int i = 0; i < typeString->generics.size() - 1; i++) {
-            functionParameterTypes.push_back(getBuiltinType(typeString->generics[i]));
-        }
-
-        ArrayRef<Type *> parametersReference(functionParameterTypes);
-
-        Type * returnType = getBuiltinType(typeString->generics.back());
-        return FunctionType::get(returnType, parametersReference, false)->getPointerTo();
-    }
-
-    return nullptr;
-}
-
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
     Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
     auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
@@ -126,7 +82,7 @@ void debug_print_value(std::string message, llvm::Value * value) {
 any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     std::string text = ctx->getText();
     std::string className = ctx->className->getText();
-    currentPackage->currentModule->currentClass = currentPackage->currentModule->classes[className];
+    currentPackage->currentModule->currentType = currentPackage->currentModule->types[className];
 
     // Visit all class functions
     for (auto const &x : ctx->classElement()) {
@@ -135,18 +91,17 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
         }
     }
 
-    currentPackage->currentModule->currentClass = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 
 any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) {
     std::string text = ctx->getText();
     // TODO: include generic types, if any
-    BalanceTypeString * className = new BalanceTypeString(ctx->classInitializer()->IDENTIFIER()->getText());
 
-    BalanceType * btype = currentPackage->currentModule->getType(className);
+    BalanceType * btype = currentPackage->currentModule->getType(ctx->classInitializer()->IDENTIFIER()->getText());
     if (btype == nullptr) {
-        throw std::runtime_error("Failed to find type: " + className->toString());
+        throw std::runtime_error("Failed to find type: " + btype->toString());
     }
 
     auto structMemoryPointer = llvm::CallInst::CreateMalloc(
@@ -162,7 +117,7 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
 
     ArrayRef<Value *> argumentsReference{structMemoryPointer};
     currentPackage->currentModule->builder->CreateCall(btype->getConstructor(), argumentsReference);
-    return new BalanceValue(className, structMemoryPointer);
+    return new BalanceValue(btype, structMemoryPointer);
 }
 
 any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) {
@@ -218,26 +173,24 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     std::string text = ctx->getText();
 
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->value));
-
     BalanceValue * valueMember = any_cast<BalanceValue *>(visit(ctx->member));
+
     if (ctx->index) {
+        // member=expression '[' index=expression ']' '=' value=expression
+
         // Index returns i32 directly, e.g. a[3] = ... returns 3 as a value
         BalanceValue * pointerIndex = any_cast<BalanceValue *>(visit(ctx->index));
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zero, pointerIndex->value});
         currentPackage->currentModule->builder->CreateStore(value->value, ptr);
     } else if (ctx->access) {
+        // member=expression '.' access=variable '=' value=expression
         std::string accessName = ctx->access->getText();
 
-        BalanceType * valueMemberType = currentPackage->currentModule->getType(valueMember->type);
-        if (valueMemberType == nullptr) {
-            throw std::runtime_error("Failed to find type: " + valueMemberType->name->toString());
-        }
-
         // Check if property is an interface, then convert to fat pointer
-        BalanceProperty * bprop = valueMemberType->getProperty(accessName);
-        if (bprop->stringType->isInterface) {
-            BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
+        BalanceProperty * bprop = valueMember->type->getProperty(accessName);
+        if (bprop->balanceType->isInterface) {
+            BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
             llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
             // set fat pointer 'this' argument
@@ -254,24 +207,22 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
             auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
             auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
 
-            BalanceType * btype = currentPackage->currentModule->getType(value->type);
-            if (btype->isInterface()) {
+            if (value->type->isInterface) {
                 // TODO: If property is interface and value is same interface?
             } else {
-                BalanceClass * bclass = (BalanceClass *) btype;
-                Value * vtable = bclass->interfaceVTables[bprop->stringType->base];
+                Value * vtable = value->type->interfaceVTables[bprop->balanceType->name];
                 BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
                 Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
                 currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
 
                 auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-                auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMemberType->properties[accessName]->index, true));
+                auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMember->type->properties[accessName]->index, true));
                 auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
                 currentPackage->currentModule->builder->CreateStore(fatPointer, ptr);
             }
         } else {
             auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMemberType->properties[accessName]->index, true));
+            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMember->type->properties[accessName]->index, true));
             auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
             currentPackage->currentModule->builder->CreateStore(value->value, ptr);
         }
@@ -303,14 +254,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     BalanceValue * firstElement = values[0];
     auto elementSize = ConstantExpr::getSizeOf(firstElement->value->getType());
 
-    BalanceTypeString * arrayClassString = new BalanceTypeString("Array");
-
-    arrayClassString->generics.push_back(firstElement->type);
-
-    // This has the side-effect of constructing the array-generic type.
-    getBuiltinType(arrayClassString);
-
-    BalanceType *arrayType = currentPackage->currentModule->getType(arrayClassString);
+    BalanceType *arrayType = currentPackage->currentModule->getType("Array", { firstElement->type });
     auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
 
     auto memoryPointer = llvm::CallInst::CreateMalloc(
@@ -352,7 +296,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     auto memoryPointerGEP = currentPackage->currentModule->builder->CreateGEP(arrayType->getInternalType(), arrayMemoryPointer, {memoryPointerZeroValue, memoryPointerIndexValue});
     currentPackage->currentModule->builder->CreateStore(memoryPointer, memoryPointerGEP);
 
-    return new BalanceValue(arrayClassString, arrayMemoryPointer);
+    return new BalanceValue(arrayType, arrayMemoryPointer);
 }
 
 any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
@@ -398,7 +342,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 
     // Check if we're accessing a property on a type
     if (currentPackage->currentModule->accessedValue != nullptr) {
-        BalanceType * btype = currentPackage->currentModule->getType(currentPackage->currentModule->accessedValue->type);
+        BalanceType * btype = currentPackage->currentModule->accessedValue->type;
         if (btype == nullptr) {
             throw std::runtime_error("Failed to find type: " + currentPackage->currentModule->accessedValue->type->toString());
         }
@@ -412,23 +356,23 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
         Value *zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         Value *propertyIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
         Value *propertyPointerValue = currentPackage->currentModule->builder->CreateGEP(btype->getInternalType(), currentPackage->currentModule->accessedValue->value, {zero, propertyIndex});
-        return new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(propertyPointerValue));
+        return new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(propertyPointerValue));
     }
 
     BalanceValue * value = currentPackage->currentModule->getValue(variableName);
 
     // Check if it is a class property
-    if (value == nullptr && currentPackage->currentModule->currentClass != nullptr) {
-        // TODO: Check if variableName is in currentClass->properties
+    if (value == nullptr && currentPackage->currentModule->currentType != nullptr) {
+        // TODO: Check if variableName is in currentType->properties
         // TODO: Is this already checked in type-checking?
-        BalanceProperty * bproperty = currentPackage->currentModule->currentClass->properties[variableName];
+        BalanceProperty * bproperty = currentPackage->currentModule->currentType->properties[variableName];
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
         BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
         Type *structType = thisValue->value->getType()->getPointerElementType();
 
         auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
-        value = new BalanceValue(bproperty->stringType, currentPackage->currentModule->builder->CreateLoad(ptr));
+        value = new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(ptr));
     }
 
     // TODO: Figure out how we represent values generally - e.g. can we avoid pointer-to-pointers generally?
@@ -443,7 +387,7 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     std::string variableName = ctx->IDENTIFIER()->getText();
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
-    if (!value->type->isSimpleType() && value->type->base != "Lambda") {
+    if (!value->type->isSimpleType && value->type->name != "Lambda") {
         Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
         currentPackage->currentModule->builder->CreateStore(value->value, alloca);
         value = new BalanceValue(value->type, alloca);
@@ -462,10 +406,10 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
     BalanceValue *value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
     BalanceValue *variable = currentPackage->currentModule->getValue(variableName);
-    if (variable == nullptr && currentPackage->currentModule->currentClass != nullptr) {
-        // TODO: Check if variableName is in currentClass->properties
+    if (variable == nullptr && currentPackage->currentModule->currentType != nullptr) {
+        // TODO: Check if variableName is in currentType->properties
         // TODO: Checked by type-checker?
-        int intIndex = currentPackage->currentModule->currentClass->properties[variableName]->index;
+        int intIndex = currentPackage->currentModule->currentType->properties[variableName]->index;
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
@@ -480,6 +424,7 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
 }
 
 any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {
+    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
 
@@ -494,33 +439,33 @@ any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressio
         result = currentPackage->currentModule->builder->CreateICmpSGE(lhsVal->value, rhsVal->value, "getmp");
     }
 
-    return new BalanceValue(new BalanceTypeString("Bool"), result);
+    return new BalanceValue(boolType, result);
 }
 
 any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) {
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
+    BalanceType * doubleType = currentPackage->currentModule->getType("Double");
 
     // If either operand is float, cast other to float
     if (lhsVal->type->isFloatingPointType() || rhsVal->type->isFloatingPointType()) {
-        llvm::Type * doubleType = getBuiltinType(new BalanceTypeString("Double"));
         llvm::Value * newLhsValue = nullptr;
         llvm::Value * newRhsValue = nullptr;
 
-        if (lhsVal->type->base == "Int") {
-            newLhsValue = currentPackage->currentModule->builder->CreateSIToFP(lhsVal->value, doubleType);
-        } else if (lhsVal->type->base == "Bool") {
-            newLhsValue = currentPackage->currentModule->builder->CreateUIToFP(lhsVal->value, doubleType);
+        if (lhsVal->type->name == "Int") {
+            newLhsValue = currentPackage->currentModule->builder->CreateSIToFP(lhsVal->value, doubleType->getReferencableType());
+        } else if (lhsVal->type->name == "Bool") {
+            newLhsValue = currentPackage->currentModule->builder->CreateUIToFP(lhsVal->value, doubleType->getReferencableType());
         }
 
-        if (rhsVal->type->base == "Int") {
-            newRhsValue = currentPackage->currentModule->builder->CreateSIToFP(rhsVal->value, doubleType);
-        } else if (rhsVal->type->base == "Bool") {
-            newRhsValue = currentPackage->currentModule->builder->CreateUIToFP(rhsVal->value, doubleType);
+        if (rhsVal->type->name == "Int") {
+            newRhsValue = currentPackage->currentModule->builder->CreateSIToFP(rhsVal->value, doubleType->getReferencableType());
+        } else if (rhsVal->type->name == "Bool") {
+            newRhsValue = currentPackage->currentModule->builder->CreateUIToFP(rhsVal->value, doubleType->getReferencableType());
         }
 
-        lhsVal = new BalanceValue(new BalanceTypeString("Double"), newLhsValue);
-        rhsVal = new BalanceValue(new BalanceTypeString("Double"), newRhsValue);
+        lhsVal = new BalanceValue(doubleType, newLhsValue);
+        rhsVal = new BalanceValue(doubleType, newRhsValue);
     }
 
     llvm::Value * result = nullptr;
@@ -544,27 +489,27 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
 any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) {
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
+    BalanceType * doubleType = currentPackage->currentModule->getType("Double");
 
     // If either operand is float, cast other to float
     if (lhsVal->type->isFloatingPointType() || rhsVal->type->isFloatingPointType()) {
-        llvm::Type * doubleType = getBuiltinType(new BalanceTypeString("Double"));
         llvm::Value * newLhsValue = nullptr;
         llvm::Value * newRhsValue = nullptr;
 
-        if (lhsVal->type->base == "Int") {
-            newLhsValue = currentPackage->currentModule->builder->CreateSIToFP(lhsVal->value, doubleType);
-        } else if (lhsVal->type->base == "Bool") {
-            newLhsValue = currentPackage->currentModule->builder->CreateUIToFP(lhsVal->value, doubleType);
+        if (lhsVal->type->name == "Int") {
+            newLhsValue = currentPackage->currentModule->builder->CreateSIToFP(lhsVal->value, doubleType->getReferencableType());
+        } else if (lhsVal->type->name == "Bool") {
+            newLhsValue = currentPackage->currentModule->builder->CreateUIToFP(lhsVal->value, doubleType->getReferencableType());
         }
 
-        if (rhsVal->type->base == "Int") {
-            newRhsValue = currentPackage->currentModule->builder->CreateSIToFP(rhsVal->value, doubleType);
-        } else if (rhsVal->type->base == "Bool") {
-            newRhsValue = currentPackage->currentModule->builder->CreateUIToFP(rhsVal->value, doubleType);
+        if (rhsVal->type->name == "Int") {
+            newRhsValue = currentPackage->currentModule->builder->CreateSIToFP(rhsVal->value, doubleType->getReferencableType());
+        } else if (rhsVal->type->name == "Bool") {
+            newRhsValue = currentPackage->currentModule->builder->CreateUIToFP(rhsVal->value, doubleType->getReferencableType());
         }
 
-        lhsVal = new BalanceValue(new BalanceTypeString("Double"), newLhsValue);
-        rhsVal = new BalanceValue(new BalanceTypeString("Double"), newRhsValue);
+        lhsVal = new BalanceValue(doubleType, newLhsValue);
+        rhsVal = new BalanceValue(doubleType, newRhsValue);
     }
 
     llvm::Value * result = nullptr;
@@ -589,29 +534,28 @@ any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ct
     std::string value = ctx->DECIMAL_INTEGER()->getText();
     Type *i32_type = IntegerType::getInt32Ty(*currentPackage->context);
     int intValue = stoi(value);
-    return new BalanceValue(new BalanceTypeString("Int"), ConstantInt::get(i32_type, intValue, true));
+    return new BalanceValue(currentPackage->currentModule->getType("Int"), ConstantInt::get(i32_type, intValue, true));
 }
 
 any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) {
-    Type *type = getBuiltinType(new BalanceTypeString("Bool"));
+    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
     if (ctx->TRUE()) {
-        return new BalanceValue(new BalanceTypeString("Bool"), ConstantInt::get(type, 1, true));
+        return new BalanceValue(boolType, ConstantInt::get(boolType->getInternalType(), 1, true));
     }
-    return new BalanceValue(new BalanceTypeString("Bool"), ConstantInt::get(type, 0, true));
+    return new BalanceValue(boolType, ConstantInt::get(boolType->getInternalType(), 0, true));
 }
 
 any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
     std::string value = ctx->DOUBLE()->getText();
-    Type *type = getBuiltinType(new BalanceTypeString("Double"));
+    BalanceType * doubleType = currentPackage->currentModule->getType("Double");
     double doubleValue = stod(value);
-    return new BalanceValue(new BalanceTypeString("Double"), ConstantFP::get(type, doubleValue));
+    return new BalanceValue(doubleType, ConstantFP::get(doubleType->getInternalType(), doubleValue));
 }
 
 any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx) {
     std::string text = ctx->STRING()->getText();
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
     int stringLength = text.size();
-
-    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
 
     auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),
@@ -639,7 +583,7 @@ any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx)
     Value *sizeValue = (Value *)ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), stringLength, true);
     currentPackage->currentModule->builder->CreateStore(sizeValue, sizeGEP);
 
-    return new BalanceValue(new BalanceTypeString("String"), stringMemoryPointer);
+    return new BalanceValue(stringType, stringMemoryPointer);
 }
 
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
@@ -647,12 +591,7 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
     BalanceValue * value = any_cast<BalanceValue *>(visit(argument));
 
-    BalanceType * btype = currentPackage->currentModule->getType(value->type);
-    if (btype == nullptr) {
-        throw std::runtime_error("Failed to find type: " + value->type->toString());
-    }
-
-    BalanceFunction * toStringFunction = btype->getMethod("toString");
+    BalanceFunction * toStringFunction = value->type->getMethod("toString");
     if (toStringFunction == nullptr) {
         // TODO: Can we predefine a print method? E.g. "MyClass(a=1, b=true)"
         throw std::runtime_error("Failed to find toString method for type: " + value->type->toString());
@@ -663,7 +602,8 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
 
     auto printArgs = ArrayRef<Value *>{stringValue};
     Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
-    return new BalanceValue(new BalanceTypeString("None"), llvmValue);
+    BalanceType * noneType = currentPackage->currentModule->getType("None");
+    return new BalanceValue(noneType, llvmValue);
 }
 
 any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
@@ -690,7 +630,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             ArrayRef<Value *> argumentsReference(functionArguments);
             FunctionType *FT = dyn_cast<FunctionType>(bvalue->value->getType()->getPointerElementType());
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(FT, bvalue->value, argumentsReference);
-            BalanceTypeString * returnType = bvalue->type->generics.back();
+            BalanceType * returnType = bvalue->type->generics.back();
             return new BalanceValue(returnType, llvmValue);
         } else {
             // Must be a function then
@@ -705,11 +645,11 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                 BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
                 BalanceParameter * bparameter = bfunction->parameters[i];
 
-                if (bparameter->balanceTypeString->isInterface) {
+                if (bparameter->balanceType->isInterface) {
                     // TODO: Let BalanceValue tell us if its a FatPointer instead of pulling it out of the struct like this
                     std::string structName = bvalue->value->getType()->getPointerElementType()->getStructName().str();
                     if (structName != "FatPointer") {
-                        BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
+                        BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
                         llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
                         // set fat pointer 'this' argument
@@ -726,9 +666,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
                         auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
                         auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
 
-                        BalanceClass *bclass = (BalanceClass *) currentPackage->currentModule->getType(bvalue->type);
-
-                        Value * vtable = bclass->interfaceVTables[bparameter->balanceTypeString->base];
+                        Value * vtable = bvalue->type->interfaceVTables[bparameter->balanceType->name];
                         BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
                         Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
                         currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
@@ -744,31 +682,31 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
 
             ArrayRef<Value *> argumentsReference(functionArguments);
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function, argumentsReference);
-            return new BalanceValue(bfunction->returnTypeString, llvmValue);
+            return new BalanceValue(bfunction->returnType, llvmValue);
         }
     } else {
         // Means we're invoking function on an element
 
-        BalanceType *btype = currentPackage->currentModule->getType(currentPackage->currentModule->accessedValue->type);
+        BalanceType *btype = currentPackage->currentModule->accessedValue->type;
         if (btype == nullptr) {
             throw std::runtime_error("Failed to find type " + currentPackage->currentModule->accessedValue->type->toString());
         }
 
         BalanceFunction *bfunction = btype->getMethod(functionName);
 
-        if (btype->isInterface()) {
+        if (btype->isInterface) {
             // Get vtable function index
             int index = btype->getMethodIndex(functionName);
 
             // get fat pointer type
-            BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
+            BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
 
             // get fat pointer 'this' argument
             auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), currentPackage->currentModule->accessedValue->value, {fatPointerThisZeroValue, fatPointerThisIndexValue});
             Value * fatPointerThisValue = (Value *)currentPackage->currentModule->builder->CreateLoad(fatPointerThisPointer);
-            BitCastInst *bitcastThisValueInstr = new BitCastInst(fatPointerThisValue, bfunction->parameters[0]->type);
+            BitCastInst *bitcastThisValueInstr = new BitCastInst(fatPointerThisValue, bfunction->parameters[0]->balanceType->getReferencableType());
             Value * bitcastThisValue = currentPackage->currentModule->builder->Insert(bitcastThisValueInstr);
 
             // get fat pointer 'vtable' argument
@@ -782,10 +720,9 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             auto functionIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, index, true));
 
             // Bitcast the int64* to a vTableStructType*
-            BalanceInterface * binterface = (BalanceInterface *) btype;
-            BitCastInst *bitcast = new BitCastInst(fatPointerVtableValue, PointerType::get(binterface->vTableStructType, 0));
+            BitCastInst *bitcast = new BitCastInst(fatPointerVtableValue, PointerType::get(btype->vTableStructType, 0));
             Value * bitcastValue = currentPackage->currentModule->builder->Insert(bitcast);
-            auto functionPointer = currentPackage->currentModule->builder->CreateGEP(binterface->vTableStructType, bitcastValue, {functionZeroValue, functionIndexValue});
+            auto functionPointer = currentPackage->currentModule->builder->CreateGEP(btype->vTableStructType, bitcastValue, {functionZeroValue, functionIndexValue});
             Value * functionValue = (Value *)currentPackage->currentModule->builder->CreateLoad(functionPointer);
 
             // create call to function
@@ -806,7 +743,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
 
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function->getFunctionType(), functionValue, argumentsReference);
 
-            return new BalanceValue(bfunction->returnTypeString, llvmValue);
+            return new BalanceValue(bfunction->returnType, llvmValue);
         } else {
             vector<Value *> functionArguments;
             // Add "this" as first argument
@@ -824,7 +761,7 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
             ArrayRef<Value *> argumentsReference(functionArguments);
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function->getFunctionType(), (Value *)bfunction->function, argumentsReference);
 
-            return new BalanceValue(bfunction->returnTypeString, llvmValue);
+            return new BalanceValue(bfunction->returnType, llvmValue);
         }
     }
     // TODO: Should functions be referenced with getValue as well, so we get the closest lambda/func
@@ -837,14 +774,13 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
         // handled in visitFunctionDefinition, since we will not hit this method on implicit 'return None'
     } else {
         BalanceValue * bvalue = any_cast<BalanceValue *>(visit(ctx->expression()));
-        BalanceType * btype = currentPackage->currentModule->getType(bvalue->type);
 
         BalanceFunction * bfunction = currentPackage->currentModule->currentFunction;
         BalanceLambda * blambda = currentPackage->currentModule->currentLambda;
 
-        if ((bfunction != nullptr && bfunction->returnTypeString->isInterface || blambda != nullptr && blambda->returnTypeString->isInterface) && !btype->isInterface()) {
+        if ((bfunction != nullptr && bfunction->returnType->isInterface || blambda != nullptr && blambda->returnType->isInterface) && !bvalue->type->isInterface) {
             // Convert to fat pointer
-            BalanceType * fatPointerType = currentPackage->currentModule->getType(new BalanceTypeString("FatPointer"));
+            BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
             llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
             // set fat pointer 'this' argument
@@ -861,8 +797,7 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
             auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
             auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
 
-            BalanceClass * bclass = (BalanceClass *) btype;
-            Value * vtable = bclass->interfaceVTables[currentPackage->currentModule->currentFunction->returnTypeString->base];
+            Value * vtable = bvalue->type->interfaceVTables[currentPackage->currentModule->currentFunction->returnType->name];
             BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
             Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
             currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
@@ -878,29 +813,30 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
 
 any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
     std::string text = ctx->getText();
-    vector<BalanceTypeString *> functionParameterTypeStrings;
+    vector<BalanceType *> functionParameterTypeStrings;
     vector<std::string> functionParameterNames;
     vector<llvm::Type *> functionParameterTypes;
+
     for (BalanceParser::ParameterContext *parameter : ctx->lambda()->parameterList()->parameter()) {
         std::string parameterName = parameter->identifier->getText();
         std::string typeString = parameter->type->getText();
-        BalanceTypeString * bTypeString = new BalanceTypeString(typeString);
+        BalanceType * btype = currentPackage->currentModule->getType(typeString);
         functionParameterNames.push_back(parameterName);
-        functionParameterTypes.push_back(getBuiltinType(bTypeString));
-        functionParameterTypeStrings.push_back(bTypeString);
+        functionParameterTypes.push_back(btype->getReferencableType());
+        functionParameterTypeStrings.push_back(btype);
     }
 
     // If we don't have a return type, assume none
-    BalanceTypeString * returnType;
+    BalanceType * returnType;
     if (ctx->lambda()->returnType()) {
         std::string functionReturnTypeString = ctx->lambda()->returnType()->balanceType()->getText();
-        returnType = new BalanceTypeString(functionReturnTypeString); // TODO: Handle unknown type
+        returnType = currentPackage->currentModule->getType(functionReturnTypeString);
     } else {
-        returnType = new BalanceTypeString("None");
+        returnType = currentPackage->currentModule->getType("None");
     }
 
     ArrayRef<Type *> parametersReference(functionParameterTypes);
-    FunctionType *functionType = FunctionType::get(getBuiltinType(returnType), parametersReference, false);
+    FunctionType *functionType = FunctionType::get(returnType->getReferencableType(), parametersReference, false);
     Function *function = Function::Create(functionType, Function::ExternalLinkage, "", currentPackage->currentModule->module);
 
     // Add parameter names
@@ -921,7 +857,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
 
     visit(ctx->lambda()->functionBlock());
 
-    if (returnType->base == "None") {
+    if (returnType->name == "None") {
         currentPackage->currentModule->builder->CreateRetVoid();
     }
 
@@ -941,21 +877,22 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     llvm::Value *p = currentPackage->currentModule->builder->CreateAlloca(function->getType());
     currentPackage->currentModule->builder->CreateStore(function, p, false);
 
-    vector<BalanceTypeString *> lambdaGenerics;
-    for (BalanceTypeString * btype : functionParameterTypeStrings) {
+    vector<BalanceType *> lambdaGenerics;
+    for (BalanceType * btype : functionParameterTypeStrings) {
         lambdaGenerics.push_back(btype);
     }
     lambdaGenerics.push_back(returnType);
 
-    return new BalanceValue(new BalanceTypeString("Lambda", lambdaGenerics), (Value *)currentPackage->currentModule->builder->CreateLoad(p));
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", lambdaGenerics);
+    return new BalanceValue(lambdaType, (Value *)currentPackage->currentModule->builder->CreateLoad(p));
 }
 
 any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
     std::string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
     BalanceFunction *bfunction;
 
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        bfunction = currentPackage->currentModule->currentClass->getMethod(functionName);
+    if (currentPackage->currentModule->currentType != nullptr) {
+        bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }
@@ -972,7 +909,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     for (BalanceParameter *parameter : bfunction->parameters) {
         llvm::Value *x = args++;
         x->setName(parameter->name);
-        BalanceValue * bvalue = new BalanceValue(parameter->balanceTypeString, x);
+        BalanceValue * bvalue = new BalanceValue(parameter->balanceType, x);
         currentPackage->currentModule->setValue(parameter->name, bvalue);
     }
 
@@ -996,7 +933,7 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     }
     /* END Remove empty blocks */
 
-    if (bfunction->returnType->isVoidTy()) {
+    if (bfunction->returnType->name == "None") {
         currentPackage->currentModule->builder->CreateRetVoid();
     }
 

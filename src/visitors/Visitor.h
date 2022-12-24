@@ -6,7 +6,7 @@
 #include "BalanceParser.h"
 #include "../Utilities.h"
 #include "../models/BalanceProperty.h"
-#include "../models/BalanceTypeString.h"
+#include "../models/BalanceType.h"
 #include "../models/BalanceValue.h"
 
 #include "clang/Driver/Driver.h"
@@ -61,7 +61,6 @@ using namespace antlrcpptest;
 using namespace llvm;
 using namespace std;
 
-Type *getBuiltinType(BalanceTypeString * typeString);
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull);
 
 class BalanceVisitor : public BalanceParserBaseVisitor

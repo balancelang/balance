@@ -10,6 +10,7 @@
 #include "visitors/TokenVisitor.h"
 #include "visitors/InterfaceVTableVisitor.h"
 #include "visitors/ClassVTableVisitor.h"
+#include "visitors/TypeRegistrationVisitor.h"
 
 #include "config.h"
 
@@ -18,6 +19,7 @@
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/document.h"
 #include <filesystem>
+
 namespace fs = std::filesystem;
 
 extern BalancePackage *currentPackage;
@@ -120,6 +122,14 @@ bool BalancePackage::compileAndPersist()
         this->logger("Adding builtins to modules");
         this->addBuiltinsToModules();
 
+        // TypeRegistrationVisitor.cpp - visit all types so they exist
+        this->logger("Registering types");
+        success = this->registerTypes();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->logger("Building textual representations");
         success = this->buildTextualRepresentations();
@@ -175,6 +185,12 @@ bool BalancePackage::executeString(std::string program) {
 
     createBuiltins();
     this->addBuiltinsToModules();
+
+    this->logger("Registering types");
+    success = this->registerTypes();
+    if (!success) {
+        return false;
+    }
 
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
     success = this->buildTextualRepresentations();
@@ -241,7 +257,27 @@ void BalancePackage::buildStructures()
         LLVMTypeVisitor visitor;
         visitor.visit(bmodule->tree);
 
-        bool isFinalized = bmodule->finalized();
+        bool isFinalized = true;
+
+        // Check all types
+        for (auto const &x : bmodule->types) {
+            BalanceType * btype = x.second;
+
+            if (!btype->finalized()) {
+                isFinalized = false;
+                break;
+            }
+        }
+
+        // Check all functions
+        for (auto const &x : bmodule->functions) {
+            BalanceFunction * bfunction = x.second;
+            if (bfunction->function == nullptr) {
+                isFinalized = false;
+                break;
+            }
+        }
+
         if (!isFinalized)
         {
             queue.push(bmodule);
@@ -307,8 +343,8 @@ void BalancePackage::addBuiltinsToModules() {
             createImportedFunction(bmodule, bfunction);
         }
 
-        for (auto const &x : builtinsModule->classes) {
-            BalanceClass * bclass = x.second;
+        for (auto const &x : builtinsModule->types) {
+            BalanceType * bclass = x.second;
             createImportedClass(bmodule, bclass);
         }
     }
@@ -325,6 +361,25 @@ bool BalancePackage::buildTextualRepresentations()
             StructureVisitor visitor;
             visitor.visit(this->currentModule->tree);
         } catch (const StructureVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::registerTypes()
+{
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            TypeRegistrationVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+        } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;
         }

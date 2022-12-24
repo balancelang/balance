@@ -1,24 +1,23 @@
 #ifndef BALANCE_PARAMETER_H
 #define BALANCE_PARAMETER_H
 
-#include "BalanceTypeString.h"
+#include "BalanceType.h"
 
 #include "llvm/IR/Type.h"
+
+class BalanceType;
 
 class BalanceParameter
 {
 public:
-    BalanceTypeString * balanceTypeString;
     std::string name;
-    llvm::Type *type = nullptr;  // TODO: Ditch this and use balanceTypeString->type
+    BalanceType * balanceType;
 
-    BalanceParameter(BalanceTypeString * balanceTypeString, std::string name)
+    BalanceParameter(BalanceType * balanceType, std::string name)
     {
-        this->balanceTypeString = balanceTypeString;
+        this->balanceType = balanceType;
         this->name = name;
     }
-
-    bool finalized();
 };
 
 #endif

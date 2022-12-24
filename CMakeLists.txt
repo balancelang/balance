@@ -117,16 +117,14 @@ add_executable(balance
                src/Utilities.cpp
                src/models/BalanceType.cpp
                src/models/BalanceValue.cpp
-               src/models/BalanceClass.cpp
-               src/models/BalanceInterface.cpp
                src/models/BalanceFunction.cpp
                src/models/BalanceModule.cpp
                src/models/BalanceParameter.cpp
                src/models/BalanceProperty.cpp
-               src/models/BalanceTypeString.cpp
                src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
+               src/visitors/TypeRegistrationVisitor.cpp
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ClassVTableVisitor.cpp

@@ -4,15 +4,17 @@
 #include <map>
 #include "llvm/IR/Value.h"
 
-#include "BalanceTypeString.h"
+#include "BalanceType.h"
+
+class BalanceType;
 
 class BalanceValue
 {
 public:
-    BalanceTypeString * type = nullptr;
+    BalanceType * type = nullptr;
     llvm::Value * value = nullptr;
 
-    BalanceValue(BalanceTypeString * type, llvm::Value * value) {
+    BalanceValue(BalanceType * type, llvm::Value * value) {
         this->type = type;
         this->value = value;
     }

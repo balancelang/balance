@@ -43,39 +43,22 @@ void BalanceModule::generateASTFromString(std::string program) {
     this->generateASTFromStream(antlrStream);
 }
 
-// TODO: Should this take a std::string instead? Do we ever need the generics when retrieving a type?
-BalanceType * BalanceModule::getType(BalanceTypeString * typeName) {
-    for (auto const &x : classes)
+BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
+    for (auto const &x : types)
     {
-        BalanceClass * bclass = x.second;
-        if (bclass->name->equalTo(typeName)) {
-            return bclass;
+        BalanceType * btype = x.second;
+        if (btype->equalTo(this, typeName, generics)) {
+            return btype;
         }
     }
 
-    for (auto const &x : interfaces)
+    for (auto const &x : importedTypes)
     {
-        BalanceInterface * binterface = x.second;
-        if (binterface->name->base == typeName->base) {
-            return binterface;
+        BalanceType * btype = x.second;
+        if (btype->equalTo(this, typeName, generics)) {
+            return btype;
         }
     }
-
-    for (auto const &x : importedClasses)
-    {
-        BalanceClass * bclass = x.second;
-        if (bclass->name->equalTo(typeName)) {
-            return bclass;
-        }
-    }
-
-    // for (auto const &x : importedInterfaces)
-    // {
-    //     BalanceClass * bclass = x.second;
-    //     if (bclass->name->base == className->base) {
-    //         return bclass;
-    //     }
-    // }
 
     return nullptr;
 }
@@ -100,21 +83,6 @@ BalanceFunction *BalanceModule::getFunction(std::string functionName) {
     return nullptr;
 }
 
-BalanceTypeString *BalanceModule::getTypeValue(std::string variableName) {
-    BalanceScopeBlock *scope = this->currentScope;
-    while (scope != nullptr) {
-        // Check variables etc
-        BalanceTypeString *tryVal = scope->typeSymbolTable[variableName];
-        if (tryVal != nullptr) {
-            return tryVal;
-        }
-
-        scope = scope->parent;
-    }
-
-    return nullptr;
-}
-
 BalanceValue *BalanceModule::getValue(std::string variableName) {
     BalanceScopeBlock *scope = this->currentScope;
     while (scope != nullptr) {
@@ -132,28 +100,6 @@ BalanceValue *BalanceModule::getValue(std::string variableName) {
 
 void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
     this->currentScope->symbolTable[variableName] = bvalue;
-}
-
-bool BalanceModule::finalized() {
-    for (auto const &x : this->interfaces) {
-        if (!x.second->finalized()) {
-            return false;
-        }
-    }
-
-    for (auto const &x : this->classes) {
-        if (!x.second->finalized()) {
-            return false;
-        }
-    }
-
-    for (auto const &x : this->functions) {
-        if (!x.second->finalized()) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {

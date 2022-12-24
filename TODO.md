@@ -17,6 +17,9 @@
 - test returning interface?
 - test array of interfaces
 
+## Lambdas
+- we don't malloc now - test what happens if invoking e.g. functions after getting lambda from function
+
 ## classes
 - test class as property
     - get

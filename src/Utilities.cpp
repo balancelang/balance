@@ -1,7 +1,7 @@
 #include "Utilities.h"
 #include "BalancePackage.h"
 #include "visitors/Visitor.h"
-#include "models/BalanceTypeString.h"
+#include "models/BalanceType.h"
 
 #include <cstdio>
 #include <fstream>
@@ -16,38 +16,39 @@ bool fileExist(std::string fileName) {
 }
 
 void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) {
-    BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnTypeString);
+    BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnType);
     ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, bfunction->name, bmodule->module);
     bmodule->importedFunctions[bfunction->name] = ibfunction;
 }
 
-void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
-    BalanceClass *ibclass = new BalanceClass(bclass->name, bmodule);
+void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
+    BalanceType * ibtype = new BalanceType(bmodule, btype->name);
     // TODO: Figure out a better way to do this.
-    ibclass->internalType = bclass->internalType;
-    ibclass->constructor = bclass->constructor;
-    ibclass->isSimpleType = bclass->isSimpleType;
-    bmodule->importedClasses[bclass->name->toString()] = ibclass;
+    ibtype->generics = btype->generics;
+    ibtype->internalType = btype->internalType;
+    ibtype->constructor = btype->constructor;
+    ibtype->isSimpleType = btype->isSimpleType;
+    bmodule->importedTypes[btype->toString()] = ibtype;
 
     // Import class properties
-    ibclass->properties = bclass->properties;
+    ibtype->properties = btype->properties;
 
     // Import each class method
-    for (auto const &x : bclass->getMethods()) {
+    for (auto const &x : btype->getMethods()) {
         BalanceFunction *bfunction = x.second;
-        BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnTypeString);
-        ibclass->methods[bfunction->name] = ibfunction;
-        std::string functionNameWithClass = ibclass->name->toString() + "_" + ibfunction->name;
+        BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnType);
+        ibtype->methods[bfunction->name] = ibfunction;
+        std::string functionNameWithClass = ibtype->toString() + "_" + ibfunction->name;
         ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, functionNameWithClass, bmodule->module);
     }
 
     // Import constructor
-    if (bclass->internalType != nullptr && !bclass->isSimpleType) {
-        if (ibclass->constructor != nullptr) {
+    if (btype->internalType != nullptr && !btype->isSimpleType) {
+        if (ibtype->constructor != nullptr) {
             // TODO: We will need to differentiate constructors when allowing constructor-overloading
-            std::string constructorName = ibclass->name->toString() + "_constructor";
-            FunctionType *constructorType = ibclass->constructor->getFunctionType();
-            ibclass->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+            std::string constructorName = ibtype->toString() + "_constructor";
+            FunctionType *constructorType = ibtype->constructor->getFunctionType();
+            ibtype->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
         } else {
             // TODO: Should this be able to happen? Internal types e.g.?
         }
@@ -58,17 +59,17 @@ void createImportedClass(BalanceModule *bmodule, BalanceClass *bclass) {
     // TODO: Does the type as a whole need forward declarations?
 }
 
-void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
-    std::string constructorName = bclass->name->toString() + "_constructor";
+void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
+    std::string constructorName = btype->toString() + "_constructor";
     vector<Type *> functionParameterTypes;
 
     // TODO: Constructor should return Type of class?
-    Type *returnType = getBuiltinType(new BalanceTypeString("None"));
+    BalanceType * returnType = currentPackage->currentModule->getType("None");
 
-    ArrayRef<Type *> parametersReference{bclass->getReferencableType()};
-    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
+    ArrayRef<Type *> parametersReference{btype->getReferencableType()};
+    FunctionType *functionType = FunctionType::get(returnType->getInternalType(), parametersReference, false);
     Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, bmodule->module);
-    bclass->constructor = function;
+    btype->constructor = function;
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
@@ -80,17 +81,16 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    for (auto const &x : bclass->properties) {
+    for (auto const &x : btype->properties) {
         BalanceProperty *property = x.second;
-        Type *propertyType = property->type;
+        Type *propertyType = property->balanceType->getReferencableType();
 
         Value *initialValue = nullptr;
-        if (propertyType->isIntegerTy(1)) {
-            initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Bool")), 0, true);
-        } else if (propertyType->isIntegerTy(32)) {
-            initialValue = ConstantInt::get(getBuiltinType(new BalanceTypeString("Int")), 0, true);
+        if (propertyType->isIntegerTy()) {
+            int width = propertyType->getIntegerBitWidth();
+            initialValue = ConstantInt::get(*currentPackage->context, llvm::APInt(width, 0, true));
         } else if (propertyType->isFloatingPointTy()) {
-            initialValue = ConstantFP::get(getBuiltinType(new BalanceTypeString("Double")), 0.0);
+            initialValue = ConstantFP::get(Type::getDoubleTy(*currentPackage->context), 0.0);
         } else if (PointerType *PT = dyn_cast<PointerType>(propertyType)) {
             if (propertyType->getPointerElementType()->isIntegerTy(32)) {
                 initialValue = ConstantPointerNull::get(Type::getInt32PtrTy(*currentPackage->context));
@@ -107,8 +107,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
 
         // TODO: Handle String and nullable types
         if (initialValue == nullptr) {
-            std::cout << "Unhandled initial value for type: " << propertyType << std::endl;
-            exit(1);
+            throw std::runtime_error("Unhandled initial value for type: " + property->balanceType->toString());
         }
 
         int intIndex = property->index;
@@ -125,32 +124,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceClass *bclass) {
 
     bool hasError = verifyFunction(*function, &llvm::errs());
     if (hasError) {
-        throw std::runtime_error("Error verifying default constructor for class: " + bclass->name->toString());
+        throw std::runtime_error("Error verifying default constructor for class: " + btype->toString());
     }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
-bool balanceTypeStringsEqual(BalanceTypeString * a, BalanceTypeString * b) {
-    if (a->base != b->base) {
-        return false;
-    }
-
-    if (a->generics.size() != b->generics.size()) {
-        return false;
-    }
-
-    for (int i = 0; i < a->generics.size(); i++) {
-        BalanceTypeString * ai = a->generics[i];
-        BalanceTypeString * bi = b->generics[i];
-
-        if (ai->base != bi->base) {
-            return false;
-        }
-        bool subResult = balanceTypeStringsEqual(ai, bi);
-        if (!subResult) {
-            return false;
-        }
-    }
-
-    return true;
 }

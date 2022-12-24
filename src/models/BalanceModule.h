@@ -3,10 +3,9 @@
 
 #include "BalanceScopeBlock.h"
 #include "BalanceType.h"
-#include "BalanceClass.h"
-#include "BalanceInterface.h"
 #include "BalanceFunction.h"
 #include "BalanceLambda.h"
+#include "BalanceValue.h"
 #include "llvm/IR/IRBuilder.h"
 #include "BalanceParserBaseVisitor.h"
 #include "BalanceLexer.h"
@@ -16,12 +15,10 @@
 using namespace antlrcpptest;
 using namespace antlr4;
 
-class BalanceImportedClass;
-class BalanceImportedFunction;
-class BalanceClass;
-class BalanceInterface;
-class BalanceFunction;
 class BalanceType;
+class BalanceFunction;
+class BalanceLambda;
+class BalanceValue;
 
 class Position {
 public:
@@ -65,19 +62,17 @@ public:
     bool isEntrypoint;
 
     // Structures defined in this module
-    std::map<std::string, BalanceClass *> classes = {};
+    std::map<std::string, BalanceType *> types = {};
     std::map<std::string, BalanceFunction *> functions = {};
-    std::map<std::string, BalanceInterface *> interfaces = {};
     std::map<std::string, llvm::Value *> globals = {};
 
     // Structures imported into this module
-    std::map<std::string, BalanceClass *> importedClasses = {};
+    std::map<std::string, BalanceType *> importedTypes = {};
     std::map<std::string, BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
 
     BalanceScopeBlock *rootScope;
-    BalanceClass *currentClass = nullptr;
-    BalanceInterface *currentInterface = nullptr;
+    BalanceType *currentType = nullptr;
     BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
@@ -101,7 +96,7 @@ public:
 
     bool finishedDiscovery;
 
-    BalanceModule(string path, bool isEntrypoint)
+    BalanceModule(std::string path, bool isEntrypoint)
     {
         this->path = path;
         this->isEntrypoint = isEntrypoint;
@@ -122,14 +117,10 @@ public:
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath();
     void generateASTFromString(std::string program);
-    BalanceType * getType(BalanceTypeString * className);
+    BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics = {});
     BalanceFunction * getFunction(std::string functionName);
-
-    BalanceTypeString *getTypeValue(std::string variableName);
     BalanceValue *getValue(std::string variableName);
     void setValue(std::string variableName, BalanceValue *bvalue);
-    bool finalized();
-
     bool hasTypeErrors();
     void reportTypeErrors();
 };

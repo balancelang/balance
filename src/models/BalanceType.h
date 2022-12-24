@@ -4,68 +4,61 @@
 #include <map>
 #include "llvm/IR/Function.h"
 
-#include "BalanceTypeString.h"
+#include "BalanceProperty.h"
+#include "BalanceFunction.h"
+#include "BalanceModule.h"
 
 class BalanceFunction;
 class BalanceProperty;
+class BalanceModule;
 
 class BalanceType
 {
 public:
-    BalanceTypeString * name;
+    std::string name;                                   // E.g. "Array" in "Array<Int>"
+    std::vector<BalanceType *> generics;                // E.g. ["String", "Int"] in Dictionary<String, Int>
     llvm::Type * internalType = nullptr;
     llvm::Function * constructor = nullptr;
     bool isSimpleType = false;
+    bool isInterface = false;
+    BalanceModule *balanceModule;
+    bool hasBody = false;
 
     std::map<std::string, BalanceProperty *> properties = {};
     std::map<std::string, BalanceFunction *> methods = {};
+    std::map<std::string, BalanceType *> interfaces = {};
 
-    void addMethod(std::string name, BalanceFunction * method) {
-        this->methods[name] = method;
+    // If interface, this holds the vtable struct (the vtable function types)
+    llvm::StructType *vTableStructType = nullptr;
+
+    // If class, this holds each implemented vtable
+    std::map<std::string, llvm::Value *> interfaceVTables = {};
+
+    BalanceType(BalanceModule * balanceModule, std::string name, std::vector<BalanceType *> generics = {}) {
+        this->balanceModule = balanceModule;
+        this->name = name;
+        this->generics = generics;
     }
 
-    std::map<std::string, BalanceFunction *> getMethods() {
-        return this->methods;
+    BalanceType(BalanceModule * balanceModule, std::string name, llvm::Type * internalType) {
+        this->balanceModule = balanceModule;
+        this->name = name;
+        this->internalType = internalType;
     }
 
-    BalanceFunction * getMethod(std::string key) {
-        if (this->methods.find(key) != this->methods.end()) {
-            return this->methods[key];
-        }
-        return nullptr;
-    }
-
-    int getMethodIndex(std::string key) {
-        auto it = this->methods.find(key);
-        if (it == this->methods.end()) {
-            return -1;
-        }
-        return std::distance(this->methods.begin(), it);
-    }
-
-    llvm::Type * getReferencableType() {
-        return this->isSimpleType ? this->internalType : (llvm::Type *) this->internalType->getPointerTo();
-    }
-
-    llvm::Type * getInternalType() {
-        return this->internalType;
-    }
-
-    bool isInterface() {
-        return this->name->isInterface;
-    }
-
-    llvm::Function * getConstructor() {
-        // TODO: When constructor overloading, change this signature to include e.g. parameters?
-        return this->constructor;
-    }
-
-    BalanceProperty * getProperty(std::string propertyName) {
-        if (this->properties.find(propertyName) != this->properties.end()) {
-            return this->properties[propertyName];
-        }
-        return nullptr;
-    }
+    void addMethod(std::string name, BalanceFunction * method);
+    std::map<std::string, BalanceFunction *> getMethods();
+    BalanceFunction * getMethod(std::string key);
+    int getMethodIndex(std::string key);
+    llvm::Type * getReferencableType();
+    llvm::Type * getInternalType();
+    bool isFloatingPointType();
+    std::string toString();
+    bool equalTo(BalanceModule * bmodule, std::string name, std::vector<BalanceType *> generics = {});
+    bool equalTo(BalanceType * other);
+    llvm::Function * getConstructor();
+    BalanceProperty * getProperty(std::string propertyName);
+    bool finalized();
 };
 
 #endif
