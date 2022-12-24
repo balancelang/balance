@@ -1,7 +1,10 @@
 #include "StructureVisitor.h"
 
 #include "../BalancePackage.h"
-#include "../models/BalanceTypeString.h"
+#include "../models/BalanceType.h"
+#include "../builtins/Array.h"
+#include "../builtins/Lambda.h"
+#include "../Utilities.h"
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
@@ -66,11 +69,9 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
     string className = ctx->className->getText();
     string text = ctx->getText();
 
-    // TODO: check for duplicate className
-
-    BalanceClass *bclass = new BalanceClass(new BalanceTypeString(className), currentPackage->currentModule);
-    currentPackage->currentModule->currentClass = bclass;
-    currentPackage->currentModule->classes[className] = bclass;
+    // Check for duplicate className
+    BalanceType * btype = currentPackage->currentModule->getType(className);
+    currentPackage->currentModule->currentType = btype;
 
     // TODO: Test that this happens when type-checking instead, since then methods and interfaces exist
     // // Parse extend/implements
@@ -92,98 +93,112 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
         }
     }
 
-    currentPackage->currentModule->currentClass = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 
 std::any StructureVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
     if (ctx->IDENTIFIER()) {
-        return new BalanceTypeString(ctx->IDENTIFIER()->getText());
+        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
     } else {
-        return new BalanceTypeString(ctx->NONE()->getText());
+        return currentPackage->currentModule->getType(ctx->NONE()->getText());
     }
 }
 
 std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
-    std::vector<BalanceTypeString *> generics;
+    std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
-        BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(type));
-        generics.push_back(typeString);
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
     }
 
-    BalanceTypeString *returnTypeString = any_cast<BalanceTypeString *>(visit(ctx->balanceType()));
-    generics.push_back(returnTypeString);
+    BalanceType *returnType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+    generics.push_back(returnType);
 
-    return new BalanceTypeString("Lambda", generics);
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = createType__Lambda(generics);
+        createImportedClass(currentPackage->currentModule, lambdaType);
+    }
+
+    return lambdaType;
+}
+
+std::any StructureVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
+    std::string text = ctx->getText();
+    vector<BalanceType *> generics;
+
+    for (BalanceParser::ParameterContext *parameter : ctx->lambda()->parameterList()->parameter()) {
+        std::string typeString = parameter->type->getText();
+        BalanceType * btype = currentPackage->currentModule->getType(typeString);
+        generics.push_back(btype);
+    }
+
+    // If we don't have a return type, assume none
+    BalanceType * returnType;
+    if (ctx->lambda()->returnType()) {
+        std::string functionReturnTypeString = ctx->lambda()->returnType()->balanceType()->getText();
+        returnType = currentPackage->currentModule->getType(functionReturnTypeString);
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
+    }
+    generics.push_back(returnType);
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = createType__Lambda(generics);
+        createImportedClass(currentPackage->currentModule, lambdaType);
+    }
+    return lambdaType;
+}
+
+std::any StructureVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
+    std::string text = ctx->getText();
+    BalanceType * firstValue;
+    for (BalanceParser::ExpressionContext *expression : ctx->listElements()->expression()) {
+        firstValue = any_cast<BalanceType *>(visit(expression));
+        break;
+    }
+
+    BalanceType *arrayType = currentPackage->currentModule->getType("Array", { firstValue });
+    if (arrayType == nullptr) {
+        // Create type
+        arrayType = createType__Array(firstValue);
+        createImportedClass(currentPackage->currentModule, arrayType);
+    }
+    return arrayType;
 }
 
 std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
     std::string base = ctx->base->getText();
-    std::vector<BalanceTypeString *> generics;
+    std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
-        BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(type));
-        generics.push_back(typeString);
-    }
-    return new BalanceTypeString(base, generics);
-}
-
-std::any StructureVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
-    string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
-
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        if (currentPackage->currentModule->currentClass->getMethod(functionName) != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
-            return std::any();
-        }
-    } else {
-        // TODO: Should we allow overriding functions in new scopes?
-        if (currentPackage->currentModule->functions[functionName] != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
-            return std::any();
-        }
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
     }
 
-    vector<BalanceParameter *> parameters;
-
-    // Add implicit "this" argument to class methods
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        BalanceParameter *thisParameter = new BalanceParameter(currentPackage->currentModule->currentClass->name, "this");
-        parameters.push_back(thisParameter);
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = createType__Lambda(generics);
+        createImportedClass(currentPackage->currentModule, lambdaType);
     }
-
-    for (BalanceParser::ParameterContext *parameter : ctx->functionSignature()->parameterList()->parameter()) {
-        string parameterName = parameter->identifier->getText();
-        BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(parameter->balanceType()));
-        parameters.push_back(new BalanceParameter(typeString, parameterName));
-    }
-
-    // If we don't have a return type, assume none
-    BalanceTypeString *returnType;
-    if (ctx->functionSignature()->returnType()) {
-        returnType = any_cast<BalanceTypeString *>(visit(ctx->functionSignature()->returnType()->balanceType()));
-    } else {
-        returnType = new BalanceTypeString("None");
-    }
-
-    // Check if we are parsing a class method
-    if (currentPackage->currentModule->currentClass != nullptr) {
-        currentPackage->currentModule->currentClass->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
-    } else {
-        currentPackage->currentModule->functions[functionName] = new BalanceFunction(functionName, parameters, returnType);
-    }
-
-    return nullptr;
+    return lambdaType;
 }
 
 std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    BalanceTypeString *typeString = new BalanceTypeString(ctx->type->getText());
+    BalanceType * btype = currentPackage->currentModule->getType(ctx->type->getText());
     string name = ctx->name->getText();
 
-    int count = currentPackage->currentModule->currentClass->properties.size();
-    currentPackage->currentModule->currentClass->properties[name] = new BalanceProperty(name, typeString, count);
+    // Check for duplicate property name
+    if (currentPackage->currentModule->currentType->properties.find(name) != currentPackage->currentModule->currentType->properties.end()) {
+        currentPackage->currentModule->addTypeError(ctx, "Duplicate property name, property already exist: " + name);
+        throw StructureVisitorException();
+    }
+
+    int count = currentPackage->currentModule->currentType->properties.size();
+    currentPackage->currentModule->currentType->properties[name] = new BalanceProperty(name, btype, count);
     return nullptr;
 }
 
@@ -191,55 +206,97 @@ std::any StructureVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefi
     string interfaceName = ctx->interfaceName->getText();
     string text = ctx->getText();
 
-    // TODO: check for duplicate interfaceName
+    BalanceType *binterface = currentPackage->currentModule->getType(interfaceName);
+    currentPackage->currentModule->currentType = binterface;
 
-    BalanceInterface *binterface = new BalanceInterface(new BalanceTypeString(interfaceName));
-    binterface->name->isInterface = true;
-    binterface->internalType = llvm::StructType::create(*currentPackage->context, interfaceName);
-    currentPackage->currentModule->currentInterface = binterface;
-    currentPackage->currentModule->interfaces[interfaceName] = binterface;
-
-    // Visit all class functions
+    // Visit all interface functions
     for (auto const &x : ctx->interfaceElement()) {
         if (x->functionSignature()) {
             visit(x);
         }
     }
 
-    currentPackage->currentModule->currentInterface = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 
 std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
-    if (currentPackage->currentModule->currentInterface != nullptr) {
-        string functionName = ctx->IDENTIFIER()->getText();
+    string functionName = ctx->IDENTIFIER()->getText();
 
-        if (currentPackage->currentModule->currentInterface->getMethod(functionName) != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
-            return std::any();
+    if (currentPackage->currentModule->currentType != nullptr) {
+        if (currentPackage->currentModule->currentType->getMethod(functionName) != nullptr) {
+            if (currentPackage->currentModule->currentType->isInterface) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
+            } else {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+            }
+            throw StructureVisitorException();
         }
-
-        vector<BalanceParameter *> parameters;
-
-        // Add implicit "this" argument to class methods
-        BalanceParameter *thisParameter = new BalanceParameter(currentPackage->currentModule->currentInterface->name, "this");
-        parameters.push_back(thisParameter);
-
-        for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
-            string parameterName = parameter->identifier->getText();
-            BalanceTypeString *typeString = any_cast<BalanceTypeString *>(visit(parameter->balanceType()));
-            parameters.push_back(new BalanceParameter(typeString, parameterName));
+    } else {
+        // TODO: Should we allow overriding functions in new scopes?
+        if (currentPackage->currentModule->functions[functionName] != nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
+            throw StructureVisitorException();
         }
-
-        // If we don't have a return type, assume none
-        BalanceTypeString *returnType;
-        if (ctx->returnType()) {
-            returnType = any_cast<BalanceTypeString *>(visit(ctx->returnType()->balanceType()));
-        } else {
-            returnType = new BalanceTypeString("None");
-        }
-
-        currentPackage->currentModule->currentInterface->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
     }
+
+    vector<BalanceParameter *> parameters;
+
+    // Add implicit "this" argument to class methods
+    if (currentPackage->currentModule->currentType != nullptr) {
+        BalanceParameter *thisParameter = new BalanceParameter(currentPackage->currentModule->currentType, "this");
+        parameters.push_back(thisParameter);
+    }
+
+    for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
+        string parameterName = parameter->identifier->getText();
+        BalanceType * btype = any_cast<BalanceType *>(visit(parameter->balanceType()));
+
+        // Check for duplicate parameter name
+        for (auto param : parameters) {
+            if (param->name == parameterName) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate parameter name: " + parameterName);
+                throw StructureVisitorException();
+            }
+        }
+
+        parameters.push_back(new BalanceParameter(btype, parameterName));
+    }
+
+    // If we don't have a return type, assume none
+    BalanceType *returnType;
+    if (ctx->returnType()) {
+        returnType = any_cast<BalanceType *>(visit(ctx->returnType()->balanceType()));
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
+    }
+
+    // Check if we are parsing a class method
+    if (currentPackage->currentModule->currentType != nullptr) {
+        currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
+    } else {
+        currentPackage->currentModule->functions[functionName] = new BalanceFunction(functionName, parameters, returnType);
+    }
+
     return nullptr;
+}
+
+std::any StructureVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) {
+    return currentPackage->currentModule->getType("Int");
+}
+
+std::any StructureVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx) {
+    return currentPackage->currentModule->getType("String");
+}
+
+std::any StructureVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) {
+    return currentPackage->currentModule->getType("Bool");
+}
+
+std::any StructureVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
+    return currentPackage->currentModule->getType("Double");
+}
+
+std::any StructureVisitor::visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) {
+    return currentPackage->currentModule->getType("None");
 }

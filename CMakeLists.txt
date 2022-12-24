@@ -117,16 +117,14 @@ add_executable(balance
                src/Utilities.cpp
                src/models/BalanceType.cpp
                src/models/BalanceValue.cpp
-               src/models/BalanceClass.cpp
-               src/models/BalanceInterface.cpp
                src/models/BalanceFunction.cpp
                src/models/BalanceModule.cpp
                src/models/BalanceParameter.cpp
                src/models/BalanceProperty.cpp
-               src/models/BalanceTypeString.cpp
                src/visitors/Visitor.cpp
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
+               src/visitors/TypeRegistrationVisitor.cpp
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ClassVTableVisitor.cpp
@@ -140,13 +138,13 @@ add_executable(balance
                src/builtins/Double.cpp
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
+               src/builtins/Lambda.cpp
                src/language-server/LanguageServer.h
-               tests/ASTTests.h
+               tests/TestHelpers.cpp
                tests/ASTTests.cpp
-               tests/CompileTests.h
                tests/CompileTests.cpp
-               tests/ExampleTests.h
                tests/ExampleTests.cpp
+               tests/TypeTests.cpp
                ${ANTLR_BalanceGrammarLexer_CXX_OUTPUTS}
                ${ANTLR_BalanceGrammarParser_CXX_OUTPUTS})
 

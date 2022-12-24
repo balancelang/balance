@@ -52,6 +52,7 @@
 #include "../tests/ASTTests.h"
 #include "../tests/CompileTests.h"
 #include "../tests/ExampleTests.h"
+#include "../tests/TypeTests.h"
 #include "config.h"
 
 #include "BalanceLexer.h"
@@ -172,6 +173,7 @@ int main(int argc, char **argv) {
             runASTTestSuite();
             runCompileTestSuite();
             runExamplesTestSuite();
+            runTypesTestSuite();
         } else if (isRunLanguageServer) {
             runLanguageServer(languageServerTcp);
         } else {

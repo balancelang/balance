@@ -11,9 +11,7 @@ std::any InterfaceVTableVisitor::visitInterfaceDefinition(BalanceParser::Interfa
     std::string text = ctx->getText();
     string interfaceName = ctx->interfaceName->getText();
 
-    BalanceTypeString * btypeString = new BalanceTypeString(interfaceName);
-
-    BalanceInterface * binterface = (BalanceInterface *) currentPackage->currentModule->getType(btypeString);
+    BalanceType * binterface = currentPackage->currentModule->getType(interfaceName);
 
     StructType *vTableStructType = StructType::create(*currentPackage->context, interfaceName + "_vtable");
     binterface->vTableStructType = vTableStructType;

@@ -1,33 +1,13 @@
 #include <iostream>
 #include "ASTTests.h"
-#include "../src/Main.h"
+#include "antlr4-runtime.h"
+#include "BalanceLexer.h"
+#include "BalanceParser.h"
 
-using namespace std;
+// using namespace antlr4;
+// using namespace antlrcpptest;
 
-string replaceCharacter(string input, char character, char replaceCharacter) {
-    string output = input;
-    replace(output.begin(), output.end(), character, replaceCharacter);
-    return output;
-}
-
-void assertEqual(string expected, string actual, string program) {
-    if (actual == expected) {
-        cout << "OK   | Program: " << replaceCharacter(program, '\n', ';') << endl;
-    } else {
-        cout << endl;
-
-        cout << "FAIL | Program: " << program << endl;
-        cout << "Expected: " << expected << endl;
-        cout << "Actual: " << actual << endl;
-
-        cout << endl;
-
-        // For now, we exit early on first error
-        exit(1);
-    }
-}
-
-string programToString(string program) {
+std::string programToString(std::string program) {
     antlr4::ANTLRInputStream input(program);
     antlrcpptest::BalanceLexer lexer(&input);
     antlr4::CommonTokenStream tokens(&lexer);
@@ -41,37 +21,37 @@ string programToString(string program) {
 }
 
 void createVariablesTestInt() {
-    string program = "var a = 555";
-    string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (numericLiteral 555))))) <EOF>)))";
+    std::string program = "var a = 555";
+    std::string actual = programToString(program);
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (numericLiteral 555))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestString() {
-    string program = "var a = \"Hello world!\"";
-    string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (stringLiteral Hello world!))))) <EOF>)))";
+    std::string program = "var a = \"Hello world!\"";
+    std::string actual = programToString(program);
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (stringLiteral Hello world!))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestBool() {
-    string program = "var a = true";
-    string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (booleanLiteral true))))) <EOF>)))";
+    std::string program = "var a = true";
+    std::string actual = programToString(program);
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (booleanLiteral true))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestFloat() {
-    string program = "var a = 5.3";
-    string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (doubleLiteral 5.3))))) <EOF>)))";
+    std::string program = "var a = 5.3";
+    std::string actual = programToString(program);
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (doubleLiteral 5.3))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestLambda() {
-    string program = "var myFunc = () -> {}";
-    string actual = programToString(program);
-    string expected = "(root (rootBlock (lineStatement (statement (assignment var myFunc = (expression (lambda ( parameterList ) -> { functionBlock })))) <EOF>)))";
+    std::string program = "var myFunc = () -> {}";
+    std::string actual = programToString(program);
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var myFunc = (expression (lambda ( parameterList ) -> { functionBlock })))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 

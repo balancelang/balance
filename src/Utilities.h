@@ -4,7 +4,7 @@
 #include "visitors/Visitor.h"
 #include "models/BalanceModule.h"
 #include "models/BalanceFunction.h"
-#include "models/BalanceClass.h"
+#include "models/BalanceType.h"
 
 #include <string>
 #include <iostream>
@@ -14,8 +14,7 @@
 bool fileExist(std::string fileName);
 
 void createImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction);
-void createImportedClass(BalanceModule * bmodule, BalanceClass * bclass);
+void createImportedClass(BalanceModule * bmodule, BalanceType * btype);
 
-void createDefaultConstructor(BalanceModule * bmodule, BalanceClass * bclass);
-bool balanceTypeStringsEqual(BalanceTypeString * a, BalanceTypeString * b);
+void createDefaultConstructor(BalanceModule * bmodule, BalanceType * btype);
 #endif

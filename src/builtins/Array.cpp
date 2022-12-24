@@ -2,14 +2,14 @@
 #include "../Builtins.h"
 #include "../BalancePackage.h"
 
-#include "../models/BalanceTypeString.h"
+#include "../models/BalanceType.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Array_toString(BalanceClass * arrayClass) {
+void createMethod_Array_toString(BalanceType * arrayType) {
     // Create forward declaration of memcpy
     // void * memcpy ( void * destination, const void * source, size_t num );
     ArrayRef<Type *> memcpyParams({
@@ -21,12 +21,11 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     llvm::FunctionType * memcpyDeclarationType = llvm::FunctionType::get(memcpyReturnType, memcpyParams, false);
     currentPackage->builtins->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
 
-    BalanceParameter * valueParameter = new BalanceParameter(arrayClass->name, "value");
-    valueParameter->type = arrayClass->getReferencableType();
+    BalanceParameter * valueParameter = new BalanceParameter(arrayType, "value");
 
     std::string functionName = "toString";
-    std::string functionNameWithClass = arrayClass->name->toString() + "_" + functionName;
-    BalanceType * stringType = currentPackage->currentModule->getType(new BalanceTypeString("String"));
+    std::string functionNameWithClass = arrayType->toString() + "_" + functionName;
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -35,17 +34,16 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
-        arrayClass->getReferencableType()
+        arrayType->getReferencableType()
     });
 
     FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
     llvm::Function * arrayToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->builtins->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", arrayToStringFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, new BalanceTypeString("String"));
-    arrayClass->addMethod(functionName, bfunction);
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
+    arrayType->addMethod(functionName, bfunction);
     bfunction->function = arrayToStringFunc;
-    bfunction->returnType = stringType->getReferencableType();
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->builtins->builder->GetInsertBlock();
@@ -56,8 +54,8 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
 
     // Get length (N)
     ConstantInt * zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    ConstantInt * lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["length"]->index, true));
-    Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->getInternalType(), arrayValue, {zeroValue, lengthIndexValue});
+    ConstantInt * lengthIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayType->properties["length"]->index, true));
+    Value * lengthPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayType->getInternalType(), arrayValue, {zeroValue, lengthIndexValue});
     Value * lengthValue = currentPackage->builtins->builder->CreateLoad(lengthPointerGEP);
 
     Value * lengthMinusOneValue = currentPackage->builtins->builder->CreateSub(lengthValue, ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)));
@@ -109,12 +107,12 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     // Set insert point to the loop-block so we can populate it
     currentPackage->builtins->builder->SetInsertPoint(loopBlock);
 
-    auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayClass->properties["memoryPointer"]->index, true));
-    auto memoryPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayClass->getInternalType(), arrayValue, {zeroValue, memoryPointerIndexValue});
+    auto memoryPointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, arrayType->properties["memoryPointer"]->index, true));
+    auto memoryPointerGEP = currentPackage->builtins->builder->CreateGEP(arrayType->getInternalType(), arrayValue, {zeroValue, memoryPointerIndexValue});
     Value * memoryPointerValue = currentPackage->builtins->builder->CreateLoad(memoryPointerGEP);
 
     // Get the correct toString-function for the generic type
-    BalanceType * btype = currentPackage->currentModule->getType(arrayClass->name->generics[0]);
+    BalanceType * btype = currentPackage->currentModule->getType(arrayType->generics[0]->name);
     Function * genericToStringFunction = btype->getMethod("toString")->function;
     Type * genericType = btype->getReferencableType();
 
@@ -350,28 +348,27 @@ void createMethod_Array_toString(BalanceClass * arrayClass) {
     currentPackage->builtins->builder->SetInsertPoint(resumeBlock);
 }
 
-void createType__Array(BalanceTypeString * typeString) {
-    BalanceClass * arrayClass = new BalanceClass(typeString, currentPackage->currentModule);
-    currentPackage->builtins->classes[typeString->toString()] = arrayClass;
+BalanceType * createType__Array(BalanceType * generic) {
+    BalanceType * arrayType = new BalanceType(currentPackage->currentModule, "Array", {generic});
+    BalanceType * intType = currentPackage->currentModule->getType("Int");
+    currentPackage->builtins->types[arrayType->toString()] = arrayType;
 
-    arrayClass->properties["memoryPointer"] = new BalanceProperty("memoryPointer", nullptr, 0);
-    arrayClass->properties["memoryPointer"]->type = typeString->generics[0]->type->getPointerTo();
-    arrayClass->properties["length"] = new BalanceProperty("length", nullptr, 1, true);
-    arrayClass->properties["length"]->type = llvm::Type::getInt32Ty(*currentPackage->context);
+    BalanceType * genericPointerType = new BalanceType(currentPackage->currentModule, "genericPointerType", arrayType->generics[0]->getReferencableType()->getPointerTo());
+    genericPointerType->isSimpleType = true;
+    arrayType->properties["memoryPointer"] = new BalanceProperty("memoryPointer", genericPointerType, 0);
+    arrayType->properties["length"] = new BalanceProperty("length", intType, 1, true);
 
-    StructType *structType = StructType::create(*currentPackage->context, typeString->toString());
+    StructType *structType = StructType::create(*currentPackage->context, arrayType->toString());
     ArrayRef<Type *> propertyTypesRef({
-        arrayClass->properties["memoryPointer"]->type,
-        arrayClass->properties["length"]->type,
+        arrayType->properties["memoryPointer"]->balanceType->getInternalType(),
+        arrayType->properties["length"]->balanceType->getInternalType(),
     });
     structType->setBody(propertyTypesRef, false);
-    arrayClass->internalType = structType;
-    arrayClass->hasBody = true;
+    arrayType->internalType = structType;
 
-    // TODO: this doesn't seem like a good way to do it
-    typeString->type = arrayClass->getReferencableType();
+    createDefaultConstructor(currentPackage->builtins, arrayType);
 
-    createDefaultConstructor(currentPackage->builtins, arrayClass);
+    createMethod_Array_toString(arrayType);
 
-    createMethod_Array_toString(arrayClass);
+    return arrayType;
 }

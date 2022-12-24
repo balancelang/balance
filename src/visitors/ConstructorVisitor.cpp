@@ -74,16 +74,15 @@ extern BalancePackage *currentPackage;
 std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     string text = ctx->getText();
     string className = ctx->className->getText();  // TODO: Parse generics when syntax is implemented
-    BalanceTypeString * btypeString = new BalanceTypeString(className);
 
-    BalanceClass * bclass = (BalanceClass *) currentPackage->currentModule->getType(btypeString);
-    currentPackage->currentModule->currentClass = bclass;
+    BalanceType * bclass = currentPackage->currentModule->getType(className);
+    currentPackage->currentModule->currentType = bclass;
 
     if (bclass->constructor == nullptr) {
-        createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentClass);
+        createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
     }
 
-    currentPackage->currentModule->currentClass = nullptr;
+    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 

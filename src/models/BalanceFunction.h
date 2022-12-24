@@ -3,32 +3,28 @@
 
 #include "BalanceParameter.h"
 #include "BalanceModule.h"
-#include "BalanceTypeString.h"
-#include "llvm/IR/Type.h"
+#include "BalanceType.h"
 #include "llvm/IR/Function.h"
 
 class BalanceModule;
-
+class BalanceParameter;
+class BalanceType;
 
 class BalanceFunction
 {
 public:
     std::string name;
-    BalanceTypeString * returnTypeString;
+    BalanceType * returnType;
     std::vector<BalanceParameter *> parameters;
-    llvm::Type *returnType = nullptr;
     llvm::Function *function = nullptr;
     bool hasExplicitReturn = false;
 
-    BalanceFunction(std::string name, std::vector<BalanceParameter *> parameters, BalanceTypeString * returnTypeString)
+    BalanceFunction(std::string name, std::vector<BalanceParameter *> parameters, BalanceType * returnType)
     {
         this->name = name;
         this->parameters = parameters;
-        this->returnTypeString = returnTypeString;
+        this->returnType = returnType;
     }
-
-    bool hasAllTypes();
-    bool finalized();
 };
 
 #endif

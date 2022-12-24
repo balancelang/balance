@@ -3,27 +3,26 @@
 
 #include "BalanceParameter.h"
 #include "BalanceModule.h"
-#include "BalanceTypeString.h"
+#include "BalanceType.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Function.h"
 
 class BalanceModule;
-
+class BalanceParameter;
+class BalanceType;
 
 class BalanceLambda
 {
 public:
-    BalanceTypeString * returnTypeString;
+    BalanceType * returnType;
     std::vector<BalanceParameter *> parameters;
     bool hasExplicitReturn = false;
 
-    BalanceLambda(std::vector<BalanceParameter *> parameters, BalanceTypeString * returnTypeString)
+    BalanceLambda(std::vector<BalanceParameter *> parameters, BalanceType * returnType)
     {
         this->parameters = parameters;
-        this->returnTypeString = returnTypeString;
+        this->returnType = returnType;
     }
 };
 
-
-// TODO: Test importing a lambda - do we need "BalanceImportedLambda" ?
 #endif
