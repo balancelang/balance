@@ -92,6 +92,19 @@ expression
     | variable                                                          # VariableExpression
     | functionCall                                                      # FunctionCallExpression
     | classInitializer                                                  # ClassInitializerExpression
+    | mapInitializer                                                    # MapInitializerExpression
+    ;
+
+mapInitializer
+    : '{' LINE_BREAK* mapItemList LINE_BREAK* '}'
+    ;
+
+mapItemList
+    : (mapItem (COMMA LINE_BREAK* mapItem)*)?
+    ;
+
+mapItem
+    : IDENTIFIER ':' expression
     ;
 
 variable

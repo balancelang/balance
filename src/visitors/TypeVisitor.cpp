@@ -8,11 +8,6 @@ extern BalancePackage *currentPackage;
 
 // Returns whether a can be assigned to b
 bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType) {
-    if (aType->name == "Lambda" || bType->name == "Lambda") {
-        // Short-term hack for now.
-        return true;
-    }
-
     // If a is interface, it can never be assigned to something not interface
     if (!bType->isInterface && aType->isInterface) {
         currentPackage->currentModule->addTypeError(ctx, "Can't assign interface to non-interface");
@@ -31,7 +26,7 @@ bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bTy
     // Do similar checks for inheritance, once implemented
 
     if (!aType->equalTo(bType)) {
-        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bType->toString() + ", found " + aType->toString());
+        currentPackage->currentModule->addTypeError(ctx, aType->toString() + " cannot be assigned to " + bType->toString());
         return false;
     }
 
@@ -128,10 +123,7 @@ std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ct
     // If typed new-expression, check if LHS == RHS
     if (ctx->balanceType()) {
         BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->balanceType()));
-        if (!canAssignTo(ctx, value, lhsType)) {
-            currentPackage->currentModule->addTypeError(ctx, "Can't assign " + value->toString() + " to " + lhsType->toString());
-            return std::any();
-        }
+        canAssignTo(ctx, value, lhsType);
     }
 
     currentPackage->currentModule->currentScope->symbolTable[variableName] = new BalanceValue(value, nullptr);
@@ -149,9 +141,7 @@ std::any TypeVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentC
     }
 
     BalanceType * expression = any_cast<BalanceType *>(visit(ctx->expression()));
-    if (!tryVal->type->equalTo(expression)) {
-        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in reassignment: " + text + ", " + tryVal->type->toString() + " != " + expression->toString());
-    }
+    canAssignTo(ctx, expression, tryVal->type);
 
     return std::any();
 }

@@ -205,6 +205,44 @@ x.function()
     assertEqual("Inside MyClass\n", result, program);
 }
 
+void objectShorthandInitializer() {
+    std::string program = R""""(
+interface MyInterface {
+    someFunction(): None
+}
+class A {
+    Int x
+}
+class B implements MyInterface {
+    someFunction(): None {
+        print("Inside B")
+    }
+}
+class MyClass {
+    A a
+    MyInterface b
+    Int c
+    Bool d
+    String e
+}
+MyClass myClass = {
+    a: new A(),
+    b: new B(),
+    c: 15,
+    d: false,
+    e: "Hello world"
+}
+myClass.a = 55
+print(myClass.a)
+myClass.b.someFunction()
+print(myClass.c)
+print(myClass.d)
+print(myClass.e)
+    )"""";
+    std::string result = run(program);
+    assertEqual("55\nInside B\n15\nfalse\nHello world\n", result, program);
+}
+
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");
 
@@ -225,6 +263,6 @@ void runCompileTestSuite() {
 
     functionTakesInterface();
     functionReturnsInterface();
+
+    // objectShorthandInitializer();
 }
-
-

@@ -292,6 +292,57 @@ print(a.b.c.d.x)
     assertEqual("55\n", result, program);
 }
 
+void testLhsEqualToRhs_ints() {
+    std::string program = R""""(
+Int x = 5.5
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Double cannot be assigned to Int", error->message, program);
+}
+
+void testLhsEqualToRhs_intsReassignment() {
+    std::string program = R""""(
+Int x = 5
+x = 5.5
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Double cannot be assigned to Int", error->message, program);
+}
+
+void testLhsEqualToRhs_lambda() {
+    std::string program = R""""(
+Lambda<Int, None> x = (Int x, Int y): None -> {
+    print("Hello")
+}
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Lambda<Int, Int, None> cannot be assigned to Lambda<Int, None>", error->message, program);
+}
+
+void testLhsEqualToRhs_lambdaReassignment() {
+    std::string program = R""""(
+Lambda<Int, None> x = (Int x): None -> {
+    print("Hello")
+}
+x = (Int x, Int y): None -> {
+    print("Hello again")
+}
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Lambda<Int, Int, None> cannot be assigned to Lambda<Int, None>", error->message, program);
+}
 
 void runTypesTestSuite() {
     std::cout << "RUNNING TYPE TESTS" << std::endl;
@@ -318,4 +369,9 @@ void runTypesTestSuite() {
     classAsClassPropertyFunctionAccess();
 
     testNestedClassProperties();
+
+    testLhsEqualToRhs_ints();
+    testLhsEqualToRhs_intsReassignment();
+    testLhsEqualToRhs_lambda();
+    testLhsEqualToRhs_lambdaReassignment();
 }

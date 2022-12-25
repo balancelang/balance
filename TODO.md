@@ -10,6 +10,8 @@
 
 ## classes
 - define None/null - how do we handle that?
+- shorthand - test types not matching
+- shorthand - test variable names not matching
 
 ## Lambdas
 - check reassignment with correct type
