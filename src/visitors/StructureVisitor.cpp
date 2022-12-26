@@ -161,11 +161,6 @@ std::any StructureVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext 
     }
 
     BalanceType *arrayType = currentPackage->currentModule->getType("Array", { firstValue });
-    if (arrayType == nullptr) {
-        // Create type
-        arrayType = createType__Array(firstValue);
-        createImportedClass(currentPackage->currentModule, arrayType);
-    }
     return arrayType;
 }
 
@@ -178,17 +173,18 @@ std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *c
         generics.push_back(btype);
     }
 
-    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
-    if (lambdaType == nullptr) {
-        lambdaType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, lambdaType);
+    BalanceType * genericType = currentPackage->currentModule->getType(base, generics);
+    if (genericType == nullptr) {
+        genericType = createType__Lambda(generics);
+        createImportedClass(currentPackage->currentModule, genericType);
     }
-    return lambdaType;
+    return genericType;
 }
 
 std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    BalanceType * btype = currentPackage->currentModule->getType(ctx->type->getText());
+    string typeName = ctx->type->getText();
+    BalanceType * btype = any_cast<BalanceType *>(visit(ctx->type));
     string name = ctx->name->getText();
 
     // Check for duplicate property name

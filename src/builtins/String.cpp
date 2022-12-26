@@ -82,6 +82,7 @@ void createType__String() {
     });
     structType->setBody(propertyTypesRef, false);
     bclass->internalType = structType;
+    bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 

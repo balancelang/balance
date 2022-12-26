@@ -107,6 +107,7 @@ void createType__Bool() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Bool");
     bclass->internalType = Type::getInt1Ty(*currentPackage->context);
     bclass->isSimpleType = true;
+    bclass->hasBody = true;
 
     currentPackage->currentModule->types["Bool"] = bclass;
     currentPackage->currentModule->currentType = bclass;

@@ -20,11 +20,12 @@
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
-        - var { a, b, c } = getObj()
+        - var a, b, c  = getObj()
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword - checked exceptions
     - Classes (+)
     - interfaces (+)
+    - abstract methods?
     - builtin serialization (JSON, XML, YAML)
     - all strings can be multiline? (+)
     - all strings be f-strings?  var a = "Test: {y}"

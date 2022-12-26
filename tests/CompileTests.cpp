@@ -243,6 +243,62 @@ print(myClass.e)
     assertEqual("55\nInside B\n15\nfalse\nHello world\n", result, program);
 }
 
+void inheritedMembers() {
+    std::string program = R""""(
+class A {
+    Int x
+    Int y
+    getX(): Int {
+        return x
+    }
+}
+class B extends A {
+    Int z
+    getY(): Int {
+        return y
+    }
+    getZ(): Int {
+        return z
+    }
+}
+var b = new B()
+b.x = 1
+b.y = 2
+b.z = 3
+print(b.getX())
+print(b.getY())
+print(b.getZ())
+    )"""";
+    std::string result = run(program);
+    assertEqual("1\n2\n3\n", result, program);
+}
+
+void functionTakesBaseClass() {
+    std::string program = R""""(
+class A {
+    Int x
+}
+class B extends A {
+    Int y
+}
+var b = new B()
+b.x = 1
+b.y = 2
+takesBase(A a): None {
+    print(a.x)
+}
+takesAny(Any x): None {
+    print("Any")
+}
+takesBase(b)
+takesAny(b)
+takesAny(5)
+takesAny("abc")
+    )"""";
+    std::string result = run(program);
+    assertEqual("1\nAny\nAny\nAny\n", result, program);
+}
+
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");
 
@@ -265,4 +321,6 @@ void runCompileTestSuite() {
     functionReturnsInterface();
 
     // objectShorthandInitializer();
+    inheritedMembers();
+    functionTakesBaseClass();
 }

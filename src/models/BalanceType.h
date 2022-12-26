@@ -24,6 +24,9 @@ public:
     BalanceModule *balanceModule;
     bool hasBody = false;
 
+    // We may introduce multiple inheritance one day
+    std::vector<BalanceType *> parents = {};
+
     std::map<std::string, BalanceProperty *> properties = {};
     std::map<std::string, BalanceFunction *> methods = {};
     std::map<std::string, BalanceType *> interfaces = {};
@@ -46,8 +49,9 @@ public:
         this->internalType = internalType;
     }
 
+    void addParent(BalanceType * parentType);
     void addMethod(std::string name, BalanceFunction * method);
-    std::map<std::string, BalanceFunction *> getMethods();
+    std::vector<BalanceFunction *> getMethods();
     BalanceFunction * getMethod(std::string key);
     int getMethodIndex(std::string key);
     llvm::Type * getReferencableType();
@@ -58,7 +62,9 @@ public:
     bool equalTo(BalanceType * other);
     llvm::Function * getConstructor();
     BalanceProperty * getProperty(std::string propertyName);
+    std::vector<BalanceProperty *> getProperties();
     bool finalized();
+    std::vector<BalanceType *> getHierarchy();
 };
 
 #endif

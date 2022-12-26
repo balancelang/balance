@@ -12,6 +12,13 @@
 - define None/null - how do we handle that?
 - shorthand - test types not matching
 - shorthand - test variable names not matching
+- test generic property
+- test not providing generic types for class which requires a generic type, e.g. Array<Int> used as Array
+- test arrays/generic types as class properties
+
+## Inheritance
+- throw error if inherited property already exists in ancestor
+- test overriding function (same parameters/return type)
 
 ## Lambdas
 - check reassignment with correct type

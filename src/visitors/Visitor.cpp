@@ -222,7 +222,7 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
             }
         } else {
             auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMember->type->properties[accessName]->index, true));
+            auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMember->type->getProperty(accessName)->index, true));
             auto ptr = currentPackage->currentModule->builder->CreateGEP(valueMember->value, {zeroValue, indexValue});
             currentPackage->currentModule->builder->CreateStore(value->value, ptr);
         }
@@ -363,9 +363,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 
     // Check if it is a class property
     if (value == nullptr && currentPackage->currentModule->currentType != nullptr) {
-        // TODO: Check if variableName is in currentType->properties
-        // TODO: Is this already checked in type-checking?
-        BalanceProperty * bproperty = currentPackage->currentModule->currentType->properties[variableName];
+        BalanceProperty * bproperty = currentPackage->currentModule->currentType->getProperty(variableName);
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
         BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
@@ -409,7 +407,7 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
     if (variable == nullptr && currentPackage->currentModule->currentType != nullptr) {
         // TODO: Check if variableName is in currentType->properties
         // TODO: Checked by type-checker?
-        int intIndex = currentPackage->currentModule->currentType->properties[variableName]->index;
+        int intIndex = currentPackage->currentModule->currentType->getProperty(variableName)->index;
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         BalanceValue *thisValue = currentPackage->currentModule->getValue("this");

@@ -15,6 +15,8 @@ void createMethod_Any_toString() {
 
 BalanceType * createType__Any() {
     BalanceType * anyType = new BalanceType(currentPackage->currentModule, "Any");
+    anyType->hasBody = true;
+    anyType->internalType = llvm::Type::getVoidTy(*currentPackage->context);  // Just anything
     currentPackage->builtins->types[anyType->toString()] = anyType;
     return anyType;
 }

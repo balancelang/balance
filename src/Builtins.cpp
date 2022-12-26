@@ -7,6 +7,7 @@
 #include "builtins/Double.h"
 #include "builtins/Array.h"
 #include "builtins/Lambda.h"
+#include "builtins/Any.h"
 
 #include "models/BalanceType.h"
 
@@ -155,6 +156,7 @@ void createFunction__open()
 void createType__None() {
     BalanceType * btype = new BalanceType(currentPackage->currentModule, "None", Type::getVoidTy(*currentPackage->context));
     btype->isSimpleType = true;
+    btype->hasBody = true;
     currentPackage->currentModule->types["None"] = btype;
 }
 
@@ -175,6 +177,7 @@ void createType__FatPointer() {
         btype->properties["vtablePointer"]->balanceType->getInternalType()
     });
     structType->setBody(propertyTypesRef, false);
+    btype->hasBody = true;
     btype->internalType = structType;
 
     // TODO: Might not be needed
@@ -189,6 +192,9 @@ void createFunctions() {
 }
 
 void createTypes() {
+    // eventually split this up in first creating the types, and then creating their functions etc.
+
+    createType__Any();
     createType__None();
 
     createType__String();
@@ -198,7 +204,9 @@ void createTypes() {
     createType__File();
 
     createType__FatPointer();
-    // Arrays are lazily created with their generic types
+
+    // Generic versions are lazily created with their generic types
+    createType__Array(nullptr);
     // TODO: Lambdas are lazily created with their generic types
 }
 

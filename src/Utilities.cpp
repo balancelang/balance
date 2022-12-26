@@ -28,14 +28,14 @@ void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     ibtype->internalType = btype->internalType;
     ibtype->constructor = btype->constructor;
     ibtype->isSimpleType = btype->isSimpleType;
-    bmodule->importedTypes[btype->toString()] = ibtype;
+    ibtype->hasBody = btype->hasBody;
+    bmodule->types[btype->toString()] = ibtype;
 
     // Import class properties
     ibtype->properties = btype->properties;
 
     // Import each class method
-    for (auto const &x : btype->getMethods()) {
-        BalanceFunction *bfunction = x.second;
+    for (BalanceFunction *bfunction : btype->getMethods()) {
         BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnType);
         ibtype->methods[bfunction->name] = ibfunction;
         std::string functionNameWithClass = ibtype->toString() + "_" + ibfunction->name;

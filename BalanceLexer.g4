@@ -14,6 +14,7 @@ WHILE               : 'while';
 CLASS               : 'class';
 INTERFACE           : 'interface';
 IMPLEMENTS          : 'implements';
+EXTENDS             : 'extends';
 NEW                 : 'new';
 FROM                : 'from';
 IMPORT              : 'import';

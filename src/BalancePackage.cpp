@@ -11,6 +11,8 @@
 #include "visitors/InterfaceVTableVisitor.h"
 #include "visitors/ClassVTableVisitor.h"
 #include "visitors/TypeRegistrationVisitor.h"
+#include "visitors/InheritanceVisitor.h"
+#include "visitors/FinalizePropertiesVisitor.h"
 
 #include "config.h"
 
@@ -130,9 +132,22 @@ bool BalancePackage::compileAndPersist()
             continue;
         }
 
+        // Visit inheritance and register base classes
+        success = this->registerInheritance();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->logger("Building textual representations");
         success = this->buildTextualRepresentations();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
+        success = this->finalizeProperties();
         if (!success) {
             compileSuccess = false;
             continue;
@@ -192,8 +207,24 @@ bool BalancePackage::executeString(std::string program) {
         return false;
     }
 
+    // Visit inheritance and register base classes
+    success = this->registerInheritance();
+    if (!success) {
+        return false;
+    }
+
+    success = this->finalizeProperties();
+    if (!success) {
+        return false;
+    }
+
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
     success = this->buildTextualRepresentations();
+    if (!success) {
+        return false;
+    }
+
+    success = this->finalizeProperties();
     if (!success) {
         return false;
     }
@@ -347,6 +378,11 @@ void BalancePackage::addBuiltinsToModules() {
             BalanceType * bclass = x.second;
             createImportedClass(bmodule, bclass);
         }
+
+        for (auto const &x : builtinsModule->genericTypes) {
+            // TODO: Assume we can just import them when we know the generic types
+            bmodule->genericTypes[x.first] = x.second;
+        }
     }
 }
 
@@ -361,6 +397,60 @@ bool BalancePackage::buildTextualRepresentations()
             StructureVisitor visitor;
             visitor.visit(this->currentModule->tree);
         } catch (const StructureVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::finalizeProperties() {
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            FinalizePropertiesVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+        } catch (const FinalizePropertiesVisitor& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::registerInheritance()
+{
+    BalanceType * anyType = builtins->getType("Any");
+    for (auto const &t : builtins->types) {
+        BalanceType * btype = t.second;
+        if (btype->parents.size() == 0 && btype->name != "Any") {
+            btype->addParent(anyType);
+        }
+    }
+
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        BalanceType * anyType = bmodule->getType("Any");
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            InheritanceVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+
+            // Assign any as base-class for all types without parents
+            for (auto const &t : bmodule->types) {
+                BalanceType * btype = t.second;
+                if (btype->parents.size() == 0 && btype->name != "Any") {
+                    btype->addParent(anyType);
+                }
+            }
+        } catch (const InheritanceVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;
         }

@@ -314,6 +314,7 @@ void createType__File() {
     });
     structType->setBody(propertyTypesRef, false);
     bclass->internalType = structType;
+    bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 

@@ -128,10 +128,13 @@ add_executable(balance
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ClassVTableVisitor.cpp
+               src/visitors/InheritanceVisitor.cpp
+               src/visitors/FinalizePropertiesVisitor.cpp
                src/visitors/InterfaceVTableVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
+               src/builtins/Any.cpp
                src/builtins/File.cpp
                src/builtins/String.cpp
                src/builtins/Int.cpp

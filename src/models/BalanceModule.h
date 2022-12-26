@@ -66,8 +66,9 @@ public:
     std::map<std::string, BalanceFunction *> functions = {};
     std::map<std::string, llvm::Value *> globals = {};
 
+    std::map<std::string, BalanceType *> genericTypes = {};
+
     // Structures imported into this module
-    std::map<std::string, BalanceType *> importedTypes = {};
     std::map<std::string, BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
 

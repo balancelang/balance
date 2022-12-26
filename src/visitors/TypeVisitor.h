@@ -31,7 +31,6 @@ public:
     std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
     std::any visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) override;
     std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
-    std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     std::any visitLambda(BalanceParser::LambdaContext *ctx) override;
     std::any visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) override;
     std::any visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) override;
@@ -40,14 +39,6 @@ public:
     std::any visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) override;
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
     std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
-
-    // TODO: visitClassInitializerExpression
-    // Test can't reassign different class
-    /**
-     * var a = new A()
-     * a = new A()  // fine
-     * a = new B()  // not fine (except when we introduce inheritance)
-     */
 };
 
 #endif

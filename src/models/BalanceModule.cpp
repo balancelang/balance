@@ -1,5 +1,6 @@
 #include "BalanceModule.h"
 #include "BalanceValue.h"
+#include "../builtins/Array.h"
 #include "../BalancePackage.h"
 
 #include "ParserRuleContext.h"
@@ -44,6 +45,7 @@ void BalanceModule::generateASTFromString(std::string program) {
 }
 
 BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
+    // Check if it is a type (or generic type which was already defined with generic types)
     for (auto const &x : types)
     {
         BalanceType * btype = x.second;
@@ -52,11 +54,21 @@ BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceTy
         }
     }
 
-    for (auto const &x : importedTypes)
+    // Check if it is a generic type, and create if necessary
+    for (auto const &x : genericTypes)
     {
         BalanceType * btype = x.second;
-        if (btype->equalTo(this, typeName, generics)) {
-            return btype;
+        if (btype->name == typeName && btype->generics.size() == generics.size()) {
+            // TODO: Figure out where to register these functions
+            BalanceType * newGenericType = nullptr;
+            if (btype->name == "Array") {
+                newGenericType = createType__Array(generics[0]);
+            }
+
+            if (newGenericType != nullptr && newGenericType->balanceModule != this) {
+                createImportedClass(currentPackage->currentModule, newGenericType);
+            }
+            return newGenericType;
         }
     }
 

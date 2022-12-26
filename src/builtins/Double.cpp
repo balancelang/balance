@@ -111,6 +111,7 @@ void createType__Double() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Double");
     bclass->internalType = Type::getDoubleTy(*currentPackage->context);
     bclass->isSimpleType = true;
+    bclass->hasBody = true;
 
     currentPackage->currentModule->types["Double"] = bclass;
     currentPackage->currentModule->currentType = bclass;

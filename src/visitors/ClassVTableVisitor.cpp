@@ -18,8 +18,8 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
         BalanceType * binterface = x.second;
 
         vector<Constant *> values;
-        for (auto const &y : binterface->getMethods()) {
-            values.push_back(btype->getMethod(y.first)->function);
+        for (BalanceFunction * bfunction : binterface->getMethods()) {
+            values.push_back(btype->getMethod(bfunction->name)->function);
         }
 
         ArrayRef<Constant *> valuesRef(values);

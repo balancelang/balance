@@ -128,14 +128,13 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
     }
 
     vector<Type *> propertyTypes;
-    for (auto const &x : currentPackage->currentModule->currentType->properties) {
-        BalanceProperty *prop = x.second;
-        if (prop->balanceType->internalType == nullptr) {
+    for (BalanceProperty * bproperty : currentPackage->currentModule->currentType->getProperties()) {
+        if (bproperty->balanceType->internalType == nullptr) {
             // If a property type is not yet known
             currentPackage->currentModule->currentType = nullptr;
             return nullptr;
         }
-        propertyTypes.push_back(prop->balanceType->getReferencableType());
+        propertyTypes.push_back(bproperty->balanceType->getReferencableType());
     }
 
     if (!currentPackage->currentModule->currentType->hasBody) {

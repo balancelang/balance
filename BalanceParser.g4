@@ -167,17 +167,13 @@ classInitializer
     ;
 
 classDefinition
-    : CLASS className=IDENTIFIER classExtendsImplements? OPEN_BRACE classElement* CLOSE_BRACE
+    : CLASS className=IDENTIFIER classExtendsImplements OPEN_BRACE classElement* CLOSE_BRACE
     ;
 
-// Add class extension here as well, e.g. as:
-// classExtendsImplements
-//     : (IMPLEMENTS typeList)? (EXTENDS typeList)?
-//     | (EXTENDS typeList)? (IMPLEMENTS typeList)?
-//     ;
-
+// Is there a simpler way to do this?
 classExtendsImplements
-    : IMPLEMENTS interfaces=typeList
+    : (IMPLEMENTS interfaces=typeList)? (EXTENDS extendedClass=balanceType)?
+    | (EXTENDS extendedClass=balanceType)? (IMPLEMENTS interfaces=typeList)?
     ;
 
 classElement
