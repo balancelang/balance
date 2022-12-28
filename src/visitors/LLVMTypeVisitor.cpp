@@ -128,7 +128,8 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
     }
 
     vector<Type *> propertyTypes;
-    for (BalanceProperty * bproperty : currentPackage->currentModule->currentType->getProperties()) {
+    vector<BalanceProperty *> properties = currentPackage->currentModule->currentType->getProperties();
+    for (BalanceProperty * bproperty : properties) {
         if (bproperty->balanceType->internalType == nullptr) {
             // If a property type is not yet known
             currentPackage->currentModule->currentType = nullptr;
@@ -150,8 +151,7 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
 
 std::any LLVMTypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    string typeString = ctx->type->getText();
-    string name = ctx->name->getText();
+    string name = ctx->variableTypeTuple()->name->getText();
 
     BalanceProperty *bprop = currentPackage->currentModule->currentType->properties[name];
     // If already finalized, skip

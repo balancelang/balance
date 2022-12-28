@@ -66,13 +66,13 @@ assignment
     | existingAssignment
     ;
 
+// TODO: Change IDENTIFIER to variableTypeTuple, to allow hinting type (check if can assign to)
 existingAssignment
     : IDENTIFIER '=' expression
     ;
 
 newAssignment
-    : VAR IDENTIFIER '=' expression
-    | balanceType IDENTIFIER '=' expression
+    : VAR variableTypeTuple '=' expression
     ;
 
 // Can these be implemented under 'assignment'?
@@ -112,7 +112,7 @@ variable
     ;
 
 parameterList
-	: (parameter (COMMA parameter)*)?
+	: (variableTypeTuple (COMMA variableTypeTuple)*)?
 	;
 
 balanceType
@@ -123,10 +123,6 @@ balanceType
 
 typeList
     : balanceType (COMMA balanceType)*
-    ;
-
-parameter
-    : type=balanceType identifier=IDENTIFIER /* For now, require type */
     ;
 
 argumentList
@@ -183,7 +179,11 @@ classElement
     ;
 
 classProperty
-    : type=balanceType name=IDENTIFIER
+    : variableTypeTuple
+    ;
+
+variableTypeTuple
+    : name=IDENTIFIER (':' type=balanceType)?
     ;
 
 lambda

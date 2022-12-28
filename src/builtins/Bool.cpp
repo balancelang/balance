@@ -109,7 +109,7 @@ void createType__Bool() {
     bclass->isSimpleType = true;
     bclass->hasBody = true;
 
-    currentPackage->currentModule->types["Bool"] = bclass;
+    currentPackage->currentModule->addType(bclass);
     currentPackage->currentModule->currentType = bclass;
 
     createMethod_Bool_toString();

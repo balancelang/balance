@@ -32,13 +32,13 @@ void createPrintArray() {
 }
 
 void createFunctionAndInvoke() {
-    std::string program = "test(Int a): None {\nprint(a)\n}\ntest(55)";
+    std::string program = "test(a: Int): None {\nprint(a)\n}\ntest(55)";
     std::string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createLambdaAndInvoke() {
-    std::string program = "var lamb = (Int a): None -> {\nprint(a)\n}\nlamb(55)";
+    std::string program = "var lamb = (a: Int): None -> {\nprint(a)\n}\nlamb(55)";
     std::string result = run(program);
     assertEqual("55\n", result, program);
 }
@@ -110,7 +110,7 @@ void operatorsThreeOperandsTest() {
 void classTest_classFunction() {
     std::string program = R""""(
 class ClassA {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         return a + b
     }
 }
@@ -125,7 +125,7 @@ print(clsA.someFunction(2,3))
 void classTest_classProperty() {
     std::string program = R""""(
 class ClassA {
-    Int x
+    x: Int
 }
 
 var clsA = new ClassA()
@@ -140,18 +140,18 @@ print(clsA.x)
 void classTest_classProperty_Interface() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int a, Int b): Int
+    someFunction(a: Int, b: Int): Int
 }
 
 class ClassA implements MyInterface {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         print("Inside classA")
         return a + b
     }
 }
 
 class ClassB {
-    MyInterface a
+    a: MyInterface
 }
 
 var clsA = new ClassA()
@@ -166,15 +166,15 @@ print(clsB.a.someFunction(2,3))
 void functionTakesInterface() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int a, Int b): Int
+    someFunction(a: Int, b: Int): Int
 }
 class ClassA implements MyInterface {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         print("Inside classA")
         return a + b
     }
 }
-functionTakesInterface(MyInterface x): None {
+functionTakesInterface(x: MyInterface): None {
     print(x.someFunction(2,3))
 }
 var clsA = new ClassA()
@@ -211,7 +211,7 @@ interface MyInterface {
     someFunction(): None
 }
 class A {
-    Int x
+    x: Int
 }
 class B implements MyInterface {
     someFunction(): None {
@@ -219,11 +219,11 @@ class B implements MyInterface {
     }
 }
 class MyClass {
-    A a
-    MyInterface b
-    Int c
-    Bool d
-    String e
+    a: A
+    b: MyInterface
+    c: Int
+    d: Bool
+    e: String
 }
 MyClass myClass = {
     a: new A(),
@@ -246,14 +246,14 @@ print(myClass.e)
 void inheritedMembers() {
     std::string program = R""""(
 class A {
-    Int x
-    Int y
+    x: Int
+    y: Int
     getX(): Int {
         return x
     }
 }
 class B extends A {
-    Int z
+    z: Int
     getY(): Int {
         return y
     }
@@ -276,18 +276,18 @@ print(b.getZ())
 void functionTakesBaseClass() {
     std::string program = R""""(
 class A {
-    Int x
+    x: Int
 }
 class B extends A {
-    Int y
+    y: Int
 }
 var b = new B()
 b.x = 1
 b.y = 2
-takesBase(A a): None {
+takesBase(a: A): None {
     print(a.x)
 }
-takesAny(Any x): None {
+takesAny(x: Any): None {
     print("Any")
 }
 takesBase(b)
@@ -298,6 +298,33 @@ takesAny("abc")
     std::string result = run(program);
     assertEqual("1\nAny\nAny\nAny\n", result, program);
 }
+
+// class Parent {
+//     x: Int
+//     y: Int
+// }
+// class MyClass extends Parent {
+//     a: Bool
+//     b: Int
+//     c: Double
+//     d: Array<Int>
+//     e: String
+// }
+// var myClass = new MyClass()
+// myClass.a = false
+// myClass.b = 5
+// myClass.c = 6.7
+// myClass.d = [1,2,3]
+// myClass.e = "abc"
+// myClass.x = 77
+// myClass.y = 75151515
+// print(myClass.a)
+// print(myClass.b)
+// print(myClass.c)
+// print(myClass.d)
+// print(myClass.e)
+// print(myClass.x)
+// print(myClass.y)
 
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");

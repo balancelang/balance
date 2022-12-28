@@ -1,0 +1,13 @@
+class Parent {
+    x: Int
+}
+
+class Child extends Parent {
+    y: Int
+}
+
+var c = new Child()
+c.x = 25
+c.y = 5
+print(c.x)
+print(c.y)

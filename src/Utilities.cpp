@@ -29,7 +29,7 @@ void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     ibtype->constructor = btype->constructor;
     ibtype->isSimpleType = btype->isSimpleType;
     ibtype->hasBody = btype->hasBody;
-    bmodule->types[btype->toString()] = ibtype;
+    bmodule->addType(ibtype);
 
     // Import class properties
     ibtype->properties = btype->properties;
@@ -81,12 +81,13 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    for (auto const &x : btype->properties) {
-        BalanceProperty *property = x.second;
+    for (BalanceProperty *property : btype->getProperties()) {
         Type *propertyType = property->balanceType->getReferencableType();
 
         Value *initialValue = nullptr;
-        if (propertyType->isIntegerTy()) {
+        if (property->name == "typeId") {
+            initialValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, btype->typeIndex, true));
+        } else if (propertyType->isIntegerTy()) {
             int width = propertyType->getIntegerBitWidth();
             initialValue = ConstantInt::get(*currentPackage->context, llvm::APInt(width, 0, true));
         } else if (propertyType->isFloatingPointTy()) {
@@ -127,4 +128,13 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
         throw std::runtime_error("Error verifying default constructor for class: " + btype->toString());
     }
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+}
+
+Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
+    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
+    auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
+    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(M.getContext()));
+    Constant *indices[] = {zero, zero};
+    Constant *strVal = ConstantExpr::getGetElementPtr(strConstant->getType(), GVStr, indices, true);
+    return strVal;
 }

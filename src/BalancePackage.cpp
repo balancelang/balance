@@ -469,6 +469,18 @@ bool BalancePackage::registerTypes()
             // Visit entire tree
             TypeRegistrationVisitor visitor;
             visitor.visit(this->currentModule->tree);
+
+            BalanceType * typeInfoType = currentPackage->builtins->getType("TypeInfo");
+            std::vector<Constant *> typeInfoVariables = {};
+            for (auto const &x : bmodule->types) {
+                BalanceType * btype = x.second;
+                typeInfoVariables.push_back(btype->typeInfoVariable);
+            }
+
+            ArrayRef<Constant *> valuesRef(typeInfoVariables);
+            llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
+            Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
+            bmodule->typeInfoTable->setInitializer(typeTableData);
         } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;

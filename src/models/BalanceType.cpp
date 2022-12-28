@@ -127,13 +127,12 @@ bool BalanceType::finalized() {
 std::vector<BalanceProperty *> BalanceType::getProperties() {
     std::vector<BalanceProperty *> result = {};
 
-    for (auto const &x : this->properties) {
-        BalanceProperty *prop = x.second;
-        result.push_back(prop);
-    }
+    vector<BalanceType *> hierarchy = this->getHierarchy();
+    std::reverse(hierarchy.begin(), hierarchy.end());
 
-    for (BalanceType * parent : this->parents) {
-        for (BalanceProperty * property : parent->getProperties()) {
+    for (BalanceType * member : hierarchy) {
+        for (auto const &x : member->properties) {
+            BalanceProperty * property = x.second;
             result.push_back(property);
         }
     }

@@ -25,7 +25,7 @@ public:
     std::map<std::string, BalanceModule *> modules = {};
     BalanceModule * builtins = nullptr;
     BalanceModule *currentModule = nullptr;
-    LLVMContext *context;
+    llvm::LLVMContext *context;
     bool isAnalyzeOnly = false;
     bool verboseLogging = false;
 
@@ -35,7 +35,7 @@ public:
         this->packageJsonPath = packageJsonPath;
         this->entrypoint = entrypoint;
         this->verboseLogging = verboseLogging;
-        this->context = new LLVMContext();
+        this->context = new llvm::LLVMContext();
 
         // Get directory of packageJson
         int pos = packageJsonPath.find_last_of("\\/");

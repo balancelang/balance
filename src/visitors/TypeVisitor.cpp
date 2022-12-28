@@ -122,7 +122,7 @@ std::any TypeVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext
 
 std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     std::string text = this->getText(ctx);
-    std::string variableName = ctx->IDENTIFIER()->getText();
+    std::string variableName = ctx->variableTypeTuple()->name->getText();
 
     BalanceValue *tryVal = currentPackage->currentModule->currentScope->symbolTable[variableName];
     if (tryVal != nullptr) {
@@ -133,8 +133,8 @@ std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ct
     BalanceType * value = any_cast<BalanceType *>(visit(ctx->expression()));
 
     // If typed new-expression, check if LHS == RHS
-    if (ctx->balanceType()) {
-        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+    if (ctx->variableTypeTuple()->type) {
+        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
         canAssignTo(ctx, value, lhsType);
     }
 
@@ -514,9 +514,14 @@ std::any TypeVisitor::visitLambda(BalanceParser::LambdaContext *ctx) {
 
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
     vector<BalanceParameter *> functionParameterTypes;
-    for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
-        string parameterName = parameter->identifier->getText();
-        BalanceType * btype = currentPackage->currentModule->getType(parameter->type->getText());
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
+        string parameterName = parameter->name->getText();
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            btype = currentPackage->currentModule->getType(parameter->type->getText());
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
         functionParameterTypes.push_back(new BalanceParameter(btype, parameterName));
         currentPackage->currentModule->currentScope->symbolTable[parameterName] = new BalanceValue(btype, nullptr);
     }

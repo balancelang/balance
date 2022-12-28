@@ -357,12 +357,12 @@ BalanceType * createType__Array(BalanceType * generic) {
         return arrayType;
     }
 
-    currentPackage->builtins->types[arrayType->toString()] = arrayType;
+    currentPackage->builtins->addType(arrayType);
     BalanceType * intType = currentPackage->currentModule->getType("Int");
     BalanceType * genericPointerType = new BalanceType(currentPackage->currentModule, "genericPointerType", arrayType->generics[0]->getReferencableType()->getPointerTo());
     genericPointerType->isSimpleType = true;
-    arrayType->properties["memoryPointer"] = new BalanceProperty("memoryPointer", genericPointerType, 0);
-    arrayType->properties["length"] = new BalanceProperty("length", intType, 1, true);
+    arrayType->properties["memoryPointer"] = new BalanceProperty("memoryPointer", genericPointerType, 0, false);
+    arrayType->properties["length"] = new BalanceProperty("length", intType, 1);
 
     StructType *structType = StructType::create(*currentPackage->context, arrayType->toString());
     ArrayRef<Type *> propertyTypesRef({

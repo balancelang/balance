@@ -41,7 +41,7 @@ void createMethod_Int_toString() {
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
 
     BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
+    intType->addMethod(functionName, bfunction);
     bfunction->function = intToStringFunc;
 
     // Store current block so we can return to it after function declaration
@@ -114,10 +114,9 @@ void createType__Int() {
     bclass->isSimpleType = true;
     bclass->hasBody = true;
 
-    currentPackage->currentModule->types["Int"] = bclass;
-    currentPackage->currentModule->currentType = bclass;
+    currentPackage->currentModule->addType(bclass);
+}
 
+void createFunctions__Int() {
     createMethod_Int_toString();
-
-    currentPackage->currentModule->currentType = nullptr;
 }

@@ -3,6 +3,7 @@
 #include "../builtins/Array.h"
 #include "../BalancePackage.h"
 
+#include "llvm/IR/Value.h"
 #include "ParserRuleContext.h"
 
 using namespace antlr4;
@@ -21,6 +22,22 @@ void BalanceModule::initializeModule() {
     this->builder->SetInsertPoint(entry);
     this->rootScope = new BalanceScopeBlock(entry, nullptr);
     this->currentScope = this->rootScope;
+
+    this->initializeTypeInfoTable();
+}
+
+void BalanceModule::initializeTypeInfoTable() {
+    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, "TypeInfo");
+    llvm::ArrayRef<llvm::Type *> propertyTypesRef({
+        Type::getInt32Ty(*currentPackage->context),
+        this->builder->CreateGlobalStringPtr("")->getType()
+    });
+    structType->setBody(propertyTypesRef, false);
+
+    this->typeInfoStructType = structType;
+
+    llvm::ArrayType * arrayType = llvm::ArrayType::get(structType, 0);
+    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, "typeTable");
 }
 
 void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
@@ -112,6 +129,24 @@ BalanceValue *BalanceModule::getValue(std::string variableName) {
 
 void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
     this->currentScope->symbolTable[variableName] = bvalue;
+}
+
+void BalanceModule::addType(BalanceType * balanceType) {
+    int typeIndex = this->types.size();
+    balanceType->typeIndex = typeIndex;
+    this->types[balanceType->toString()] = balanceType;
+
+    // Create typeInfo for type
+    ArrayRef<Constant *> valuesRef({
+        // typeId
+        ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIndex, true)),
+        // name
+        currentPackage->currentModule->builder->CreateGlobalStringPtr(balanceType->toString())
+    });
+
+    Constant * typeInfoData = ConstantStruct::get(this->typeInfoStructType, valuesRef);
+    balanceType->typeInfoVariable = typeInfoData;
+    // new GlobalVariable(*currentPackage->currentModule->module, (StructType *) typeInfoType->getInternalType(), true, GlobalValue::ExternalLinkage, typeInfoData, balanceType->toString() + "_typeInfo");
 }
 
 void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {

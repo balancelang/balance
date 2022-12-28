@@ -3,6 +3,7 @@
 #include "../models/BalanceType.h"
 #include "../models/BalanceValue.h"
 #include "../builtins/Array.h"
+#include "../Utilities.h"
 
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
@@ -61,15 +62,6 @@
 using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
-
-Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
-    Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
-    auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
-    Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(M.getContext()));
-    Constant *indices[] = {zero, zero};
-    Constant *strVal = ConstantExpr::getGetElementPtr(strConstant->getType(), GVStr, indices, true);
-    return strVal;
-}
 
 void debug_print_value(std::string message, llvm::Value * value) {
     llvm::FunctionType * printfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), true);
@@ -382,7 +374,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 
 any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     std::string text = ctx->getText();
-    std::string variableName = ctx->IDENTIFIER()->getText();
+    std::string variableName = ctx->variableTypeTuple()->name->getText();
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
     if (!value->type->isSimpleType && value->type->name != "Lambda") {
@@ -815,10 +807,16 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     vector<std::string> functionParameterNames;
     vector<llvm::Type *> functionParameterTypes;
 
-    for (BalanceParser::ParameterContext *parameter : ctx->lambda()->parameterList()->parameter()) {
-        std::string parameterName = parameter->identifier->getText();
-        std::string typeString = parameter->type->getText();
-        BalanceType * btype = currentPackage->currentModule->getType(typeString);
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->lambda()->parameterList()->variableTypeTuple()) {
+        std::string parameterName = parameter->name->getText();
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string typeString = parameter->type->getText();
+            btype = currentPackage->currentModule->getType(typeString);
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
+
         functionParameterNames.push_back(parameterName);
         functionParameterTypes.push_back(btype->getReferencableType());
         functionParameterTypeStrings.push_back(btype);

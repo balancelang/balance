@@ -3,6 +3,8 @@
 
 #include <map>
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Constant.h"
 
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
@@ -19,10 +21,13 @@ public:
     std::vector<BalanceType *> generics;                // E.g. ["String", "Int"] in Dictionary<String, Int>
     llvm::Type * internalType = nullptr;
     llvm::Function * constructor = nullptr;
+    int typeIndex = 0;
+    bool isPublic = true;                               // TODO: Not used yet, will determine if type can be referenced from Balance-code
     bool isSimpleType = false;
     bool isInterface = false;
     BalanceModule *balanceModule;
     bool hasBody = false;
+    llvm::Constant * typeInfoVariable = nullptr;
 
     // We may introduce multiple inheritance one day
     std::vector<BalanceType *> parents = {};

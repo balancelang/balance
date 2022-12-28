@@ -113,7 +113,7 @@ void createType__Double() {
     bclass->isSimpleType = true;
     bclass->hasBody = true;
 
-    currentPackage->currentModule->types["Double"] = bclass;
+    currentPackage->currentModule->addType(bclass);
     currentPackage->currentModule->currentType = bclass;
 
     createMethod_Double_toString();

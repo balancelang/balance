@@ -129,9 +129,14 @@ std::any StructureVisitor::visitLambdaExpression(BalanceParser::LambdaExpression
     std::string text = ctx->getText();
     vector<BalanceType *> generics;
 
-    for (BalanceParser::ParameterContext *parameter : ctx->lambda()->parameterList()->parameter()) {
-        std::string typeString = parameter->type->getText();
-        BalanceType * btype = currentPackage->currentModule->getType(typeString);
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->lambda()->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string typeString = parameter->type->getText();
+            btype = currentPackage->currentModule->getType(typeString);
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
         generics.push_back(btype);
     }
 
@@ -183,9 +188,12 @@ std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *c
 
 std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
     string text = ctx->getText();
-    string typeName = ctx->type->getText();
-    BalanceType * btype = any_cast<BalanceType *>(visit(ctx->type));
-    string name = ctx->name->getText();
+    string name = ctx->variableTypeTuple()->name->getText();
+    BalanceType * btype = nullptr;
+    if (ctx->variableTypeTuple()->type) {
+        string typeName = ctx->variableTypeTuple()->type->getText();
+        btype = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
+    }
 
     // Check for duplicate property name
     if (currentPackage->currentModule->currentType->properties.find(name) != currentPackage->currentModule->currentType->properties.end()) {
@@ -193,8 +201,7 @@ std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContex
         throw StructureVisitorException();
     }
 
-    int count = currentPackage->currentModule->currentType->properties.size();
-    currentPackage->currentModule->currentType->properties[name] = new BalanceProperty(name, btype, count);
+    currentPackage->currentModule->currentType->properties[name] = new BalanceProperty(name, btype);
     return nullptr;
 }
 
@@ -244,9 +251,14 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
         parameters.push_back(thisParameter);
     }
 
-    for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
-        string parameterName = parameter->identifier->getText();
-        BalanceType * btype = any_cast<BalanceType *>(visit(parameter->balanceType()));
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
+        string parameterName = parameter->name->getText();
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            btype = any_cast<BalanceType *>(visit(parameter->type));
+        } else {
+            currentPackage->currentModule->getType("Any");
+        }
 
         // Check for duplicate parameter name
         for (auto param : parameters) {

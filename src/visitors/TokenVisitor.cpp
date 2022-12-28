@@ -90,7 +90,7 @@ std::any TokenVisitor::visitReturnStatement(BalanceParser::ReturnStatementContex
 
 std::any TokenVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     this->addToken(ctx->VAR()->getSymbol(), SemanticTokenType::ls_keyword);
-    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_variable);
+    this->addToken(ctx->variableTypeTuple()->name, SemanticTokenType::ls_variable);
 
     visit(ctx->expression());
     return std::any();
@@ -176,14 +176,16 @@ std::any TokenVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext 
     return std::any();
 }
 
-std::any TokenVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
-    visit(ctx->type);
-    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_property);
-    return std::any();
-}
+// std::any TokenVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
+//     visit(ctx->type);
+//     this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_property);
+//     return std::any();
+// }
 
-std::any TokenVisitor::visitParameter(BalanceParser::ParameterContext *ctx) {
-    visit(ctx->type);
+std::any TokenVisitor::visitVariableTypeTuple(BalanceParser::VariableTypeTupleContext *ctx) {
+    if (ctx->type) {
+        visit(ctx->type);
+    }
     this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_variable);
     return std::any();
 }

@@ -135,6 +135,7 @@ add_executable(balance
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
                src/builtins/Any.cpp
+               src/builtins/Type.cpp
                src/builtins/File.cpp
                src/builtins/String.cpp
                src/builtins/Int.cpp
