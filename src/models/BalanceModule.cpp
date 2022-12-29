@@ -63,9 +63,8 @@ void BalanceModule::generateASTFromString(std::string program) {
 
 BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
     // Check if it is a type (or generic type which was already defined with generic types)
-    for (auto const &x : types)
+    for (BalanceType * btype : types)
     {
-        BalanceType * btype = x.second;
         if (btype->equalTo(this, typeName, generics)) {
             return btype;
         }
@@ -134,7 +133,7 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 void BalanceModule::addType(BalanceType * balanceType) {
     int typeIndex = this->types.size();
     balanceType->typeIndex = typeIndex;
-    this->types[balanceType->toString()] = balanceType;
+    this->types.push_back(balanceType);
 
     // Create typeInfo for type
     ArrayRef<Constant *> valuesRef({

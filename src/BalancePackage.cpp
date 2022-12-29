@@ -291,9 +291,7 @@ void BalancePackage::buildStructures()
         bool isFinalized = true;
 
         // Check all types
-        for (auto const &x : bmodule->types) {
-            BalanceType * btype = x.second;
-
+        for (BalanceType * btype : bmodule->types) {
             if (!btype->finalized()) {
                 isFinalized = false;
                 break;
@@ -374,8 +372,7 @@ void BalancePackage::addBuiltinsToModules() {
             createImportedFunction(bmodule, bfunction);
         }
 
-        for (auto const &x : builtinsModule->types) {
-            BalanceType * bclass = x.second;
+        for (BalanceType * bclass : builtinsModule->types) {
             createImportedClass(bmodule, bclass);
         }
 
@@ -426,8 +423,7 @@ bool BalancePackage::finalizeProperties() {
 bool BalancePackage::registerInheritance()
 {
     BalanceType * anyType = builtins->getType("Any");
-    for (auto const &t : builtins->types) {
-        BalanceType * btype = t.second;
+    for (BalanceType * btype : builtins->types) {
         if (btype->parents.size() == 0 && btype->name != "Any") {
             btype->addParent(anyType);
         }
@@ -444,8 +440,7 @@ bool BalancePackage::registerInheritance()
             visitor.visit(this->currentModule->tree);
 
             // Assign any as base-class for all types without parents
-            for (auto const &t : bmodule->types) {
-                BalanceType * btype = t.second;
+            for (BalanceType * btype : bmodule->types) {
                 if (btype->parents.size() == 0 && btype->name != "Any") {
                     btype->addParent(anyType);
                 }
@@ -472,8 +467,7 @@ bool BalancePackage::registerTypes()
 
             BalanceType * typeInfoType = currentPackage->builtins->getType("TypeInfo");
             std::vector<Constant *> typeInfoVariables = {};
-            for (auto const &x : bmodule->types) {
-                BalanceType * btype = x.second;
+            for (BalanceType * btype : bmodule->types) {
                 typeInfoVariables.push_back(btype->typeInfoVariable);
             }
 

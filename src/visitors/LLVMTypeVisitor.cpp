@@ -104,7 +104,7 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
     string text = ctx->getText();
     string className = ctx->className->getText();
 
-    BalanceType * bclass = currentPackage->currentModule->types[className];
+    BalanceType * bclass = currentPackage->currentModule->getType(className);
 
     // If already finalized, skip
     if (bclass->finalized()) {

@@ -74,7 +74,7 @@ void debug_print_value(std::string message, llvm::Value * value) {
 any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     std::string text = ctx->getText();
     std::string className = ctx->className->getText();
-    currentPackage->currentModule->currentType = currentPackage->currentModule->types[className];
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType(className);
 
     // Visit all class functions
     for (auto const &x : ctx->classElement()) {

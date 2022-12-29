@@ -62,7 +62,7 @@ public:
     bool isEntrypoint;
 
     // Structures defined in this module
-    std::map<std::string, BalanceType *> types = {};        // Make these vectors instead?
+    std::vector<BalanceType *> types = {};
     std::map<std::string, BalanceFunction *> functions = {};
     std::map<std::string, llvm::Value *> globals = {};
 
