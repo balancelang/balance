@@ -375,6 +375,13 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
 any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     std::string text = ctx->getText();
     std::string variableName = ctx->variableTypeTuple()->name->getText();
+
+    // Set LHS-type if typed, so RHS can use it
+    if (ctx->variableTypeTuple()->type) {
+        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
+        currentPackage->currentModule->currentLhsType = lhsType;
+    }
+
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
     if (!value->type->isSimpleType && value->type->name != "Lambda") {
@@ -384,6 +391,7 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     }
 
     currentPackage->currentModule->setValue(variableName, value);
+    currentPackage->currentModule->currentLhsType = nullptr;
     return nullptr;
 }
 
@@ -945,4 +953,65 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
     currentPackage->currentModule->currentScope = scope;
     return nullptr;
+}
+
+std::any BalanceVisitor::visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) {
+    string text = ctx->getText();
+    BalanceType * btype = currentPackage->currentModule->currentLhsType;
+    if (btype != nullptr) {
+        // Shorthand constructor syntax
+
+        // Malloc and call constructor
+        auto structMemoryPointer = llvm::CallInst::CreateMalloc(
+            currentPackage->currentModule->builder->GetInsertBlock(),
+            llvm::Type::getInt64Ty(*currentPackage->context),           // input type?
+            btype->getInternalType(),                                   // output type, which we get pointer to?
+            ConstantExpr::getSizeOf(btype->getInternalType()),          // size, matches input type?
+            nullptr,
+            nullptr,
+            ""
+        );
+        currentPackage->currentModule->builder->Insert(structMemoryPointer);
+
+        ArrayRef<Value *> argumentsReference{structMemoryPointer};
+        currentPackage->currentModule->builder->CreateCall(btype->getConstructor(), argumentsReference);
+
+        std::vector<BalanceProperty *> bproperties = btype->getProperties();
+        for(BalanceParser::MapItemContext * mapItem : ctx->mapInitializer()->mapItemList()->mapItem()) {
+            std::string propertyName = mapItem->key->getText();
+            BalanceProperty * bproperty = btype->getProperty(propertyName);
+            BalanceValue * bvalue = any_cast<BalanceValue *>(visit(mapItem->value));
+
+            auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+            auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
+
+            auto ptr = currentPackage->currentModule->builder->CreateGEP(btype->getInternalType(), structMemoryPointer, {zero, index});
+            currentPackage->currentModule->builder->CreateStore(bvalue->value, ptr);
+        }
+
+        return new BalanceValue(btype, structMemoryPointer);
+    } else {
+        // Instantiate new map
+        throw std::runtime_error("Map type not implemented yet :(");
+    }
+}
+
+std::any BalanceVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
+    std::string base = ctx->base->getText();
+    std::vector<BalanceType *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type: ctx->typeList()->balanceType()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
+    }
+
+    return currentPackage->currentModule->getType(base, generics);
+}
+
+std::any BalanceVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
+    if (ctx->IDENTIFIER()) {
+        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
+    } else {
+        return currentPackage->currentModule->getType(ctx->NONE()->getText());
+    }
 }

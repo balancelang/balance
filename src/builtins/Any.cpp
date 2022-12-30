@@ -118,10 +118,8 @@ void createMethod_Any_getType() {
 BalanceType * createType__Any() {
     BalanceType * anyType = new BalanceType(currentPackage->currentModule, "Any");
 
-    // BalanceType * int32Type = new BalanceType(currentPackage->currentModule, "int32", llvm::Type::getInt32Ty(*currentPackage->context));
-    // int32Type->isSimpleType = true;
     BalanceType * intType = currentPackage->currentModule->getType("Int");
-    anyType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, true);
+    anyType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
     StructType *structType = StructType::create(*currentPackage->context, "Any");
     ArrayRef<Type *> propertyTypesRef({
         anyType->properties["typeId"]->balanceType->getReferencableType(),

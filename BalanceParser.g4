@@ -104,7 +104,7 @@ mapItemList
     ;
 
 mapItem
-    : IDENTIFIER ':' expression
+    : key=expression ':' value=expression
     ;
 
 variable
@@ -202,7 +202,6 @@ block
 functionBlock
     : lineStatement*
     ;
-
 
 literal
     : numericLiteral

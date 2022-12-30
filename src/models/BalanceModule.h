@@ -77,6 +77,8 @@ public:
     BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
+    BalanceType * currentLhsType = nullptr;
+
     llvm::GlobalVariable * typeInfoTable = nullptr;
     llvm::StructType * typeInfoStructType = nullptr;
 

@@ -14,13 +14,20 @@
     - Function definitions (+)
     - while loops (+)
     - for loops
+        - break
+        - continue
+        - funky: Should for-loops be variables?
+            - var f = for (...) {
+
+            }
+            - then you can reference f and e.g. break out of it?
     - Pattern matching
         - strict checking all types with enums, unions, etc.
     - comments (+)
     - "compiled" docstrings, e.g. warnings when wrong
     - lambda expressions with body (+)
     - destructuring
-        - var a, b, c  = getObj()
+        - var a, b, c  = getObj() , where obj has properties a,b,c
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword - checked exceptions
     - Classes (+)
@@ -39,12 +46,14 @@
     - overloads
     - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
+    - tuples / anonymous class syntax?
+        - E.g. x: <Int, Int>
     - support dictionary initializer expression, e.g.
         class A {
-            Int a
-            Int b
+            a: Int
+            b: Int
         }
-        A a = { a: 123, b: 456 }
+        var a: A = { a: 123, b: 456 }
     - async / await
         - await single syntax:
             var b = await ...

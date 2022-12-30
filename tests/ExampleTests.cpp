@@ -90,7 +90,7 @@ string runExample(string filePath) {
 
 void examplesClassTest() {
     string result = runExample("../examples/class.bl");
-    assertEqual("25\n", result, "Class test");
+    assertEqual("25\n123\n", result, "Class test");
 }
 
 void examplesHelloWorldTest() {

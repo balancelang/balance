@@ -16,3 +16,8 @@ class MyClass {
         a = value
     }
 }
+
+// We can also initialize a class like this:
+var myClass: MyClass = { a: 123 }
+print(myClass.a)
+// outputs 123

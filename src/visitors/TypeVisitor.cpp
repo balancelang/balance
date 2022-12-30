@@ -130,16 +130,21 @@ std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ct
         return std::any();
     }
 
+    // Set LHS-type if typed, so RHS can use it
+    if (ctx->variableTypeTuple()->type) {
+        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
+        currentPackage->currentModule->currentLhsType = lhsType;
+    }
     BalanceType * value = any_cast<BalanceType *>(visit(ctx->expression()));
 
     // If typed new-expression, check if LHS == RHS
     if (ctx->variableTypeTuple()->type) {
-        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
-        canAssignTo(ctx, value, lhsType);
+        canAssignTo(ctx, value, currentPackage->currentModule->currentLhsType);
     }
 
     currentPackage->currentModule->currentScope->symbolTable[variableName] = new BalanceValue(value, nullptr);
 
+    currentPackage->currentModule->currentLhsType = nullptr;
     return std::any();
 }
 
@@ -657,4 +662,53 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
     }
 
     return nullptr;
+}
+
+std::any TypeVisitor::visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) {
+    string text = ctx->getText();
+    BalanceType * btype = currentPackage->currentModule->currentLhsType;
+    if (btype != nullptr) {
+        // Shorthand constructor syntax
+
+        std::vector<BalanceProperty *> bproperties = btype->getProperties();
+        std::map<std::string, BalanceType *> items = {};
+        for(BalanceParser::MapItemContext * mapItem : ctx->mapInitializer()->mapItemList()->mapItem()) {
+            // Check that key is either string or quoted string
+            std::string propertyName = mapItem->key->getText();
+            BalanceType * value = any_cast<BalanceType *>(visit(mapItem->value));
+
+            // Check for duplicate property (warning only)
+            if (items.find(propertyName) != items.end()) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate property in initializer: " + propertyName);
+            }
+
+            bool foundProperty = false;
+            for (BalanceProperty * bproperty : bproperties) {
+                if (bproperty->name == propertyName) {
+                    // Check if type matches
+                    if (canAssignTo(ctx, value, bproperty->balanceType)) {
+                        items[propertyName] = value;
+                        foundProperty = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundProperty) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown property in initializer: " + propertyName);
+            }
+        }
+
+        // Check for missing property
+        for (BalanceProperty * bproperty : bproperties) {
+            if (bproperty->isPublic && items.find(bproperty->name) == items.end()) {
+                currentPackage->currentModule->addTypeError(ctx, "Missing property in initializer: " + bproperty->name);
+            }
+        }
+
+        return btype;
+    } else {
+        // Instantiate new map
+        throw std::runtime_error("Map type not implemented yet :(");
+    }
 }
