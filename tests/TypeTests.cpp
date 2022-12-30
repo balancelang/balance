@@ -344,6 +344,71 @@ x = (x: Int, y: Int): None -> {
     assertEqual("Lambda<Int, Int, None> cannot be assigned to Lambda<Int, None>", error->message, program);
 }
 
+
+// test shorthand: duplicate property
+void testShortHandInititalizerDuplicateProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+}
+var myClass: MyClass = { a: 123, a: 456 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Duplicate property in initializer: a", error->message, program);
+}
+
+// test shorthand: unknown property
+void testShortHandInititalizerUnknownProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+}
+var myClass: MyClass = { a: 123, xyz: 456 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Unknown property in initializer: xyz", error->message, program);
+}
+
+// test shorthand: missing property
+void testShortHandInititalizerMissingProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+    b: Int
+}
+var myClass: MyClass = { a: 123 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Missing property in initializer: b", error->message, program);
+}
+
+// test shorthand: inheritance example
+void testShortHandInititalizerInheritance() {
+        std::string program = R""""(
+class Parent {
+    b: Int
+}
+class MyClass extends Parent {
+    a: Int
+}
+var myClass: MyClass = { a: 123 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Missing property in initializer: b", error->message, program);
+}
+
 void runTypesTestSuite() {
     std::cout << "RUNNING TYPE TESTS" << std::endl;
     duplicateClassName();
@@ -374,4 +439,9 @@ void runTypesTestSuite() {
     testLhsEqualToRhs_intsReassignment();
     testLhsEqualToRhs_lambda();
     testLhsEqualToRhs_lambdaReassignment();
+
+    testShortHandInititalizerDuplicateProperty();
+    testShortHandInititalizerUnknownProperty();
+    testShortHandInititalizerMissingProperty();
+    testShortHandInititalizerInheritance();
 }

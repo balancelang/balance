@@ -10,45 +10,45 @@
     - use "from X import Y", rather than "import Y from X", since intellisense can't guess Y before knowing X.
     - variable def: 'var a = 2' or 'Int a = 2'. Favor this over 'var a: Int = 2' since this requires both 'var', 'a', and 'Int'.
 - Features
-    - If statements (+)
-    - Function definitions (+)
-    - while loops (+)
+    + If statements
+    + Function definitions
+    + while loops
     - for loops
         - break
         - continue
-        - funky: Should for-loops be variables?
+        - funky: Should for-loops be expressions?
             - var f = for (...) {
 
             }
             - then you can reference f and e.g. break out of it?
     - Pattern matching
         - strict checking all types with enums, unions, etc.
-    - comments (+)
+    + comments
     - "compiled" docstrings, e.g. warnings when wrong
-    - lambda expressions with body (+)
+    + lambda expressions with body
     - destructuring
         - var a, b, c  = getObj() , where obj has properties a,b,c
     - attributes [Route(xxx)] - both above class, function, property, in front of parameter?
     - Java-like "throws" keyword - checked exceptions
-    - Classes (+)
-    - interfaces (+)
+    + Classes
+    + interfaces
     - abstract methods?
     - builtin serialization (JSON, XML, YAML)
-    - all strings can be multiline? (+)
+    + all strings can be multiline?
     - all strings be f-strings?  var a = "Test: {y}"
     - extension methods on types
-    - forward references - e.g. extend a class defined later in the same file (+)
+    + forward references - e.g. extend a class defined later in the same file
     - Not compile classes/functions not imported?
-    - Cyclic dependencies (+)
+    + Cyclic dependencies
     - Garbage collection
     - Sockets
-    - File handles (+)
+    + File handles
     - overloads
     - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
     - tuples / anonymous class syntax?
         - E.g. x: <Int, Int>
-    - support dictionary initializer expression, e.g.
+    + support dictionary initializer expression, e.g.
         class A {
             a: Int
             b: Int

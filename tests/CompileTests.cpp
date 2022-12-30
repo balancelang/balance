@@ -225,22 +225,21 @@ class MyClass {
     d: Bool
     e: String
 }
-MyClass myClass = {
+var myClass: MyClass = {
     a: new A(),
     b: new B(),
     c: 15,
     d: false,
     e: "Hello world"
 }
-myClass.a = 55
-print(myClass.a)
+print(myClass.a.x)
 myClass.b.someFunction()
 print(myClass.c)
 print(myClass.d)
 print(myClass.e)
     )"""";
     std::string result = run(program);
-    assertEqual("55\nInside B\n15\nfalse\nHello world\n", result, program);
+    assertEqual("0\nInside B\n15\nfalse\nHello world\n", result, program);
 }
 
 void inheritedMembers() {
@@ -347,7 +346,7 @@ void runCompileTestSuite() {
     functionTakesInterface();
     functionReturnsInterface();
 
-    // objectShorthandInitializer();
+    objectShorthandInitializer();
     inheritedMembers();
     functionTakesBaseClass();
 }

@@ -16,10 +16,6 @@
 - test not providing generic types for class which requires a generic type, e.g. Array<Int> used as Array
 - test arrays/generic types as class properties
 - test shorthand: non-string as key
-- test shorthand: duplicate property
-- test shorthand: unknown property
-- test shorthand: missing property
-- test shorthand: inheritance example
 
 ## Inheritance
 - throw error if inherited property already exists in ancestor

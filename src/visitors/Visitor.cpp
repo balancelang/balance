@@ -984,9 +984,35 @@ std::any BalanceVisitor::visitMapInitializerExpression(BalanceParser::MapInitial
 
             auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
-
             auto ptr = currentPackage->currentModule->builder->CreateGEP(btype->getInternalType(), structMemoryPointer, {zero, index});
-            currentPackage->currentModule->builder->CreateStore(bvalue->value, ptr);
+
+            if (bproperty->balanceType->isInterface && !bvalue->type->isInterface) {
+                // TODO: Convert to interface
+                BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
+                llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
+
+                // set fat pointer 'this' argument
+                auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
+
+                BitCastInst *bitcastThisValueInstr = new BitCastInst(bvalue->value, llvm::Type::getInt64PtrTy(*currentPackage->context));
+                Value * bitcastThisValue = currentPackage->currentModule->builder->Insert(bitcastThisValueInstr);
+                currentPackage->currentModule->builder->CreateStore(bitcastThisValue, fatPointerThisPointer);
+
+                // set fat pointer 'vtable' argument
+                auto fatPointerVtableZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+                auto fatPointerVtableIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
+                auto fatPointerVtablePointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerVtableZeroValue, fatPointerVtableIndexValue});
+
+                Value * vtable = bvalue->type->interfaceVTables[bproperty->balanceType->name];
+                BitCastInst *bitcastVTableInstr = new BitCastInst(vtable, llvm::Type::getInt64PtrTy(*currentPackage->context));
+                Value * bitcastVtableValue = currentPackage->currentModule->builder->Insert(bitcastVTableInstr);
+                currentPackage->currentModule->builder->CreateStore(bitcastVtableValue, fatPointerVtablePointer);
+                currentPackage->currentModule->builder->CreateStore(fatPointer, ptr);
+            } else {
+                currentPackage->currentModule->builder->CreateStore(bvalue->value, ptr);
+            }
         }
 
         return new BalanceValue(btype, structMemoryPointer);

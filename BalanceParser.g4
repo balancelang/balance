@@ -173,8 +173,8 @@ classExtendsImplements
     ;
 
 classElement
-    : classProperty LINE_BREAK
-    | functionDefinition LINE_BREAK
+    : classProperty (COMMA | LINE_BREAK)?
+    | functionDefinition (COMMA | LINE_BREAK)?
     | LINE_BREAK
     ;
 
