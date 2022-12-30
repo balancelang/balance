@@ -6,13 +6,18 @@ print(cls.getA())
 
 // We can reference the class both before and after its declaration
 class MyClass {
-    Int a
+    a: Int
 
     getA(): Int {
         return a
     }
 
-    setA(Int value): None {
+    setA(value: Int): None {
         a = value
     }
 }
+
+// We can also initialize a class like this:
+var myClass: MyClass = { a: 123 }
+print(myClass.a)
+// outputs 123

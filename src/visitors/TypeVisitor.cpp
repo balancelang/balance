@@ -8,11 +8,6 @@ extern BalancePackage *currentPackage;
 
 // Returns whether a can be assigned to b
 bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType) {
-    if (aType->name == "Lambda" || bType->name == "Lambda") {
-        // Short-term hack for now.
-        return true;
-    }
-
     // If a is interface, it can never be assigned to something not interface
     if (!bType->isInterface && aType->isInterface) {
         currentPackage->currentModule->addTypeError(ctx, "Can't assign interface to non-interface");
@@ -29,9 +24,21 @@ bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bTy
     }
 
     // Do similar checks for inheritance, once implemented
+    // a can be assigned to b, if b is ancestor of a
+    for (BalanceType * member : aType->getHierarchy()) {
+        if (member == aType) {
+            continue;
+        }
+
+        // TODO: We may need to consider generics here as well
+        if (member == bType) {
+            return true;
+        }
+    }
+
 
     if (!aType->equalTo(bType)) {
-        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in member assignment. Expected " + bType->toString() + ", found " + aType->toString());
+        currentPackage->currentModule->addTypeError(ctx, aType->toString() + " cannot be assigned to " + bType->toString());
         return false;
     }
 
@@ -115,7 +122,7 @@ std::any TypeVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext
 
 std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     std::string text = this->getText(ctx);
-    std::string variableName = ctx->IDENTIFIER()->getText();
+    std::string variableName = ctx->variableTypeTuple()->name->getText();
 
     BalanceValue *tryVal = currentPackage->currentModule->currentScope->symbolTable[variableName];
     if (tryVal != nullptr) {
@@ -123,10 +130,21 @@ std::any TypeVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ct
         return std::any();
     }
 
+    // Set LHS-type if typed, so RHS can use it
+    if (ctx->variableTypeTuple()->type) {
+        BalanceType * lhsType = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
+        currentPackage->currentModule->currentLhsType = lhsType;
+    }
     BalanceType * value = any_cast<BalanceType *>(visit(ctx->expression()));
+
+    // If typed new-expression, check if LHS == RHS
+    if (ctx->variableTypeTuple()->type) {
+        canAssignTo(ctx, value, currentPackage->currentModule->currentLhsType);
+    }
 
     currentPackage->currentModule->currentScope->symbolTable[variableName] = new BalanceValue(value, nullptr);
 
+    currentPackage->currentModule->currentLhsType = nullptr;
     return std::any();
 }
 
@@ -140,9 +158,7 @@ std::any TypeVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentC
     }
 
     BalanceType * expression = any_cast<BalanceType *>(visit(ctx->expression()));
-    if (!tryVal->type->equalTo(expression)) {
-        currentPackage->currentModule->addTypeError(ctx, "Types are not equal in reassignment: " + text + ", " + tryVal->type->toString() + " != " + expression->toString());
-    }
+    canAssignTo(ctx, expression, tryVal->type);
 
     return std::any();
 }
@@ -293,6 +309,14 @@ std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
     return currentPackage->currentModule->getType(base, generics);
 }
 
+std::any TypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
+    if (ctx->IDENTIFIER()) {
+        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
+    } else {
+        return currentPackage->currentModule->getType(ctx->NONE()->getText());
+    }
+}
+
 std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     std::string text = this->getText(ctx);
     std::string functionName = ctx->IDENTIFIER()->getText();
@@ -364,7 +388,7 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             continue;
         }
 
-        if (!expectedParameters[i]->equalTo(actualParameters[i])) {
+        if (!canAssignTo(ctx, actualParameters[i], expectedParameters[i])) {
             BalanceType * expectedType = expectedParameters[i];
             BalanceType * actualType = actualParameters[i];
 
@@ -465,6 +489,11 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
         visit(ctx->classExtendsImplements());
     }
 
+    // Add all class properties to scope
+    for (BalanceProperty * bproperty : btype->getProperties()) {
+        currentPackage->currentModule->currentScope->symbolTable[bproperty->name] = new BalanceValue(bproperty->balanceType, nullptr);
+    }
+
     // Visit all class properties
     for (auto const &x : ctx->classElement()) {
         if (x->classProperty()) {
@@ -484,32 +513,20 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     return std::any();
 }
 
-std::any TypeVisitor::visitClassProperty(BalanceParser::ClassPropertyContext *ctx) {
-    string text = ctx->getText();
-    string typeName = ctx->type->getText();
-    string propertyName = ctx->name->getText();
-    // TODO: Parse generics
-    BalanceProperty * bproperty = currentPackage->currentModule->currentType->properties[propertyName];
-
-    BalanceType * btype = currentPackage->currentModule->getType(typeName);
-    if (btype == nullptr) {
-        currentPackage->currentModule->addTypeError(ctx, "Unknown class property type");
-    }
-
-    string name = ctx->name->getText();
-    currentPackage->currentModule->currentScope->symbolTable[name] = new BalanceValue(bproperty->balanceType, nullptr);
-    return std::any();
-}
-
 std::any TypeVisitor::visitLambda(BalanceParser::LambdaContext *ctx) {
     std::string text = ctx->getText();
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
 
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
     vector<BalanceParameter *> functionParameterTypes;
-    for (BalanceParser::ParameterContext *parameter : ctx->parameterList()->parameter()) {
-        string parameterName = parameter->identifier->getText();
-        BalanceType * btype = currentPackage->currentModule->getType(parameter->type->getText());
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
+        string parameterName = parameter->name->getText();
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            btype = currentPackage->currentModule->getType(parameter->type->getText());
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
         functionParameterTypes.push_back(new BalanceParameter(btype, parameterName));
         currentPackage->currentModule->currentScope->symbolTable[parameterName] = new BalanceValue(btype, nullptr);
     }
@@ -590,54 +607,108 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
         throw std::runtime_error("Can't visit extends/implements when not parsing class.");
     }
 
-    for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
-        std::string interfaceName = type->getText();
-        BalanceType * btype = currentPackage->currentModule->getType(interfaceName);
-        if (btype == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown interface: " + interfaceName);
-            continue;
-        }
-
-        if (!btype->isInterface) {
-            currentPackage->currentModule->addTypeError(ctx, "This is not an interface: " + interfaceName);
-            continue;
-        }
-
-        // Check if class implements all functions
-        for (auto const &x : btype->getMethods()) {
-            BalanceFunction * interfaceFunction = x.second;
-
-            // Check if class implements function
-            BalanceFunction * classFunction = currentPackage->currentModule->currentType->getMethod(interfaceFunction->name);
-            if (classFunction == nullptr) {
-                currentPackage->currentModule->addTypeError(ctx, "Missing interface implementation of function " + interfaceFunction->name + ", required by interface " + btype->toString());
+    if (ctx->interfaces) {
+        for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
+            std::string interfaceName = type->getText();
+            BalanceType * btype = currentPackage->currentModule->getType(interfaceName);
+            if (btype == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown interface: " + interfaceName);
                 continue;
             }
 
-            // Check if signature matches
-            if (!interfaceFunction->returnType->equalTo(classFunction->returnType)) {
-                currentPackage->currentModule->addTypeError(ctx, "Wrong return-type of implemented function. Expected " + interfaceFunction->returnType->toString() + ", found " + classFunction->returnType->toString());
+            if (!btype->isInterface) {
+                currentPackage->currentModule->addTypeError(ctx, "This is not an interface: " + interfaceName);
+                continue;
             }
 
-            // We start from 1, since we assume 'this' as first parameter
-            for (int i = 1; i < interfaceFunction->parameters.size(); i++) {
-                if (i >= classFunction->parameters.size()) {
-                    currentPackage->currentModule->addTypeError(ctx, "Missing parameter in implemented method, " + text + ", expected " + interfaceFunction->parameters[i]->balanceType->toString());
+            // Check if class implements all functions
+            for (BalanceFunction * interfaceFunction : btype->getMethods()) {
+                // Check if class implements function
+                BalanceFunction * classFunction = currentPackage->currentModule->currentType->getMethod(interfaceFunction->name);
+                if (classFunction == nullptr) {
+                    currentPackage->currentModule->addTypeError(ctx, "Missing interface implementation of function " + interfaceFunction->name + ", required by interface " + btype->toString());
                     continue;
                 }
 
-                if (!interfaceFunction->parameters[i]->balanceType->equalTo(classFunction->parameters[i]->balanceType)) {
-                    currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + interfaceFunction->parameters[i]->balanceType->toString() + ", found " + classFunction->parameters[i]->balanceType->toString());
+                // Check if signature matches
+                if (!interfaceFunction->returnType->equalTo(classFunction->returnType)) {
+                    currentPackage->currentModule->addTypeError(ctx, "Wrong return-type of implemented function. Expected " + interfaceFunction->returnType->toString() + ", found " + classFunction->returnType->toString());
+                }
+
+                // We start from 1, since we assume 'this' as first parameter
+                for (int i = 1; i < interfaceFunction->parameters.size(); i++) {
+                    if (i >= classFunction->parameters.size()) {
+                        currentPackage->currentModule->addTypeError(ctx, "Missing parameter in implemented method, " + text + ", expected " + interfaceFunction->parameters[i]->balanceType->toString());
+                        continue;
+                    }
+
+                    if (!interfaceFunction->parameters[i]->balanceType->equalTo(classFunction->parameters[i]->balanceType)) {
+                        currentPackage->currentModule->addTypeError(ctx, "Incorrect parameter type. Expected " + interfaceFunction->parameters[i]->balanceType->toString() + ", found " + classFunction->parameters[i]->balanceType->toString());
+                    }
+                }
+
+                for (int i = interfaceFunction->parameters.size(); i < classFunction->parameters.size(); i++) {
+                    currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in implemented method, " + classFunction->name + ", found " + classFunction->parameters[i]->balanceType->toString());
                 }
             }
 
-            for (int i = interfaceFunction->parameters.size(); i < classFunction->parameters.size(); i++) {
-                currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in implemented method, " + classFunction->name + ", found " + classFunction->parameters[i]->balanceType->toString());
-            }
+            currentPackage->currentModule->currentType->interfaces[interfaceName] = btype;
         }
+    }
 
-        currentPackage->currentModule->currentType->interfaces[interfaceName] = btype;
+    if (ctx->extendedClass) {
+        // TODO: What do we need to check here?
+        // E.g. if we allow abstract methods, we could require them implemented
     }
 
     return nullptr;
+}
+
+std::any TypeVisitor::visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) {
+    string text = ctx->getText();
+    BalanceType * btype = currentPackage->currentModule->currentLhsType;
+    if (btype != nullptr) {
+        // Shorthand constructor syntax
+
+        std::vector<BalanceProperty *> bproperties = btype->getProperties();
+        std::map<std::string, BalanceType *> items = {};
+        for(BalanceParser::MapItemContext * mapItem : ctx->mapInitializer()->mapItemList()->mapItem()) {
+            // Check that key is either string or quoted string
+            std::string propertyName = mapItem->key->getText();
+            BalanceType * value = any_cast<BalanceType *>(visit(mapItem->value));
+
+            // Check for duplicate property (warning only)
+            if (items.find(propertyName) != items.end()) {
+                currentPackage->currentModule->addTypeError(ctx, "Duplicate property in initializer: " + propertyName);
+            }
+
+            bool foundProperty = false;
+            for (BalanceProperty * bproperty : bproperties) {
+                if (bproperty->name == propertyName) {
+                    // Check if type matches
+                    if (canAssignTo(ctx, value, bproperty->balanceType)) {
+                        items[propertyName] = value;
+                        foundProperty = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundProperty) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown property in initializer: " + propertyName);
+            }
+        }
+
+        // Check for missing property
+        for (BalanceProperty * bproperty : bproperties) {
+            if (bproperty->isPublic && items.find(bproperty->name) == items.end()) {
+                currentPackage->currentModule->addTypeError(ctx, "Missing property in initializer: " + bproperty->name);
+            }
+        }
+
+        return btype;
+    } else {
+        // Instantiate new map
+        throw std::runtime_error("Map type not implemented yet :(");
+    }
 }

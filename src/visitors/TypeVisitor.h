@@ -26,11 +26,11 @@ public:
     std::any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
     std::any visitVariable(BalanceParser::VariableContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
+    std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
     std::any visitFunctionCall(BalanceParser::FunctionCallContext *ctx) override;
     std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
     std::any visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) override;
     std::any visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) override;
-    std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     std::any visitLambda(BalanceParser::LambdaContext *ctx) override;
     std::any visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) override;
     std::any visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) override;
@@ -39,14 +39,7 @@ public:
     std::any visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) override;
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
     std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
-
-    // TODO: visitClassInitializerExpression
-    // Test can't reassign different class
-    /**
-     * var a = new A()
-     * a = new A()  // fine
-     * a = new B()  // not fine (except when we introduce inheritance)
-     */
+    std::any visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) override;
 };
 
 #endif

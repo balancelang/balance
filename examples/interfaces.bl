@@ -1,19 +1,19 @@
 interface MyInterface {
-    someFunction(Int a, Int b): Int
-    someFunction2(Int a): None
+    someFunction(a: Int, b: Int): Int
+    someFunction2(a: Int): None
 }
 
 class MyClass implements MyInterface {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         return a + b
     }
 
-    someFunction2(Int a): None {
+    someFunction2(a: Int): None {
         print(a + 2)
     }
 }
 
-takesInterface(MyInterface x) {
+takesInterface(x: MyInterface) {
     var y = x.someFunction(2,3)
     print(y)
     x.someFunction2(y)

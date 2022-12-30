@@ -62,7 +62,7 @@ void createType__String() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "String");
 
     // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
-    currentPackage->currentModule->types["String"] = bclass;
+    currentPackage->currentModule->addType(bclass);
     BalanceType * i8pType = new BalanceType(currentPackage->currentModule, "charPointer", llvm::Type::getInt8PtrTy(*currentPackage->context));
     i8pType->isSimpleType = true;
     bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", i8pType, 0, false);
@@ -82,6 +82,7 @@ void createType__String() {
     });
     structType->setBody(propertyTypesRef, false);
     bclass->internalType = structType;
+    bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 

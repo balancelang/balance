@@ -33,7 +33,7 @@ std::any TypeRegistrationVisitor::visitClassDefinition(BalanceParser::ClassDefin
         throw TypeRegistrationVisitorException();
     }
 
-    currentPackage->currentModule->types[className] = new BalanceType(currentPackage->currentModule, className, llvm::StructType::create(*currentPackage->context, className));
+    currentPackage->currentModule->addType(new BalanceType(currentPackage->currentModule, className, llvm::StructType::create(*currentPackage->context, className)));
 
     return nullptr;
 }
@@ -57,7 +57,7 @@ std::any TypeRegistrationVisitor::visitInterfaceDefinition(BalanceParser::Interf
 
     binterface->internalType = fatPointerType->getInternalType(); // ->getReferencableType(); //llvm::StructType::create(*currentPackage->context, interfaceName);
     currentPackage->currentModule->currentType = binterface;
-    currentPackage->currentModule->types[interfaceName] = binterface;
+    currentPackage->currentModule->addType(binterface);
 
     // Visit all class functions
     for (auto const &x : ctx->interfaceElement()) {

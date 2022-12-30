@@ -295,16 +295,15 @@ void createMethod_write() {
     bool hasError = verifyFunction(*writeFunc, &llvm::errs());
     if (hasError) {
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        // exit(1);
     }
 }
 
 void createType__File() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "File");
-    currentPackage->currentModule->types["File"] = bclass;
+    currentPackage->currentModule->addType(bclass);
     BalanceType * int32pType = new BalanceType(currentPackage->currentModule, "filePointerType", llvm::Type::getInt32PtrTy(*currentPackage->context));
     int32pType->isSimpleType = true;
-    bclass->properties["filePointer"] = new BalanceProperty("filePointer", int32pType, 0);
+    bclass->properties["filePointer"] = new BalanceProperty("filePointer", int32pType, 0, false);
 
     currentPackage->currentModule->currentType = bclass;
     StructType *structType = StructType::create(*currentPackage->context, "File");
@@ -314,6 +313,7 @@ void createType__File() {
     });
     structType->setBody(propertyTypesRef, false);
     bclass->internalType = structType;
+    bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 

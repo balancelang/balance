@@ -7,6 +7,8 @@
 #include "builtins/Double.h"
 #include "builtins/Array.h"
 #include "builtins/Lambda.h"
+#include "builtins/Any.h"
+#include "builtins/Type.h"
 
 #include "models/BalanceType.h"
 
@@ -155,18 +157,19 @@ void createFunction__open()
 void createType__None() {
     BalanceType * btype = new BalanceType(currentPackage->currentModule, "None", Type::getVoidTy(*currentPackage->context));
     btype->isSimpleType = true;
-    currentPackage->currentModule->types["None"] = btype;
+    btype->hasBody = true;
+    currentPackage->currentModule->addType(btype);
 }
 
 void createType__FatPointer() {
     // TODO: Make sure you can't instantiate this from balance
     BalanceType * btype = new BalanceType(currentPackage->currentModule, "FatPointer");
 
-    currentPackage->currentModule->types["FatPointer"] = btype;
+    currentPackage->currentModule->addType(btype);
     BalanceType * pointerType = new BalanceType(currentPackage->currentModule, "pointer", llvm::Type::getInt64PtrTy(*currentPackage->context));
     pointerType->isSimpleType = true;
-    btype->properties["thisPointer"] = new BalanceProperty("thisPointer", pointerType, 0, false);
-    btype->properties["vtablePointer"] = new BalanceProperty("vtablePointer", pointerType, 1, true);
+    btype->properties["thisPointer"] = new BalanceProperty("thisPointer", pointerType, false);
+    btype->properties["vtablePointer"] = new BalanceProperty("vtablePointer", pointerType, false);
 
     currentPackage->currentModule->currentType = btype;
     StructType *structType = StructType::create(*currentPackage->context, "FatPointer");
@@ -175,6 +178,7 @@ void createType__FatPointer() {
         btype->properties["vtablePointer"]->balanceType->getInternalType()
     });
     structType->setBody(propertyTypesRef, false);
+    btype->hasBody = true;
     btype->internalType = structType;
 
     // TODO: Might not be needed
@@ -186,19 +190,29 @@ void createType__FatPointer() {
 void createFunctions() {
     createFunction__print();
     createFunction__open();
+
+    // Type functions
+    createFunctions__Int();
+    createFunctions__Any();
 }
 
 void createTypes() {
+    // eventually split this up in first creating the types, and then creating their functions etc.
+    createType__Int();
+
+    createType__Any();
     createType__None();
 
     createType__String();
-    createType__Int();
     createType__Bool();
     createType__Double();
     createType__File();
 
+    createType__Type();
     createType__FatPointer();
-    // Arrays are lazily created with their generic types
+
+    // Generic versions are lazily created with their generic types
+    createType__Array(nullptr);
     // TODO: Lambdas are lazily created with their generic types
 }
 

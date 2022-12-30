@@ -1,4 +1,4 @@
-funcTakesIntReturnsInt(Int a): Int {
+funcTakesIntReturnsInt(a: Int): Int {
     return a + 55
 }
 

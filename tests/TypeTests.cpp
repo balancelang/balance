@@ -20,10 +20,10 @@ class MyClass {}
 void duplicateInterfaceName() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 interface MyInterface {
-    someFunction123(Int x, Int y): None
+    someFunction123(x: Int, y: Int): None
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -37,7 +37,7 @@ interface MyInterface {
 void duplicateClassParameterName() {
     std::string program = R""""(
 class MyClass {
-    test(Int a, Int a) {}
+    test(a: Int, a: Int) {}
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -51,7 +51,7 @@ class MyClass {
 void duplicateInterfaceParameterName() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x, Int x): None
+    someFunction(x: Int, x: Int): None
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -65,8 +65,8 @@ interface MyInterface {
 void duplicateInterfaceMethod() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
-    someFunction(Int x, Int y): None
+    someFunction(x: Int): None
+    someFunction(x: Int, y: Int): None
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -79,8 +79,8 @@ interface MyInterface {
 void duplicateClassProperty() {
     std::string program = R""""(
 class X {
-    Int x
-    Int x
+    x: Int
+    x: Int
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -94,8 +94,8 @@ class X {
 void duplicateClassMethod() {
     std::string program = R""""(
 class MyClass {
-    someFunction(Int x): None {}
-    someFunction(Int x, Int y): None {}
+    someFunction(x: Int): None {}
+    someFunction(x: Int, y: Int): None {}
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -109,7 +109,7 @@ class MyClass {
 void missingInterfaceImplementation() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 class MyClass implements MyInterface {}
     )"""";
@@ -124,10 +124,10 @@ class MyClass implements MyInterface {}
 void wrongInterfaceReturnType() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): Int
+    someFunction(x: Int): Int
 }
 class MyClass implements MyInterface {
-    someFunction(Int x): None {}
+    someFunction(x: Int): None {}
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -141,10 +141,10 @@ class MyClass implements MyInterface {
 void wrongInterfaceParametersType() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 class MyClass implements MyInterface {
-    someFunction(Int x, Bool y): None {}
+    someFunction(x: Int, y: Bool): None {}
 }
     )"""";
     BalancePackage * package = new BalancePackage("", "", false);
@@ -158,15 +158,15 @@ class MyClass implements MyInterface {
 void interfaceAsClassProperty() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 class MyClass implements MyInterface {
-    someFunction(Int x): None {
+    someFunction(x: Int): None {
         print("Inside MyClass")
     }
 }
 class OtherClass {
-    MyInterface x
+    x: MyInterface
 }
 var myClass = new MyClass()
 var otherClass = new OtherClass()
@@ -181,15 +181,15 @@ otherClass.x.someFunction(2)
 void interfaceAsFunctionParameter() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 class MyClass implements MyInterface {
-    someFunction(Int x): None {
+    someFunction(x: Int): None {
         print("Inside MyClass")
     }
 }
 var myClass = new MyClass()
-takesInterface(MyInterface x): None {
+takesInterface(x: MyInterface): None {
     x.someFunction(5)
 }
 takesInterface(myClass)
@@ -202,10 +202,10 @@ takesInterface(myClass)
 void interfaceAsFunctionReturnType() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int x): None
+    someFunction(x: Int): None
 }
 class MyClass implements MyInterface {
-    someFunction(Int x): None {
+    someFunction(x: Int): None {
         print("Inside MyClass")
     }
 }
@@ -222,10 +222,10 @@ result.someFunction(5)
 void classAsClassPropertyDirectAccess() {
     std::string program = R""""(
 class MyClass {
-    OtherClass x
+    x: OtherClass
 }
 class OtherClass {
-    Int y
+    y: Int
 }
 var myClass = new MyClass()
 var otherClass = new OtherClass()
@@ -240,20 +240,20 @@ print(myClass.x.y)
 void classAsClassPropertyFunctionAccess() {
     std::string program = R""""(
 class MyClass {
-    OtherClass x
+    x: OtherClass
     getX(): OtherClass {
         return x
     }
-    setX(OtherClass xx) {
+    setX(xx: OtherClass) {
         x = xx
     }
 }
 class OtherClass {
-    Int y
+    y: Int
     getY(): Int {
         return y
     }
-    setY(Int yy): None {
+    setY(yy: Int): None {
         y = yy
     }
 }
@@ -270,16 +270,16 @@ print(myClass.getX().getY())
 void testNestedClassProperties() {
     std::string program = R""""(
 class A {
-    B b
+    b: B
 }
 class B {
-    C c
+    c: C
 }
 class C {
-    D d
+    d: D
 }
 class D {
-    Int x
+    x: Int
 }
 var a = new A()
 a.b = new B()
@@ -292,6 +292,122 @@ print(a.b.c.d.x)
     assertEqual("55\n", result, program);
 }
 
+void testLhsEqualToRhs_ints() {
+    std::string program = R""""(
+var x: Int = 5.5
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Double cannot be assigned to Int", error->message, program);
+}
+
+void testLhsEqualToRhs_intsReassignment() {
+    std::string program = R""""(
+var x: Int = 5
+x = 5.5
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Double cannot be assigned to Int", error->message, program);
+}
+
+void testLhsEqualToRhs_lambda() {
+    std::string program = R""""(
+var x: Lambda<Int, None> = (x: Int, y: Int): None -> {
+    print("Hello")
+}
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Lambda<Int, Int, None> cannot be assigned to Lambda<Int, None>", error->message, program);
+}
+
+void testLhsEqualToRhs_lambdaReassignment() {
+    std::string program = R""""(
+var x: Lambda<Int, None> = (x: Int): None -> {
+    print("Hello")
+}
+x = (x: Int, y: Int): None -> {
+    print("Hello again")
+}
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Lambda<Int, Int, None> cannot be assigned to Lambda<Int, None>", error->message, program);
+}
+
+
+// test shorthand: duplicate property
+void testShortHandInititalizerDuplicateProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+}
+var myClass: MyClass = { a: 123, a: 456 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Duplicate property in initializer: a", error->message, program);
+}
+
+// test shorthand: unknown property
+void testShortHandInititalizerUnknownProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+}
+var myClass: MyClass = { a: 123, xyz: 456 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Unknown property in initializer: xyz", error->message, program);
+}
+
+// test shorthand: missing property
+void testShortHandInititalizerMissingProperty() {
+        std::string program = R""""(
+class MyClass {
+    a: Int
+    b: Int
+}
+var myClass: MyClass = { a: 123 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Missing property in initializer: b", error->message, program);
+}
+
+// test shorthand: inheritance example
+void testShortHandInititalizerInheritance() {
+        std::string program = R""""(
+class Parent {
+    b: Int
+}
+class MyClass extends Parent {
+    a: Int
+}
+var myClass: MyClass = { a: 123 }
+    )"""";
+    BalancePackage * package = new BalancePackage("", "", false);
+    bool success = package->executeString(program);
+    assertEqual(false, success, program);
+    TypeError * error = package->modules["program"]->typeErrors[0];
+    assertEqual("Missing property in initializer: b", error->message, program);
+}
 
 void runTypesTestSuite() {
     std::cout << "RUNNING TYPE TESTS" << std::endl;
@@ -318,4 +434,14 @@ void runTypesTestSuite() {
     classAsClassPropertyFunctionAccess();
 
     testNestedClassProperties();
+
+    testLhsEqualToRhs_ints();
+    testLhsEqualToRhs_intsReassignment();
+    testLhsEqualToRhs_lambda();
+    testLhsEqualToRhs_lambdaReassignment();
+
+    testShortHandInititalizerDuplicateProperty();
+    testShortHandInititalizerUnknownProperty();
+    testShortHandInititalizerMissingProperty();
+    testShortHandInititalizerInheritance();
 }

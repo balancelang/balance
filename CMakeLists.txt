@@ -1,5 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
-project(Balance VERSION 0.0.10)
+project(Balance VERSION 0.0.11)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -128,10 +128,14 @@ add_executable(balance
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ClassVTableVisitor.cpp
+               src/visitors/InheritanceVisitor.cpp
+               src/visitors/FinalizePropertiesVisitor.cpp
                src/visitors/InterfaceVTableVisitor.cpp
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
+               src/builtins/Any.cpp
+               src/builtins/Type.cpp
                src/builtins/File.cpp
                src/builtins/String.cpp
                src/builtins/Int.cpp

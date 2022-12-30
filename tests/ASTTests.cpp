@@ -23,35 +23,35 @@ std::string programToString(std::string program) {
 void createVariablesTestInt() {
     std::string program = "var a = 555";
     std::string actual = programToString(program);
-    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (numericLiteral 555))))) <EOF>)))";
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment (newAssignment var (variableTypeTuple a) = (expression (literal (numericLiteral 555)))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestString() {
     std::string program = "var a = \"Hello world!\"";
     std::string actual = programToString(program);
-    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (stringLiteral Hello world!))))) <EOF>)))";
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment (newAssignment var (variableTypeTuple a) = (expression (literal (stringLiteral Hello world!)))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestBool() {
     std::string program = "var a = true";
     std::string actual = programToString(program);
-    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (booleanLiteral true))))) <EOF>)))";
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment (newAssignment var (variableTypeTuple a) = (expression (literal (booleanLiteral true)))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestFloat() {
     std::string program = "var a = 5.3";
     std::string actual = programToString(program);
-    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var a = (expression (literal (doubleLiteral 5.3))))) <EOF>)))";
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment (newAssignment var (variableTypeTuple a) = (expression (literal (doubleLiteral 5.3)))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 
 void createVariablesTestLambda() {
     std::string program = "var myFunc = () -> {}";
     std::string actual = programToString(program);
-    std::string expected = "(root (rootBlock (lineStatement (statement (assignment var myFunc = (expression (lambda ( parameterList ) -> { functionBlock })))) <EOF>)))";
+    std::string expected = "(root (rootBlock (lineStatement (statement (assignment (newAssignment var (variableTypeTuple myFunc) = (expression (lambda ( parameterList ) -> { functionBlock }))))) <EOF>)))";
     assertEqual(expected, actual, program);
 }
 

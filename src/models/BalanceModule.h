@@ -62,12 +62,13 @@ public:
     bool isEntrypoint;
 
     // Structures defined in this module
-    std::map<std::string, BalanceType *> types = {};
+    std::vector<BalanceType *> types = {};
     std::map<std::string, BalanceFunction *> functions = {};
     std::map<std::string, llvm::Value *> globals = {};
 
+    std::map<std::string, BalanceType *> genericTypes = {};
+
     // Structures imported into this module
-    std::map<std::string, BalanceType *> importedTypes = {};
     std::map<std::string, BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
 
@@ -76,6 +77,10 @@ public:
     BalanceFunction *currentFunction = nullptr;     // Used by TypeVisitor.cpp
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
+    BalanceType * currentLhsType = nullptr;
+
+    llvm::GlobalVariable * typeInfoTable = nullptr;
+    llvm::StructType * typeInfoStructType = nullptr;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
     BalanceValue * accessedValue = nullptr;
@@ -112,12 +117,14 @@ public:
         }
     }
 
+    void initializeTypeInfoTable();
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath();
     void generateASTFromString(std::string program);
     BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics = {});
+    void addType(BalanceType * balanceType);
     BalanceFunction * getFunction(std::string functionName);
     BalanceValue *getValue(std::string variableName);
     void setValue(std::string variableName, BalanceValue *bvalue);

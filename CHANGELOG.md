@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.0.11]
+### Added
+- Support for class shorthand initializer syntax
+
 ## [0.0.10]
 ### Added
 - Support for classes/interfaces as class properties

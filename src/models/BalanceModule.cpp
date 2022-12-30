@@ -1,7 +1,9 @@
 #include "BalanceModule.h"
 #include "BalanceValue.h"
+#include "../builtins/Array.h"
 #include "../BalancePackage.h"
 
+#include "llvm/IR/Value.h"
 #include "ParserRuleContext.h"
 
 using namespace antlr4;
@@ -20,6 +22,22 @@ void BalanceModule::initializeModule() {
     this->builder->SetInsertPoint(entry);
     this->rootScope = new BalanceScopeBlock(entry, nullptr);
     this->currentScope = this->rootScope;
+
+    this->initializeTypeInfoTable();
+}
+
+void BalanceModule::initializeTypeInfoTable() {
+    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, "TypeInfo");
+    llvm::ArrayRef<llvm::Type *> propertyTypesRef({
+        Type::getInt32Ty(*currentPackage->context),
+        this->builder->CreateGlobalStringPtr("")->getType()
+    });
+    structType->setBody(propertyTypesRef, false);
+
+    this->typeInfoStructType = structType;
+
+    llvm::ArrayType * arrayType = llvm::ArrayType::get(structType, 0);
+    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, "typeTable");
 }
 
 void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
@@ -44,19 +62,29 @@ void BalanceModule::generateASTFromString(std::string program) {
 }
 
 BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
-    for (auto const &x : types)
+    // Check if it is a type (or generic type which was already defined with generic types)
+    for (BalanceType * btype : types)
     {
-        BalanceType * btype = x.second;
         if (btype->equalTo(this, typeName, generics)) {
             return btype;
         }
     }
 
-    for (auto const &x : importedTypes)
+    // Check if it is a generic type, and create if necessary
+    for (auto const &x : genericTypes)
     {
         BalanceType * btype = x.second;
-        if (btype->equalTo(this, typeName, generics)) {
-            return btype;
+        if (btype->name == typeName && btype->generics.size() == generics.size()) {
+            // TODO: Figure out where to register these functions
+            BalanceType * newGenericType = nullptr;
+            if (btype->name == "Array") {
+                newGenericType = createType__Array(generics[0]);
+            }
+
+            if (newGenericType != nullptr && newGenericType->balanceModule != this) {
+                createImportedClass(currentPackage->currentModule, newGenericType);
+            }
+            return newGenericType;
         }
     }
 
@@ -100,6 +128,24 @@ BalanceValue *BalanceModule::getValue(std::string variableName) {
 
 void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
     this->currentScope->symbolTable[variableName] = bvalue;
+}
+
+void BalanceModule::addType(BalanceType * balanceType) {
+    int typeIndex = this->types.size();
+    balanceType->typeIndex = typeIndex;
+    this->types.push_back(balanceType);
+
+    // Create typeInfo for type
+    ArrayRef<Constant *> valuesRef({
+        // typeId
+        ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIndex, true)),
+        // name
+        currentPackage->currentModule->builder->CreateGlobalStringPtr(balanceType->toString())
+    });
+
+    Constant * typeInfoData = ConstantStruct::get(this->typeInfoStructType, valuesRef);
+    balanceType->typeInfoVariable = typeInfoData;
+    // new GlobalVariable(*currentPackage->currentModule->module, (StructType *) typeInfoType->getInternalType(), true, GlobalValue::ExternalLinkage, typeInfoData, balanceType->toString() + "_typeInfo");
 }
 
 void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {

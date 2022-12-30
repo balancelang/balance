@@ -32,13 +32,13 @@ void createPrintArray() {
 }
 
 void createFunctionAndInvoke() {
-    std::string program = "test(Int a): None {\nprint(a)\n}\ntest(55)";
+    std::string program = "test(a: Int): None {\nprint(a)\n}\ntest(55)";
     std::string result = run(program);
     assertEqual("55\n", result, program);
 }
 
 void createLambdaAndInvoke() {
-    std::string program = "var lamb = (Int a): None -> {\nprint(a)\n}\nlamb(55)";
+    std::string program = "var lamb = (a: Int): None -> {\nprint(a)\n}\nlamb(55)";
     std::string result = run(program);
     assertEqual("55\n", result, program);
 }
@@ -110,7 +110,7 @@ void operatorsThreeOperandsTest() {
 void classTest_classFunction() {
     std::string program = R""""(
 class ClassA {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         return a + b
     }
 }
@@ -125,7 +125,7 @@ print(clsA.someFunction(2,3))
 void classTest_classProperty() {
     std::string program = R""""(
 class ClassA {
-    Int x
+    x: Int
 }
 
 var clsA = new ClassA()
@@ -140,18 +140,18 @@ print(clsA.x)
 void classTest_classProperty_Interface() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int a, Int b): Int
+    someFunction(a: Int, b: Int): Int
 }
 
 class ClassA implements MyInterface {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         print("Inside classA")
         return a + b
     }
 }
 
 class ClassB {
-    MyInterface a
+    a: MyInterface
 }
 
 var clsA = new ClassA()
@@ -166,15 +166,15 @@ print(clsB.a.someFunction(2,3))
 void functionTakesInterface() {
     std::string program = R""""(
 interface MyInterface {
-    someFunction(Int a, Int b): Int
+    someFunction(a: Int, b: Int): Int
 }
 class ClassA implements MyInterface {
-    someFunction(Int a, Int b): Int {
+    someFunction(a: Int, b: Int): Int {
         print("Inside classA")
         return a + b
     }
 }
-functionTakesInterface(MyInterface x): None {
+functionTakesInterface(x: MyInterface): None {
     print(x.someFunction(2,3))
 }
 var clsA = new ClassA()
@@ -205,6 +205,126 @@ x.function()
     assertEqual("Inside MyClass\n", result, program);
 }
 
+void objectShorthandInitializer() {
+    std::string program = R""""(
+interface MyInterface {
+    someFunction(): None
+}
+class A {
+    x: Int
+}
+class B implements MyInterface {
+    someFunction(): None {
+        print("Inside B")
+    }
+}
+class MyClass {
+    a: A
+    b: MyInterface
+    c: Int
+    d: Bool
+    e: String
+}
+var myClass: MyClass = {
+    a: new A(),
+    b: new B(),
+    c: 15,
+    d: false,
+    e: "Hello world"
+}
+print(myClass.a.x)
+myClass.b.someFunction()
+print(myClass.c)
+print(myClass.d)
+print(myClass.e)
+    )"""";
+    std::string result = run(program);
+    assertEqual("0\nInside B\n15\nfalse\nHello world\n", result, program);
+}
+
+void inheritedMembers() {
+    std::string program = R""""(
+class A {
+    x: Int
+    y: Int
+    getX(): Int {
+        return x
+    }
+}
+class B extends A {
+    z: Int
+    getY(): Int {
+        return y
+    }
+    getZ(): Int {
+        return z
+    }
+}
+var b = new B()
+b.x = 1
+b.y = 2
+b.z = 3
+print(b.getX())
+print(b.getY())
+print(b.getZ())
+    )"""";
+    std::string result = run(program);
+    assertEqual("1\n2\n3\n", result, program);
+}
+
+void functionTakesBaseClass() {
+    std::string program = R""""(
+class A {
+    x: Int
+}
+class B extends A {
+    y: Int
+}
+var b = new B()
+b.x = 1
+b.y = 2
+takesBase(a: A): None {
+    print(a.x)
+}
+takesAny(x: Any): None {
+    print("Any")
+}
+takesBase(b)
+takesAny(b)
+takesAny(5)
+takesAny("abc")
+    )"""";
+    std::string result = run(program);
+    assertEqual("1\nAny\nAny\nAny\n", result, program);
+}
+
+// class Parent {
+//     x: Int
+//     y: Int
+// }
+// class MyClass extends Parent {
+//     a: Bool
+//     b: Int
+//     c: Double
+//     d: Array<Int>
+//     e: String
+// }
+// var myClass = new MyClass()
+// myClass.a = false
+// myClass.b = 5
+// myClass.c = 6.7
+// myClass.d = [1,2,3]
+// myClass.e = "abc"
+// myClass.x = 77
+// myClass.y = 75151515
+// print(myClass.a)
+// print(myClass.b)
+// print(myClass.c)
+// print(myClass.d)
+// print(myClass.e)
+// print(myClass.x)
+// print(myClass.y)
+
 void runCompileTestSuite() {
     puts("RUNNING COMPILE TESTS");
 
@@ -225,6 +345,8 @@ void runCompileTestSuite() {
 
     functionTakesInterface();
     functionReturnsInterface();
+
+    objectShorthandInitializer();
+    inheritedMembers();
+    functionTakesBaseClass();
 }
-
-

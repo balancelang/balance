@@ -6,6 +6,8 @@
 #include "models/BalanceFunction.h"
 #include "models/BalanceType.h"
 
+#include "llvm/IR/Constants.h"
+
 #include <string>
 #include <iostream>
 #include <cstdio>
@@ -17,4 +19,5 @@ void createImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction
 void createImportedClass(BalanceModule * bmodule, BalanceType * btype);
 
 void createDefaultConstructor(BalanceModule * bmodule, BalanceType * btype);
+llvm::Constant *geti8StrVal(llvm::Module &M, char const *str, llvm::Twine const &name, bool addNull);
 #endif

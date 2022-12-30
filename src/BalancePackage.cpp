@@ -11,6 +11,8 @@
 #include "visitors/InterfaceVTableVisitor.h"
 #include "visitors/ClassVTableVisitor.h"
 #include "visitors/TypeRegistrationVisitor.h"
+#include "visitors/InheritanceVisitor.h"
+#include "visitors/FinalizePropertiesVisitor.h"
 
 #include "config.h"
 
@@ -130,9 +132,22 @@ bool BalancePackage::compileAndPersist()
             continue;
         }
 
+        // Visit inheritance and register base classes
+        success = this->registerInheritance();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
         // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
         this->logger("Building textual representations");
         success = this->buildTextualRepresentations();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
+        success = this->finalizeProperties();
         if (!success) {
             compileSuccess = false;
             continue;
@@ -192,8 +207,24 @@ bool BalancePackage::executeString(std::string program) {
         return false;
     }
 
+    // Visit inheritance and register base classes
+    success = this->registerInheritance();
+    if (!success) {
+        return false;
+    }
+
+    success = this->finalizeProperties();
+    if (!success) {
+        return false;
+    }
+
     // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
     success = this->buildTextualRepresentations();
+    if (!success) {
+        return false;
+    }
+
+    success = this->finalizeProperties();
     if (!success) {
         return false;
     }
@@ -260,9 +291,7 @@ void BalancePackage::buildStructures()
         bool isFinalized = true;
 
         // Check all types
-        for (auto const &x : bmodule->types) {
-            BalanceType * btype = x.second;
-
+        for (BalanceType * btype : bmodule->types) {
             if (!btype->finalized()) {
                 isFinalized = false;
                 break;
@@ -343,9 +372,13 @@ void BalancePackage::addBuiltinsToModules() {
             createImportedFunction(bmodule, bfunction);
         }
 
-        for (auto const &x : builtinsModule->types) {
-            BalanceType * bclass = x.second;
+        for (BalanceType * bclass : builtinsModule->types) {
             createImportedClass(bmodule, bclass);
+        }
+
+        for (auto const &x : builtinsModule->genericTypes) {
+            // TODO: Assume we can just import them when we know the generic types
+            bmodule->genericTypes[x.first] = x.second;
         }
     }
 }
@@ -369,6 +402,58 @@ bool BalancePackage::buildTextualRepresentations()
     return true;
 }
 
+bool BalancePackage::finalizeProperties() {
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            FinalizePropertiesVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+        } catch (const FinalizePropertiesVisitor& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::registerInheritance()
+{
+    BalanceType * anyType = builtins->getType("Any");
+    for (BalanceType * btype : builtins->types) {
+        if (btype->parents.size() == 0 && btype->name != "Any") {
+            btype->addParent(anyType);
+        }
+    }
+
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        BalanceType * anyType = bmodule->getType("Any");
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            InheritanceVisitor visitor;
+            visitor.visit(this->currentModule->tree);
+
+            // Assign any as base-class for all types without parents
+            for (BalanceType * btype : bmodule->types) {
+                if (btype->parents.size() == 0 && btype->name != "Any") {
+                    btype->addParent(anyType);
+                }
+            }
+        } catch (const InheritanceVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool BalancePackage::registerTypes()
 {
     for (auto const &x : modules) {
@@ -379,6 +464,17 @@ bool BalancePackage::registerTypes()
             // Visit entire tree
             TypeRegistrationVisitor visitor;
             visitor.visit(this->currentModule->tree);
+
+            BalanceType * typeInfoType = currentPackage->builtins->getType("TypeInfo");
+            std::vector<Constant *> typeInfoVariables = {};
+            for (BalanceType * btype : bmodule->types) {
+                typeInfoVariables.push_back(btype->typeInfoVariable);
+            }
+
+            ArrayRef<Constant *> valuesRef(typeInfoVariables);
+            llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
+            Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
+            bmodule->typeInfoTable->setInitializer(typeTableData);
         } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;

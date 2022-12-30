@@ -2,6 +2,7 @@
 #include "../src/Main.h"
 #include "../src/BalancePackage.h"
 #include "ASTTests.h"
+#include "TestHelpers.h"
 
 #include <cstdio>
 #include <iostream>
@@ -75,20 +76,6 @@ using namespace llvm;
 using namespace antlr4;
 using namespace std;
 
-// TODO: Consolidate this and the one in CompileTests
-string execExample(const char* cmd) {
-    array<char, 128> buffer;
-    string result;
-    unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-    if (!pipe) {
-        throw runtime_error("popen() failed!");
-    }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
-    }
-    return result;
-}
-
 string runExample(string filePath) {
     std::cout << "Running example: " << filePath << std::endl;
     ifstream inputStream;
@@ -98,12 +85,12 @@ string runExample(string filePath) {
 
     BalancePackage * package = new BalancePackage("", "", false);
     bool success = package->executeString(strStream.str());
-    return execExample("./program");
+    return executeExecutable("./program");
 }
 
 void examplesClassTest() {
     string result = runExample("../examples/class.bl");
-    assertEqual("25\n", result, "Class test");
+    assertEqual("25\n123\n", result, "Class test");
 }
 
 void examplesHelloWorldTest() {
@@ -137,6 +124,11 @@ void examplesInterfacesTest() {
     assertEqual("5\n7\n", result, "Interfaces");
 }
 
+void examplesInheritanceTest() {
+    string result = runExample("../examples/inheritance.bl");
+    assertEqual("25\n5\n", result, "Inheritance");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
@@ -146,4 +138,5 @@ void runExamplesTestSuite() {
     examplesLambdasTest();
     examplesFilesTest();
     examplesInterfacesTest();
+    examplesInheritanceTest();
 }

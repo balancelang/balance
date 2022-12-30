@@ -3,6 +3,8 @@
 
 #include <map>
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Value.h"
+#include "llvm/IR/Constant.h"
 
 #include "BalanceProperty.h"
 #include "BalanceFunction.h"
@@ -19,10 +21,16 @@ public:
     std::vector<BalanceType *> generics;                // E.g. ["String", "Int"] in Dictionary<String, Int>
     llvm::Type * internalType = nullptr;
     llvm::Function * constructor = nullptr;
+    int typeIndex = 0;
+    bool isPublic = true;                               // TODO: Not used yet, will determine if type can be referenced from Balance-code
     bool isSimpleType = false;
     bool isInterface = false;
     BalanceModule *balanceModule;
     bool hasBody = false;
+    llvm::Constant * typeInfoVariable = nullptr;
+
+    // We may introduce multiple inheritance one day
+    std::vector<BalanceType *> parents = {};
 
     std::map<std::string, BalanceProperty *> properties = {};
     std::map<std::string, BalanceFunction *> methods = {};
@@ -46,8 +54,9 @@ public:
         this->internalType = internalType;
     }
 
+    void addParent(BalanceType * parentType);
     void addMethod(std::string name, BalanceFunction * method);
-    std::map<std::string, BalanceFunction *> getMethods();
+    std::vector<BalanceFunction *> getMethods();
     BalanceFunction * getMethod(std::string key);
     int getMethodIndex(std::string key);
     llvm::Type * getReferencableType();
@@ -58,7 +67,9 @@ public:
     bool equalTo(BalanceType * other);
     llvm::Function * getConstructor();
     BalanceProperty * getProperty(std::string propertyName);
+    std::vector<BalanceProperty *> getProperties();
     bool finalized();
+    std::vector<BalanceType *> getHierarchy();
 };
 
 #endif

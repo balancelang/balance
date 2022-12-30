@@ -350,13 +350,19 @@ void createMethod_Array_toString(BalanceType * arrayType) {
 
 BalanceType * createType__Array(BalanceType * generic) {
     BalanceType * arrayType = new BalanceType(currentPackage->currentModule, "Array", {generic});
-    BalanceType * intType = currentPackage->currentModule->getType("Int");
-    currentPackage->builtins->types[arrayType->toString()] = arrayType;
 
+    if (generic == nullptr) {
+        // This registers the base type, which can't be instantiated directly.
+        currentPackage->builtins->genericTypes["Array"] = arrayType;
+        return arrayType;
+    }
+
+    currentPackage->builtins->addType(arrayType);
+    BalanceType * intType = currentPackage->currentModule->getType("Int");
     BalanceType * genericPointerType = new BalanceType(currentPackage->currentModule, "genericPointerType", arrayType->generics[0]->getReferencableType()->getPointerTo());
     genericPointerType->isSimpleType = true;
-    arrayType->properties["memoryPointer"] = new BalanceProperty("memoryPointer", genericPointerType, 0);
-    arrayType->properties["length"] = new BalanceProperty("length", intType, 1, true);
+    arrayType->properties["memoryPointer"] = new BalanceProperty("memoryPointer", genericPointerType, 0, false);
+    arrayType->properties["length"] = new BalanceProperty("length", intType, 1);
 
     StructType *structType = StructType::create(*currentPackage->context, arrayType->toString());
     ArrayRef<Type *> propertyTypesRef({
@@ -365,6 +371,7 @@ BalanceType * createType__Array(BalanceType * generic) {
     });
     structType->setBody(propertyTypesRef, false);
     arrayType->internalType = structType;
+    arrayType->hasBody = true;
 
     createDefaultConstructor(currentPackage->builtins, arrayType);
 

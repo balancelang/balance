@@ -32,11 +32,11 @@ class TokenVisitor : public BalanceParserBaseVisitor {
     std::any visitVariable(BalanceParser::VariableContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
-    std::any visitParameter(BalanceParser::ParameterContext *ctx) override;
+    std::any visitVariableTypeTuple(BalanceParser::VariableTypeTupleContext *ctx) override;
     std::any visitFunctionCall(BalanceParser::FunctionCallContext *ctx) override;
     std::any visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) override;
     std::any visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) override;
-    std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
+    // std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     std::any visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) override;
     std::any visitStringLiteral(BalanceParser::StringLiteralContext *ctx) override;
     std::any visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) override;

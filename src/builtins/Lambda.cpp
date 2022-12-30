@@ -9,7 +9,7 @@ class BalanceType;
 
 BalanceType * createType__Lambda(std::vector<BalanceType *> generics) {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Lambda", generics);
-    currentPackage->currentModule->types[bclass->toString()] = bclass;
+    currentPackage->currentModule->addType(bclass);
 
     currentPackage->currentModule->currentType = bclass;
 

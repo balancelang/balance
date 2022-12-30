@@ -62,8 +62,17 @@ returnStatement
 
 // Should IDENTIFIER be variable?
 assignment
-    : VAR IDENTIFIER '=' expression                                     # NewAssignment
-    | IDENTIFIER '=' expression                                         # ExistingAssignment
+    : newAssignment
+    | existingAssignment
+    ;
+
+// TODO: Change IDENTIFIER to variableTypeTuple, to allow hinting type (check if can assign to)
+existingAssignment
+    : IDENTIFIER '=' expression
+    ;
+
+newAssignment
+    : VAR variableTypeTuple '=' expression
     ;
 
 // Can these be implemented under 'assignment'?
@@ -83,6 +92,19 @@ expression
     | variable                                                          # VariableExpression
     | functionCall                                                      # FunctionCallExpression
     | classInitializer                                                  # ClassInitializerExpression
+    | mapInitializer                                                    # MapInitializerExpression
+    ;
+
+mapInitializer
+    : '{' LINE_BREAK* mapItemList LINE_BREAK* '}'
+    ;
+
+mapItemList
+    : (mapItem (COMMA LINE_BREAK* mapItem)*)?
+    ;
+
+mapItem
+    : key=expression ':' value=expression
     ;
 
 variable
@@ -90,7 +112,7 @@ variable
     ;
 
 parameterList
-	: (parameter (COMMA parameter)*)?
+	: (variableTypeTuple (COMMA variableTypeTuple)*)?
 	;
 
 balanceType
@@ -101,10 +123,6 @@ balanceType
 
 typeList
     : balanceType (COMMA balanceType)*
-    ;
-
-parameter
-    : type=balanceType identifier=IDENTIFIER /* For now, require type */
     ;
 
 argumentList
@@ -145,27 +163,27 @@ classInitializer
     ;
 
 classDefinition
-    : CLASS className=IDENTIFIER classExtendsImplements? OPEN_BRACE classElement* CLOSE_BRACE
+    : CLASS className=IDENTIFIER classExtendsImplements OPEN_BRACE classElement* CLOSE_BRACE
     ;
 
-// Add class extension here as well, e.g. as:
-// classExtendsImplements
-//     : (IMPLEMENTS typeList)? (EXTENDS typeList)?
-//     | (EXTENDS typeList)? (IMPLEMENTS typeList)?
-//     ;
-
+// Is there a simpler way to do this?
 classExtendsImplements
-    : IMPLEMENTS interfaces=typeList
+    : (IMPLEMENTS interfaces=typeList)? (EXTENDS extendedClass=balanceType)?
+    | (EXTENDS extendedClass=balanceType)? (IMPLEMENTS interfaces=typeList)?
     ;
 
 classElement
-    : classProperty LINE_BREAK
-    | functionDefinition LINE_BREAK
+    : classProperty (COMMA | LINE_BREAK)?
+    | functionDefinition (COMMA | LINE_BREAK)?
     | LINE_BREAK
     ;
 
 classProperty
-    : type=balanceType name=IDENTIFIER
+    : variableTypeTuple
+    ;
+
+variableTypeTuple
+    : name=IDENTIFIER (':' type=balanceType)?
     ;
 
 lambda
@@ -184,7 +202,6 @@ block
 functionBlock
     : lineStatement*
     ;
-
 
 literal
     : numericLiteral

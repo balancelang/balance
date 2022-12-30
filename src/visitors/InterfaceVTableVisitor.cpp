@@ -17,8 +17,7 @@ std::any InterfaceVTableVisitor::visitInterfaceDefinition(BalanceParser::Interfa
     binterface->vTableStructType = vTableStructType;
     std::vector<Type *> functions = {};
 
-    for (auto const &x : binterface->getMethods()) {
-        BalanceFunction *bfunction = x.second;
+    for (BalanceFunction *bfunction : binterface->getMethods()) {
         functions.push_back(bfunction->function->getType());
         // TODO: Store vtableIndex for each function here?
     }
