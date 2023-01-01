@@ -138,3 +138,75 @@ Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNul
     Constant *strVal = ConstantExpr::getGetElementPtr(strConstant->getType(), GVStr, indices, true);
     return strVal;
 }
+
+void createDefaultToStringMethod(BalanceType * btype) {
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    // TODO: This function must be able to handle cycles, so it doesn't visit something it has already visited again
+    // Just print: A(b: B(a: [cycle]))
+    std::string functionName = "toString";
+    std::string functionNameWithClass = btype->toString() + "_default_" + functionName;
+
+    // Create BalanceFunction
+    BalanceParameter * valueParameter = new BalanceParameter(btype, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
+    btype->addMethod(functionName, bfunction);
+
+    // Create llvm function
+    ArrayRef<Type *> parametersReference({
+        btype->getReferencableType()
+    });
+
+    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
+    llvm::Function * btypeDefaultToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", btypeDefaultToStringFunc);
+    bfunction->function = btypeDefaultToStringFunc;
+
+    // Store current block so we can return to it after function declaration
+    BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
+    currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    Function::arg_iterator args = btypeDefaultToStringFunc->arg_begin();
+    llvm::Value *btypeStructPointer = args++;
+
+    auto stringMemoryPointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),       // input type?
+        stringType->getInternalType(),                          // output type, which we get pointer to?
+        ConstantExpr::getSizeOf(stringType->getInternalType()), // size, matches input type?
+        nullptr, nullptr, "");
+    currentPackage->currentModule->builder->Insert(stringMemoryPointer);
+
+    ArrayRef<Value *> argumentsReference{stringMemoryPointer};
+    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), argumentsReference);
+    auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
+    auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
+    auto sizeZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
+    auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["length"]->index, true));
+    auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
+
+    BasicBlock *thenBlock = BasicBlock::Create(*currentPackage->context, "then", btypeDefaultToStringFunc);
+    BasicBlock *elseBlock = BasicBlock::Create(*currentPackage->context, "else", btypeDefaultToStringFunc);
+
+    // check if null
+    Value * nullValue = ConstantPointerNull::get((PointerType *) btype->getReferencableType());
+    Value * expression = currentPackage->currentModule->builder->CreateICmpEQ(nullValue, btypeStructPointer);
+
+    currentPackage->currentModule->builder->CreateCondBr(expression, thenBlock, elseBlock);
+    currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
+
+    // if value is not null
+    Value * nullStringValue = ConstantPointerNull::get((PointerType *) stringType->getReferencableType());
+    currentPackage->currentModule->builder->CreateRet(nullStringValue);
+
+    currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
+
+    Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, btype->toString().c_str(), btype->toString().c_str(), true);
+    currentPackage->currentModule->builder->CreateStore(arrayValueFalse, pointerGEP);
+
+    currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
+    currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
+}

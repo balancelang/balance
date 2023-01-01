@@ -53,6 +53,26 @@ void createFunction__print()
     Function::arg_iterator args = printFunc->arg_begin();
     llvm::Value *stringStructPointer = args++;
 
+    // Print "None" if null, or the non-null string
+    BasicBlock *thenBlock = BasicBlock::Create(*currentPackage->context, "then", printFunc);
+    BasicBlock *elseBlock = BasicBlock::Create(*currentPackage->context, "else", printFunc);
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->context, "ifcont", printFunc);
+
+    // check if null
+    Value * nullValue = ConstantPointerNull::get((PointerType *) stringStructPointer->getType());
+    Value * expression = currentPackage->currentModule->builder->CreateICmpEQ(nullValue, stringStructPointer);
+
+    currentPackage->currentModule->builder->CreateCondBr(expression, thenBlock, elseBlock);
+    currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
+    Value * arrayValueNull = geti8StrVal(*currentPackage->currentModule->module, "None", "None", true);
+    ArrayRef<Value *> nullCallArguments({
+        arrayValueNull
+    });
+    currentPackage->currentModule->builder->CreateCall(printfFunction, nullCallArguments);
+    currentPackage->currentModule->builder->CreateBr(mergeBlock);
+    currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
+
+    // when string is not null
     BalanceType * stringType = currentPackage->builtins->getType("String");
     Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
@@ -64,13 +84,14 @@ void createFunction__print()
         stringValue,
     });
     currentPackage->currentModule->builder->CreateCall(printfFunction, arguments);
+    currentPackage->currentModule->builder->CreateBr(mergeBlock);
 
+    currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
     // Create newline TODO: Make this a parameter?
     ArrayRef<Value *> newlineArguments({
         geti8StrVal(*currentPackage->currentModule->module, "\n", "newline", true),
     });
     currentPackage->currentModule->builder->CreateCall(printfFunction, newlineArguments);
-
     currentPackage->currentModule->builder->CreateRetVoid();
 
     bool hasError = verifyFunction(*bfunction->function, &llvm::errs());

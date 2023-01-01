@@ -164,8 +164,10 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
 any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) {
     std::string text = ctx->getText();
 
-    BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->value));
     BalanceValue * valueMember = any_cast<BalanceValue *>(visit(ctx->member));
+    currentPackage->currentModule->currentLhsType = valueMember->type;
+    BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->value));
+    currentPackage->currentModule->currentLhsType = nullptr;
 
     if (ctx->index) {
         // member=expression '[' index=expression ']' '=' value=expression
@@ -526,6 +528,13 @@ any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionCon
     }
 
     return new BalanceValue(lhsVal->type, result);
+}
+
+std::any BalanceVisitor::visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) {
+    if (currentPackage->currentModule->currentLhsType == nullptr) {
+        throw std::runtime_error("Failed to set LHS type for None value");
+    }
+    return new BalanceValue(currentPackage->currentModule->getType("None"), ConstantPointerNull::get((PointerType *) currentPackage->currentModule->currentLhsType->getReferencableType()));
 }
 
 any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) {
