@@ -111,7 +111,7 @@ BalanceProperty * BalanceType::getProperty(std::string propertyName) {
 }
 
 bool BalanceType::finalized() {
-    if (!this->hasBody) {
+    if (!this->isSimpleType && !this->hasBody) {
         return false;
     }
 

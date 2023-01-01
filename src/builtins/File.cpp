@@ -316,6 +316,7 @@ void createType__File() {
     bclass->hasBody = true;
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
+    createDefaultToStringMethod(bclass);
 
     // Create close method
     createMethod_close();

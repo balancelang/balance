@@ -131,6 +131,13 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 }
 
 void BalanceModule::addType(BalanceType * balanceType) {
+    // Check if type is already added
+    for (BalanceType * btype : this->types) {
+        if (btype == balanceType) {
+            return;
+        }
+    }
+
     int typeIndex = this->types.size();
     balanceType->typeIndex = typeIndex;
     this->types.push_back(balanceType);

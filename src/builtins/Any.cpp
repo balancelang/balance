@@ -127,7 +127,6 @@ BalanceType * createType__Any() {
     structType->setBody(propertyTypesRef, false);
     anyType->hasBody = true;
 
-
     anyType->internalType = structType;
     currentPackage->builtins->addType(anyType);
     return anyType;

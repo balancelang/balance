@@ -33,11 +33,9 @@
 - naming convention
 
 ## Types
-- Define global list of all types
-- Any (which all types inherit frmo) defines a TypeID as a property
 - isinstance(x, Foo) is then translated to x.typeId == Foo.typeId
-- Define a "Type" class - Any provides a function .getType()
 - handle clash between user choosing e.g. 'typeId' as class property name, when it also exists in Any
+- Handle optionally providing type for class properties, lambdas, etc.
 
 ## Simple types
 - Whenever e.g. an Int is referenced as Any (or other non-simple types), box it as a struct version

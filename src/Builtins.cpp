@@ -178,7 +178,6 @@ void createFunction__open()
 void createType__None() {
     BalanceType * btype = new BalanceType(currentPackage->currentModule, "None", Type::getVoidTy(*currentPackage->context));
     btype->isSimpleType = true;
-    btype->hasBody = true;
     currentPackage->currentModule->addType(btype);
 }
 

@@ -112,7 +112,6 @@ void createType__Int() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Int");
     bclass->internalType = Type::getInt32Ty(*currentPackage->context);
     bclass->isSimpleType = true;
-    bclass->hasBody = true;
 
     currentPackage->currentModule->addType(bclass);
 }

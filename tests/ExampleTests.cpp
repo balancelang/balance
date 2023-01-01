@@ -106,7 +106,7 @@ void examplesVariablesTest() {
 
 void examplesFunctionsTest() {
     string result = runExample("../examples/functions.bl");
-    assertEqual("80\nBecause this returns 'None', we can ommit ': None'\n", result, "Functions");
+    assertEqual("80\nBecause this returns 'None', we can ommit ': None'\nHere, x implicitly has type 'Any' (x: Any)\n", result, "Functions");
 }
 
 void examplesLambdasTest() {

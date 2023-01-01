@@ -21,22 +21,41 @@ void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) 
     bmodule->importedFunctions[bfunction->name] = ibfunction;
 }
 
-void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
+BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
+    // Check if we already imported this type
+    for (BalanceType * ibtype : bmodule->types) {
+        if (ibtype->equalTo(btype)) {
+            return ibtype;
+        }
+    }
+
     BalanceType * ibtype = new BalanceType(bmodule, btype->name);
     // TODO: Figure out a better way to do this.
-    ibtype->generics = btype->generics;
+
+    for (BalanceType * generic : btype->generics) {
+        ibtype->generics.push_back(createImportedClass(bmodule, generic));
+    }
+
     ibtype->internalType = btype->internalType;
+
+    // TODO: Do we need to import this as well?
     ibtype->constructor = btype->constructor;
     ibtype->isSimpleType = btype->isSimpleType;
     ibtype->hasBody = btype->hasBody;
     bmodule->addType(ibtype);
 
     // Import class properties
-    ibtype->properties = btype->properties;
+    for (auto const &x : btype->properties) {
+        BalanceProperty * ibproperty = new BalanceProperty(x.second->name, createImportedClass(bmodule, x.second->balanceType), x.second->isPublic);
+        ibproperty->index = x.second->index;
+        ibtype->properties[x.first] = ibproperty;
+    }
 
     // Import each class method
     for (BalanceFunction *bfunction : btype->getMethods()) {
-        BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnType);
+        BalanceType * returnType = createImportedClass(bmodule, bfunction->returnType);
+        // TODO: Import parameters?
+        BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, returnType);
         ibtype->methods[bfunction->name] = ibfunction;
         std::string functionNameWithClass = ibtype->toString() + "_" + ibfunction->name;
         ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, functionNameWithClass, bmodule->module);
@@ -57,6 +76,7 @@ void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     }
 
     // TODO: Does the type as a whole need forward declarations?
+    return ibtype;
 }
 
 void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
@@ -144,7 +164,7 @@ void createDefaultToStringMethod(BalanceType * btype) {
     // TODO: This function must be able to handle cycles, so it doesn't visit something it has already visited again
     // Just print: A(b: B(a: [cycle]))
     std::string functionName = "toString";
-    std::string functionNameWithClass = btype->toString() + "_default_" + functionName;
+    std::string functionNameWithClass = btype->toString() + "_" + functionName;
 
     // Create BalanceFunction
     BalanceParameter * valueParameter = new BalanceParameter(btype, "value");

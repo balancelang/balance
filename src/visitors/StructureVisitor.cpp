@@ -257,7 +257,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
         if (parameter->type) {
             btype = any_cast<BalanceType *>(visit(parameter->type));
         } else {
-            currentPackage->currentModule->getType("Any");
+            btype = currentPackage->currentModule->getType("Any");
         }
 
         // Check for duplicate parameter name

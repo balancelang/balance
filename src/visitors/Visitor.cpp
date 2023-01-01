@@ -952,10 +952,8 @@ any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionCon
 
     bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
     if (hasError) {
-        // TODO: Throw error
-        std::cout << "Error verifying function: " << bfunction->name << std::endl;
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
-        // exit(1);
+        throw std::runtime_error("Error verifying function: " + bfunction->name);
     }
 
     currentPackage->currentModule->currentFunction = nullptr;
