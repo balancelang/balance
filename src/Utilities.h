@@ -19,5 +19,6 @@ void createImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction
 void createImportedClass(BalanceModule * bmodule, BalanceType * btype);
 
 void createDefaultConstructor(BalanceModule * bmodule, BalanceType * btype);
+void createDefaultToStringMethod(BalanceType * btype);
 llvm::Constant *geti8StrVal(llvm::Module &M, char const *str, llvm::Twine const &name, bool addNull);
 #endif

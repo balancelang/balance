@@ -38,3 +38,8 @@
 - isinstance(x, Foo) is then translated to x.typeId == Foo.typeId
 - Define a "Type" class - Any provides a function .getType()
 - handle clash between user choosing e.g. 'typeId' as class property name, when it also exists in Any
+
+## Simple types
+- Whenever e.g. an Int is referenced as Any (or other non-simple types), box it as a struct version
+    - this way, when a function e.g. accepts x: Any, we can always query x for its typeId (int32 won't have a getType() function)
+    - Int can manually define a getType which statically returns Type == Int always.

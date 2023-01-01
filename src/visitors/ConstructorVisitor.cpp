@@ -80,6 +80,7 @@ std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
     if (bclass->constructor == nullptr) {
         createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
+        createDefaultToStringMethod(currentPackage->currentModule->currentType);
     }
 
     currentPackage->currentModule->currentType = nullptr;

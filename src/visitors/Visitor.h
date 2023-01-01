@@ -75,6 +75,7 @@ public:
     std::any visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) override;
     std::any visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) override;
     std::any visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) override;
+    std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
     std::any visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) override;
     std::any visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) override;
     std::any visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) override;

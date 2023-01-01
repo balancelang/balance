@@ -36,8 +36,12 @@ bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bTy
         }
     }
 
-
     if (!aType->equalTo(bType)) {
+        // TODO: Should only be possible with strict null typing
+        if (!bType->isSimpleType && aType->name == "None") {
+            return true;
+        }
+
         currentPackage->currentModule->addTypeError(ctx, aType->toString() + " cannot be assigned to " + bType->toString());
         return false;
     }
