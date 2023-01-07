@@ -47,7 +47,6 @@ std::any TokenVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContex
 
 std::any TokenVisitor::visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) {
     this->addToken(ctx->NEW()->getSymbol(), SemanticTokenType::ls_keyword);
-    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_class);
 
     visit(ctx->argumentList());
     return std::any();
@@ -120,15 +119,13 @@ std::any TokenVisitor::visitExistingAssignment(BalanceParser::ExistingAssignment
     return std::any();
 }
 
+std::any TokenVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
+    this->addToken(ctx->NONE()->getSymbol(), SemanticTokenType::ls_type);
+    return std::any();
+}
+
 std::any TokenVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-    if (ctx->IDENTIFIER()) {
-        this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_type);
-    }
-
-    if (ctx->NONE()) {
-        this->addToken(ctx->NONE()->getSymbol(), SemanticTokenType::ls_type);
-    }
-
+    this->addToken(ctx->IDENTIFIER()->getSymbol(), SemanticTokenType::ls_type);
     return std::any();
 }
 

@@ -17,6 +17,7 @@ bool fileExist(std::string fileName);
 
 void createImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction);
 BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype);
+BalanceType * createGenericType(BalanceModule * bmodule, BalanceType * base, std::vector<BalanceType *> generics);
 
 void createDefaultConstructor(BalanceModule * bmodule, BalanceType * btype);
 void createDefaultToStringMethod(BalanceType * btype);

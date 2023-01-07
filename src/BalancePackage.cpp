@@ -11,6 +11,7 @@
 #include "visitors/InterfaceVTableVisitor.h"
 #include "visitors/ClassVTableVisitor.h"
 #include "visitors/TypeRegistrationVisitor.h"
+#include "visitors/GenericTypeRegistrationVisitor.h"
 #include "visitors/InheritanceVisitor.h"
 #include "visitors/FinalizePropertiesVisitor.h"
 
@@ -132,7 +133,14 @@ bool BalancePackage::compileAndPersist()
             continue;
         }
 
-        // Visit inheritance and register base classes
+        this->logger("Registering generic types");
+        success = this->registerGenericTypes();
+        if (!success) {
+            compileSuccess = false;
+            continue;
+        }
+
+        // Visit inheritance, generics and register base classes
         success = this->registerInheritance();
         if (!success) {
             compileSuccess = false;
@@ -203,6 +211,12 @@ bool BalancePackage::executeString(std::string program) {
 
     this->logger("Registering types");
     success = this->registerTypes();
+    if (!success) {
+        return false;
+    }
+
+    this->logger("Registering generic types");
+    success = this->registerGenericTypes();
     if (!success) {
         return false;
     }
@@ -464,6 +478,24 @@ bool BalancePackage::registerTypes()
             // Visit entire tree
             TypeRegistrationVisitor visitor;
             visitor.visit(this->currentModule->tree);
+        } catch (const TypeRegistrationVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::registerGenericTypes() {
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        try {
+            this->currentModule = bmodule;
+
+            // Visit entire tree
+            GenericTypeRegistrationVisitor visitor;
+            visitor.visit(this->currentModule->tree);
 
             BalanceType * typeInfoType = currentPackage->builtins->getType("TypeInfo");
             std::vector<Constant *> typeInfoVariables = {};
@@ -475,6 +507,19 @@ bool BalancePackage::registerTypes()
             llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
             Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
             bmodule->typeInfoTable->setInitializer(typeTableData);
+
+            // Replace generic types with concrete types which should be known by now.
+            for (BalanceType * btype : bmodule->types) {
+                if (btype->generics.size() > 0) {
+                    BalanceType * baseType = bmodule->genericTypes[btype->name];
+                    std::map<std::string, BalanceType *> typeMapping = {};
+                    for (int i = 0; i < baseType->generics.size(); i++) {
+                        typeMapping[baseType->generics[i]->name] = btype->generics[i];
+                    }
+
+                    btype->genericsMapping = typeMapping;
+                }
+            }
         } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;

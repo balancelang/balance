@@ -74,7 +74,7 @@ BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceTy
     for (auto const &x : genericTypes)
     {
         BalanceType * btype = x.second;
-        if (btype->name == typeName && btype->generics.size() == generics.size()) {
+        if (btype->name == typeName) {
             // TODO: Figure out where to register these functions
             BalanceType * newGenericType = nullptr;
             if (btype->name == "Array") {
@@ -84,11 +84,30 @@ BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceTy
             if (newGenericType != nullptr && newGenericType->balanceModule != this) {
                 createImportedClass(currentPackage->currentModule, newGenericType);
             }
-            return newGenericType;
+
+            if (newGenericType != nullptr) {
+                currentPackage->currentModule->addType(newGenericType);
+                return newGenericType;
+            }
+
+            return nullptr;
         }
     }
 
     return nullptr;
+}
+
+std::vector<BalanceType *> BalanceModule::getGenericVariants(std::string typeName) {
+    std::vector<BalanceType *> types;
+
+    BalanceType * baseType = this->genericTypes[typeName]; // TODO: Handle null
+    for (BalanceType * btype : this->types) {
+        if (btype->name == baseType->name) {
+            types.push_back(btype);
+        }
+    }
+
+    return types;
 }
 
 BalanceFunction *BalanceModule::getFunction(std::string functionName) {
@@ -115,9 +134,8 @@ BalanceValue *BalanceModule::getValue(std::string variableName) {
     BalanceScopeBlock *scope = this->currentScope;
     while (scope != nullptr) {
         // Check variables etc
-        BalanceValue *tryVal = scope->symbolTable[variableName];
-        if (tryVal != nullptr) {
-            return tryVal;
+        if (scope->symbolTable.find(variableName) != scope->symbolTable.end()) {
+            return scope->symbolTable[variableName];
         }
 
         scope = scope->parent;
@@ -132,10 +150,8 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 
 void BalanceModule::addType(BalanceType * balanceType) {
     // Check if type is already added
-    for (BalanceType * btype : this->types) {
-        if (btype == balanceType) {
-            return;
-        }
+    if (this->getType(balanceType->name, balanceType->generics) != nullptr) {
+        return;
     }
 
     int typeIndex = this->types.size();

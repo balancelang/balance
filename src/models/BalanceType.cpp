@@ -7,6 +7,10 @@ void BalanceType::addMethod(std::string name, BalanceFunction *method) {
     this->methods[name] = method;
 }
 
+void BalanceType::addConstructor(BalanceFunction * constructor) {
+    this->constructors.push_back(constructor);
+}
+
 std::vector<BalanceFunction *> BalanceType::getMethods() {
     std::vector<BalanceFunction *> result = {};
     for (auto const &x : this->methods) {
@@ -95,9 +99,8 @@ void BalanceType::addParent(BalanceType * parentType) {
     this->parents.push_back(parentType);
 }
 
-llvm::Function * BalanceType::getConstructor() {
-    // TODO: When constructor overloading, change this signature to include e.g. parameters?
-    return this->constructor;
+llvm::Function * BalanceType::getInitializer() {
+    return this->initializer;
 }
 
 BalanceProperty * BalanceType::getProperty(std::string propertyName) {
@@ -154,4 +157,25 @@ vector<BalanceType *> BalanceType::getHierarchy() {
     }
 
     return result;
+}
+
+BalanceFunction * BalanceType::getConstructor(std::vector<BalanceType *> parameters) {
+    for (BalanceFunction * constructor : this->constructors) {
+        if (constructor->parameters.size() != parameters.size()) {
+            continue;
+        }
+        bool hasError = false;
+        for (int i = 0; i < constructor->parameters.size(); i++) {
+            if (!constructor->parameters[i]->balanceType->equalTo(parameters[i])) {
+                hasError = true;
+                break;
+            }
+        }
+
+        if (!hasError) {
+            return constructor;
+        }
+    }
+
+    return nullptr;
 }

@@ -125,6 +125,7 @@ public:
     void generateASTFromString(std::string program);
     BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics = {});
     void addType(BalanceType * balanceType);
+    std::vector<BalanceType *> getGenericVariants(std::string typeName);
     BalanceFunction * getFunction(std::string functionName);
     BalanceValue *getValue(std::string variableName);
     void setValue(std::string variableName, BalanceValue *bvalue);

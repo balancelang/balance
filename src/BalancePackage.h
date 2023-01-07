@@ -75,6 +75,7 @@ public:
     bool buildTextualRepresentations();
     void runLLVMFunctionVisitor();
     bool registerTypes();
+    bool registerGenericTypes();
     bool registerInheritance();
     bool finalizeProperties();
     void buildStructures();

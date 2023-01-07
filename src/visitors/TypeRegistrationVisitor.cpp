@@ -33,8 +33,16 @@ std::any TypeRegistrationVisitor::visitClassDefinition(BalanceParser::ClassDefin
         throw TypeRegistrationVisitorException();
     }
 
-    currentPackage->currentModule->addType(new BalanceType(currentPackage->currentModule, className, llvm::StructType::create(*currentPackage->context, className)));
+    btype = new BalanceType(currentPackage->currentModule, className, llvm::StructType::create(*currentPackage->context, className));
+    currentPackage->currentModule->currentType = btype;
 
+    if (ctx->classGenerics()) {
+        currentPackage->currentModule->genericTypes[className] = btype;
+    } else {
+        currentPackage->currentModule->addType(btype);
+    }
+
+    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 

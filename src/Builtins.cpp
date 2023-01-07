@@ -157,7 +157,7 @@ void createFunction__open()
     currentPackage->currentModule->builder->Insert(pointer);
 
     ArrayRef<Value *> argumentsReference{pointer};
-    currentPackage->currentModule->builder->CreateCall(fileType->constructor, argumentsReference); // TODO: should it have a constructor?
+    currentPackage->currentModule->builder->CreateCall(fileType->initializer, argumentsReference); // TODO: should it have a constructor?
 
     // Get reference to 0th property (filePointer) and assign
     int intIndex = fileType->properties["filePointer"]->index;

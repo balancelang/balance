@@ -40,6 +40,7 @@ public:
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
     std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
     std::any visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) override;
+    std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
 };
 
 #endif

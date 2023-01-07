@@ -39,7 +39,7 @@ BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     ibtype->internalType = btype->internalType;
 
     // TODO: Do we need to import this as well?
-    ibtype->constructor = btype->constructor;
+    ibtype->initializer = btype->initializer;
     ibtype->isSimpleType = btype->isSimpleType;
     ibtype->hasBody = btype->hasBody;
     bmodule->addType(ibtype);
@@ -63,11 +63,11 @@ BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
 
     // Import constructor
     if (btype->internalType != nullptr && !btype->isSimpleType) {
-        if (ibtype->constructor != nullptr) {
+        if (ibtype->initializer != nullptr) {
             // TODO: We will need to differentiate constructors when allowing constructor-overloading
             std::string constructorName = ibtype->toString() + "_constructor";
-            FunctionType *constructorType = ibtype->constructor->getFunctionType();
-            ibtype->constructor = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
+            FunctionType *constructorType = ibtype->initializer->getFunctionType();
+            ibtype->initializer = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
         } else {
             // TODO: Should this be able to happen? Internal types e.g.?
         }
@@ -89,7 +89,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
     ArrayRef<Type *> parametersReference{btype->getReferencableType()};
     FunctionType *functionType = FunctionType::get(returnType->getInternalType(), parametersReference, false);
     Function *function = Function::Create(functionType, Function::ExternalLinkage, constructorName, bmodule->module);
-    btype->constructor = function;
+    btype->initializer = function;
 
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
@@ -200,7 +200,7 @@ void createDefaultToStringMethod(BalanceType * btype) {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer(), argumentsReference);
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});

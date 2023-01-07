@@ -93,6 +93,11 @@ expression
     | functionCall                                                      # FunctionCallExpression
     | classInitializer                                                  # ClassInitializerExpression
     | mapInitializer                                                    # MapInitializerExpression
+    | range                                                             # RangeExpression
+    ;
+
+range
+    : numericLiteral TO numericLiteral
     ;
 
 mapInitializer
@@ -109,16 +114,23 @@ mapItem
 
 variable
     : IDENTIFIER
+    | SELF
     ;
 
 parameterList
 	: (variableTypeTuple (COMMA variableTypeTuple)*)?
 	;
 
+newableType
+    : IDENTIFIER                                                        # SimpleType
+    | IDENTIFIER '<' typeList '>'                                       # GenericType
+    ;
+
 balanceType
-    : (IDENTIFIER | NONE)                                               # SimpleType
-    | base=IDENTIFIER '<' typeList '>'                                  # GenericType
+    : NONE                                                              # NoneType
+    | newableType                                                       # NewableType2
     | '(' typeList ')' '->' balanceType                                 # LambdaType
+    | balanceType '|' balanceType                                       # UnionType
     ;
 
 typeList
@@ -159,11 +171,27 @@ interfaceElement
     ;
 
 classInitializer
-    : NEW IDENTIFIER '(' argumentList ')'
+    : NEW newableType '(' argumentList ')'
     ;
 
 classDefinition
-    : CLASS className=IDENTIFIER classExtendsImplements OPEN_BRACE classElement* CLOSE_BRACE
+    : CLASS className=IDENTIFIER classGenerics? classExtendsImplements OPEN_BRACE classElement* CLOSE_BRACE
+    ;
+
+genericCovariance
+    : WHERE IDENTIFIER IS balanceType
+    ;
+
+classGeneric
+    : name=IDENTIFIER genericCovariance?
+    ;
+
+classGenericsList
+    : classGeneric (COMMA classGeneric)*
+    ;
+
+classGenerics
+    : '<' classGenericsList '>'
     ;
 
 // Is there a simpler way to do this?

@@ -272,35 +272,43 @@ std::any TypeVisitor::visitMultiplicativeExpression(BalanceParser::Multiplicativ
 }
 
 std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
-    std::string variableName = ctx->IDENTIFIER()->getText();
-
-    // Check if we're accessing a type property
-    if (currentPackage->currentModule->accessedType != nullptr) {
-        BalanceType * btype = currentPackage->currentModule->getType(currentPackage->currentModule->accessedType->name);
-        if (btype == nullptr) {
+    if (ctx->SELF()) {
+        BalanceValue * bvalue = currentPackage->currentModule->getValue("this");
+        if (bvalue == nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Can't reference 'self' here.");
             return currentPackage->currentModule->getType("Unknown");
         }
+        return bvalue->type;
+    } else {
+        std::string variableName = ctx->IDENTIFIER()->getText();
 
-        BalanceProperty * bproperty = btype->getProperty(variableName);
-        if (bproperty == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on type " + btype->toString());
-            return currentPackage->currentModule->getType("Unknown");
+        // Check if we're accessing a type property
+        if (currentPackage->currentModule->accessedType != nullptr) {
+            BalanceType * btype = currentPackage->currentModule->getType(currentPackage->currentModule->accessedType->name);
+            if (btype == nullptr) {
+                return currentPackage->currentModule->getType("Unknown");
+            }
+
+            BalanceProperty * bproperty = btype->getProperty(variableName);
+            if (bproperty == nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Unknown class property " + variableName + ", on type " + btype->toString());
+                return currentPackage->currentModule->getType("Unknown");
+            }
+
+            return bproperty->balanceType;
         }
 
-        return bproperty->balanceType;
+        BalanceValue *tryVal = currentPackage->currentModule->getValue(variableName);
+        if (tryVal != nullptr) {
+            return tryVal->type;
+        }
+        currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
+        return currentPackage->currentModule->getType("Unknown");
     }
-
-    BalanceValue *tryVal = currentPackage->currentModule->getValue(variableName);
-    if (tryVal != nullptr) {
-        return tryVal->type;
-    }
-
-    currentPackage->currentModule->addTypeError(ctx, "Unknown variable: " + variableName);
-    return currentPackage->currentModule->getType("Unknown");
 }
 
 std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
-    std::string base = ctx->base->getText();
+    std::string base = ctx->IDENTIFIER()->getText();
     std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type: ctx->typeList()->balanceType()) {
@@ -314,11 +322,25 @@ std::any TypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
 }
 
 std::any TypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-    if (ctx->IDENTIFIER()) {
-        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
-    } else {
-        return currentPackage->currentModule->getType(ctx->NONE()->getText());
+    std::string typeName = ctx->IDENTIFIER()->getText();
+
+    if (currentPackage->currentModule->currentType != nullptr) {
+        // Check if it is a class generic
+        if (currentPackage->currentModule->currentType->genericsMapping.find(typeName) != currentPackage->currentModule->currentType->genericsMapping.end()) {
+            return currentPackage->currentModule->currentType->genericsMapping[typeName];
+        }
+
+        for (BalanceType * genericType : currentPackage->currentModule->currentType->generics) {
+            if (typeName == genericType->name) {
+                return genericType;
+            }
+        }
     }
+    return currentPackage->currentModule->getType(typeName);
+}
+
+std::any TypeVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
+    return currentPackage->currentModule->getType(ctx->NONE()->getText());
 }
 
 std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
@@ -430,8 +452,29 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 
     BalanceFunction *bfunction;
 
+    std::vector<BalanceType *> parameters = {};
+
+    // Add implicit 'this' argument
     if (currentPackage->currentModule->currentType != nullptr) {
-        bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+        parameters.push_back(currentPackage->currentModule->currentType);
+    }
+
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->functionSignature()->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            btype = any_cast<BalanceType *>(visit(parameter->type));
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
+        parameters.push_back(btype);
+    }
+
+    if (currentPackage->currentModule->currentType != nullptr) {
+        if (functionName == currentPackage->currentModule->currentType->name) {
+            bfunction = currentPackage->currentModule->currentType->getConstructor(parameters);
+        } else {
+            bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+        }
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName);
     }
@@ -454,8 +497,9 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 }
 
 std::any TypeVisitor::visitClassInitializer(BalanceParser::ClassInitializerContext *ctx) {
-    std::string className = ctx->IDENTIFIER()->getText();
-    BalanceType * btype = currentPackage->currentModule->getType(className);
+    std::string className = ctx->newableType()->getText();
+
+    BalanceType * btype = any_cast<BalanceType *>(visit(ctx->newableType()));
 
     if (btype == nullptr) {
         currentPackage->currentModule->addTypeError(ctx, "Unknown type: " + className);
@@ -479,40 +523,49 @@ std::any TypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext
     string text = ctx->getText();
 
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
-    currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
 
-    BalanceType * btype = currentPackage->currentModule->getType(className);
-    if (btype == nullptr) {
-        // TODO: Handle
+    // For each known generic use of class, visit the class
+    std::vector<BalanceType *> btypes = {};
+
+    if (ctx->classGenerics()) {
+        btypes = currentPackage->currentModule->getGenericVariants(className);
+        btypes.push_back(currentPackage->currentModule->genericTypes[className]);
+    } else {
+        BalanceType * btype = currentPackage->currentModule->getType(className);
+        btypes.push_back(btype);
     }
 
-    currentPackage->currentModule->currentType = btype;
+    for (BalanceType * btype : btypes) {
+        currentPackage->currentModule->currentType = btype;
+        currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
 
-    // Parse extend/implements
-    if (ctx->classExtendsImplements()) {
-        visit(ctx->classExtendsImplements());
-    }
-
-    // Add all class properties to scope
-    for (BalanceProperty * bproperty : btype->getProperties()) {
-        currentPackage->currentModule->currentScope->symbolTable[bproperty->name] = new BalanceValue(bproperty->balanceType, nullptr);
-    }
-
-    // Visit all class properties
-    for (auto const &x : ctx->classElement()) {
-        if (x->classProperty()) {
-            visit(x);
+        // Parse extend/implements
+        if (ctx->classExtendsImplements()) {
+            visit(ctx->classExtendsImplements());
         }
-    }
 
-    // Visit all class functions
-    for (auto const &x : ctx->classElement()) {
-        if (x->functionDefinition()) {
-            visit(x);
+        // Add all class properties to scope
+        for (BalanceProperty * bproperty : btype->getProperties()) {
+            currentPackage->currentModule->currentScope->symbolTable[bproperty->name] = new BalanceValue(bproperty->balanceType, nullptr);
         }
+
+        // Visit all class properties
+        for (auto const &x : ctx->classElement()) {
+            if (x->classProperty()) {
+                visit(x);
+            }
+        }
+
+        // Visit all class functions
+        for (auto const &x : ctx->classElement()) {
+            if (x->functionDefinition()) {
+                visit(x);
+            }
+        }
+
+        currentPackage->currentModule->currentType = nullptr;
     }
 
-    currentPackage->currentModule->currentType = nullptr;
     currentPackage->currentModule->currentScope = scope;
     return std::any();
 }
@@ -615,16 +668,6 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
         for (BalanceParser::BalanceTypeContext *type: ctx->interfaces->balanceType()) {
             std::string interfaceName = type->getText();
             BalanceType * btype = currentPackage->currentModule->getType(interfaceName);
-            if (btype == nullptr) {
-                currentPackage->currentModule->addTypeError(ctx, "Unknown interface: " + interfaceName);
-                continue;
-            }
-
-            if (!btype->isInterface) {
-                currentPackage->currentModule->addTypeError(ctx, "This is not an interface: " + interfaceName);
-                continue;
-            }
-
             // Check if class implements all functions
             for (BalanceFunction * interfaceFunction : btype->getMethods()) {
                 // Check if class implements function
@@ -655,8 +698,6 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
                     currentPackage->currentModule->addTypeError(ctx, "Extraneous parameter in implemented method, " + classFunction->name + ", found " + classFunction->parameters[i]->balanceType->toString());
                 }
             }
-
-            currentPackage->currentModule->currentType->interfaces[interfaceName] = btype;
         }
     }
 

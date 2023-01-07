@@ -43,9 +43,12 @@
     - Garbage collection
     - Sockets
     + File handles
+    - Range syntax ('0 to 10', and builtin function range(from, to, steps))
     - overloads
     - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
+    + constructors
+    + constructor overloading
     - tuples / anonymous class syntax?
         - E.g. x: <Int, Int>
     + support dictionary initializer expression, e.g.
@@ -71,6 +74,8 @@
             echo lsOut > test.txt
         }
     - operator overloading?
+    - Generics
+        - class X<T<Q>> {} ?
     - assignment as side-effect?
         if (var a = a < 5) { ...            (sets var a = true/false inside the if-block)
         print(var a = x.getString())        equivalent to var a = x.getString(); print(a)

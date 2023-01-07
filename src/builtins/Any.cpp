@@ -64,7 +64,7 @@ void createMethod_Any_getType() {
     currentPackage->currentModule->builder->Insert(typeMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{typeMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(typeType->getConstructor(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(typeType->getInitializer(), argumentsReference);
 
     // Create pointer for destination Type.typeId
     auto dstTypeIdZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
@@ -93,7 +93,7 @@ void createMethod_Any_getType() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> stringArgumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), stringArgumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer(), stringArgumentsReference);
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
