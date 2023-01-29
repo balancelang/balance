@@ -1,0 +1,31 @@
+class Range {
+    current: Int
+    start: Int
+    end: Int
+    steps: Int
+
+    Range(start: Int, end: Int, steps: Int) {
+        current = start
+        self.start = start
+        self.end = end
+        self.steps = steps
+    }
+
+    Range(end: Int) {
+        current = 0
+        self.start = 0
+        self.end = end
+        self.steps = 1
+    }
+
+    hasNext(): Bool {
+        return current < end
+    }
+
+    getNext(): Int {
+        var result = current
+        current = current + steps
+
+        return result
+    }
+}
