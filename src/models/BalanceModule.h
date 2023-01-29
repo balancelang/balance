@@ -11,6 +11,7 @@
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "ParserRuleContext.h"
+#include "BalanceSource.h"
 
 using namespace antlrcpptest;
 using namespace antlr4;
@@ -60,6 +61,7 @@ public:
     std::string filePath;
     std::string name;
     bool isEntrypoint;
+    std::vector<BalanceSource *> sources = {};
 
     // Structures defined in this module
     std::vector<BalanceType *> types = {};
@@ -115,11 +117,14 @@ public:
         {
             this->name = this->path;
         }
+
+        this->initializeModule();
     }
 
     void initializeTypeInfoTable();
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
+    void generateAST();
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath();
     void generateASTFromString(std::string program);

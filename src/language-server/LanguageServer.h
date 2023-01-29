@@ -207,7 +207,7 @@ public:
 
                 std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packagePath + "/", "");
 
-                currentPackage->compileAndPersist();
+                // currentPackage->compileAndPersist();
 
                 BalanceModule *bmodule = currentPackage->getModule(rootPathWithoutExtension);
                 if (bmodule == nullptr) {

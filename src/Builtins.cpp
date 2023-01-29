@@ -73,7 +73,7 @@ void createFunction__print()
     currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
 
     // when string is not null
-    BalanceType * stringType = currentPackage->builtins->getType("String");
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
     Value * zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     Value * stringPointerIndex = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
     Value * stringPointerValue = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringStructPointer, {zero, stringPointerIndex});
@@ -119,7 +119,7 @@ void createFunction__open()
     // Create forward declaration of fopen
     llvm::FunctionType * fopenfunctionType = llvm::FunctionType::get(llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
     currentPackage->currentModule->module->getOrInsertFunction("fopen", fopenfunctionType);
-    Function *fopenFunc = currentPackage->builtins->module->getFunction("fopen");
+    Function *fopenFunc = currentPackage->builtinModules["builtins"]->module->getFunction("fopen");
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
@@ -238,8 +238,7 @@ void createTypes() {
 
 void createBuiltins() {
     BalanceModule * bmodule = new BalanceModule("builtins", false);
-    bmodule->initializeModule();
-    currentPackage->builtins = bmodule;
+    currentPackage->builtinModules["builtins"] = bmodule;
     currentPackage->currentModule = bmodule;
 
     createTypes();

@@ -49,6 +49,21 @@ void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
     this->tree = this->parser->root();
 }
 
+void BalanceModule::generateAST() {
+    std::string result = "";
+
+    for (BalanceSource * bsource : this->sources) {
+        result += "\n\n" + bsource->getString();
+    }
+
+    this->antlrStream = new antlr4::ANTLRInputStream(result);
+    this->lexer = new BalanceLexer(this->antlrStream);
+    this->tokenStream = new antlr4::CommonTokenStream(this->lexer);
+    this->tokenStream->fill();
+    this->parser = new BalanceParser(this->tokenStream);
+    this->tree = this->parser->root();
+}
+
 void BalanceModule::generateASTFromPath() {
     ifstream inputStream;
     inputStream.open(this->filePath);

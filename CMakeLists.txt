@@ -115,6 +115,7 @@ add_executable(balance
                src/Builtins.cpp
                src/BalancePackage.cpp
                src/Utilities.cpp
+               src/models/BalanceSource.cpp
                src/models/BalanceType.cpp
                src/models/BalanceValue.cpp
                src/models/BalanceFunction.cpp

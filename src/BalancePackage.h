@@ -23,7 +23,7 @@ public:
     std::string version;
     std::map<std::string, std::string> entrypoints = {};
     std::map<std::string, BalanceModule *> modules = {};
-    BalanceModule * builtins = nullptr;
+    std::map<std::string, BalanceModule *> builtinModules = {};
     BalanceModule *currentModule = nullptr;
     llvm::LLVMContext *context;
     bool isAnalyzeOnly = false;
@@ -60,30 +60,32 @@ public:
         return nullptr;
     }
 
-    bool execute();
-    bool executeAsScript();
+    bool execute(bool isScript = false);
+    // bool executeAsScript();
+    bool addBuiltinSource(std::string path);
     bool executeString(std::string program);
     void load();
     void populate();
     void throwIfMissing(std::string property);
-    bool compileAndPersist();
-    void compile();
-    void buildLanguageServerTokens();
-    void buildDependencyTree(std::string rootPath);
-    void writePackageToBinary(std::string entrypointName);
+    bool compile();
+    // void buildLanguageServerTokens();
+    void buildDependencyTree(BalanceModule * bmodule);
     BalanceModule * getNextElementOrNull();
-    bool buildTextualRepresentations();
-    void runLLVMFunctionVisitor();
-    bool registerTypes();
-    bool registerGenericTypes();
-    bool registerInheritance();
-    bool finalizeProperties();
-    void buildStructures();
-    void buildForwardDeclarations();
-    void buildVTables();
-    void buildConstructors();
-    void addBuiltinsToModules();
-    bool typeChecking();
+    bool registerTypes(std::map<std::string, BalanceModule *> modules);
+    bool registerGenericTypes(std::map<std::string, BalanceModule *> modules);
+    bool registerInheritance(std::map<std::string, BalanceModule *> modules);
+    bool buildTextualRepresentations(std::map<std::string, BalanceModule *> modules);
+    bool finalizeProperties(std::map<std::string, BalanceModule *> modules);
+    bool typeChecking(std::map<std::string, BalanceModule *> modules);
+    void buildStructures(std::map<std::string, BalanceModule *> modules);
+    void buildVTables(std::map<std::string, BalanceModule *> modules);
+    void buildConstructors(std::map<std::string, BalanceModule *> modules);
+    void buildForwardDeclarations(std::map<std::string, BalanceModule *> modules);
+    // void addBuiltinsToModules();
+    bool compileBuiltins();
+    bool compileModules(std::map<std::string, BalanceModule *> modules);
+    void writePackageToBinary(std::string entrypointName);
+    void llvmCompile(std::map<std::string, BalanceModule *> modules);
 };
 
 #endif
