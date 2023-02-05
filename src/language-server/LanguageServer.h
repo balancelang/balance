@@ -205,24 +205,24 @@ public:
                 std::string rootPath = req.params.textDocument.uri.GetAbsolutePath();
                 std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
 
-                std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packagePath + "/", "");
+                // std::string modulePath = boost::replace_first_copy(rootPathWithoutExtension, currentPackage->packageRootPath, "");
 
-                // currentPackage->compileAndPersist();
+                // // currentPackage->compileAndPersist();
 
-                BalanceModule *bmodule = currentPackage->getModule(rootPathWithoutExtension);
-                if (bmodule == nullptr) {
-                    logger->info("Couldn't find module: " + modulePath);
-                    return rsp;
-                }
-                logger->info("After: " + bmodule->filePath);
-                bmodule->generateASTFromPath();
-                // Visit entire tree
-                TokenVisitor tokenVisitor;
-                tokenVisitor.visit(bmodule->tree);
+                // BalanceModule *bmodule = currentPackage->getModule(rootPathWithoutExtension);
+                // if (bmodule == nullptr) {
+                //     logger->info("Couldn't find module: " + modulePath);
+                //     return rsp;
+                // }
+                // logger->info("After: " + bmodule->filePath.string());
+                // bmodule->generateASTFromPath();
+                // // Visit entire tree
+                // TokenVisitor tokenVisitor;
+                // tokenVisitor.visit(bmodule->tree);
 
-                tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
+                // tokens.data = tokens.encodeTokens(tokenVisitor.tokens);
 
-                this->typeCheckModule(bmodule);
+                // this->typeCheckModule(bmodule);
 
             } catch (const std::exception &exc) {
                 logger->error(exc.what());
@@ -240,7 +240,7 @@ public:
     void typeCheckModule(BalanceModule * bmodule) {
         // TODO: Clean this up
         Notify_TextDocumentPublishDiagnostics::notify notification;
-        lsDocumentUri uri = lsDocumentUri::FromPath(bmodule->filePath);
+        lsDocumentUri uri = lsDocumentUri::FromPath(bmodule->filePath.string());
         notification.params.uri = uri;
 
         bmodule->typeErrors.clear();        // TODO: Free?

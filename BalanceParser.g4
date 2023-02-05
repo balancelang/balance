@@ -28,6 +28,7 @@ statement
     | classInitializer
     | ifStatement
     | whileStatement
+    | forStatement
     | returnStatement
     ;
 
@@ -45,14 +46,18 @@ importDefinition
     ;
 
 whileStatement
-    : WHILE '(' expression ')' '{' ifBlock '}'
+    : WHILE '(' expression ')' '{' statementBlock '}'
+    ;
+
+forStatement
+    : FOR '(' VAR? variableTypeTuple IN expression ')' '{' statementBlock '}'
     ;
 
 ifStatement
-    : IF OPEN_PARENS expression CLOSE_PARENS OPEN_BRACE ifblock=ifBlock CLOSE_BRACE (ELSE OPEN_BRACE elseblock=ifBlock CLOSE_BRACE)?
+    : IF OPEN_PARENS expression CLOSE_PARENS OPEN_BRACE ifblock=statementBlock CLOSE_BRACE (ELSE OPEN_BRACE elseblock=statementBlock CLOSE_BRACE)?
     ;
 
-ifBlock
+statementBlock
     : lineStatement*
     ;
 

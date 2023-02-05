@@ -63,7 +63,7 @@ public:
 
     void addParent(BalanceType * parentType);
     void addMethod(std::string name, BalanceFunction * method);
-    void addConstructor(BalanceFunction * constructor);
+    void addConstructor(std::string name, std::vector<BalanceParameter *> parameters);
     std::vector<BalanceFunction *> getMethods();
     BalanceFunction * getMethod(std::string key);
     BalanceFunction * getConstructor(std::vector<BalanceType *> parameters);

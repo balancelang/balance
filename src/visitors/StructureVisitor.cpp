@@ -313,7 +313,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
             }
 
             // TODO: Check if a constructor already exists with arguments
-            currentPackage->currentModule->currentType->addConstructor(new BalanceFunction(functionName, parameters, currentPackage->currentModule->getType("None")));
+            currentPackage->currentModule->currentType->addConstructor(functionName, parameters);
         } else {
             currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
         }

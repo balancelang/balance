@@ -7,7 +7,9 @@ void BalanceType::addMethod(std::string name, BalanceFunction *method) {
     this->methods[name] = method;
 }
 
-void BalanceType::addConstructor(BalanceFunction * constructor) {
+void BalanceType::addConstructor(std::string name, std::vector<BalanceParameter *> parameters) {
+    std::string constructorName = name + std::to_string(this->constructors.size());
+    BalanceFunction * constructor = new BalanceFunction(constructorName, parameters, currentPackage->currentModule->getType("None"));
     this->constructors.push_back(constructor);
 }
 
