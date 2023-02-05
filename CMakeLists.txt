@@ -115,6 +115,7 @@ add_executable(balance
                src/Builtins.cpp
                src/BalancePackage.cpp
                src/Utilities.cpp
+               src/models/BalanceSource.cpp
                src/models/BalanceType.cpp
                src/models/BalanceValue.cpp
                src/models/BalanceFunction.cpp
@@ -144,6 +145,7 @@ add_executable(balance
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
                src/builtins/Lambda.cpp
+               src/standard-library/Range.cpp
                src/language-server/LanguageServer.h
                tests/TestHelpers.cpp
                tests/ASTTests.cpp

@@ -67,11 +67,37 @@ std::any TypeVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *
         currentPackage->currentModule->addTypeError(ctx, "While condition must be bool: " + this->getText(ctx->expression()));
     }
 
-    currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, currentPackage->currentModule->currentScope);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
 
-    // Visit the while-block statements
-    visit(ctx->ifBlock());
+    // Visit the while-loop body
+    visit(ctx->statementBlock());
 
+    currentPackage->currentModule->currentScope = scope;
+    return std::any();
+}
+
+std::any TypeVisitor::visitForStatement(BalanceParser::ForStatementContext *ctx) {
+    std::string text = this->getText(ctx);
+    BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
+
+    // Check if type is Iterable
+    BalanceType * iterable = any_cast<BalanceType *>(visit(ctx->expression()));
+    BalanceType * iterableType = iterable->methods["getNext"]->returnType;
+
+    // Check if using explicit typing (x: Int), that it matches what is returned by getNext()
+    if (ctx->variableTypeTuple()->type) {
+        BalanceType * iterator = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
+        if (!canAssignTo(ctx, iterator, iterableType)) {
+            currentPackage->currentModule->addTypeError(ctx, "Iterator type " + iterator->toString() + ", can't be assigned to " + iterableType->toString());
+        }
+    }
+
+    // Set loop-variable on scope
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(nullptr, scope);
+    currentPackage->currentModule->currentScope->symbolTable[ctx->variableTypeTuple()->name->getText()] = new BalanceValue(iterableType, nullptr);
+
+    // Visit the for-loop body
+    visit(ctx->statementBlock());
     currentPackage->currentModule->currentScope = scope;
 
     return std::any();

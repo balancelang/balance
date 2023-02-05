@@ -242,7 +242,7 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
         // Check if we are parsing a class method
         Function *function;
         if (currentPackage->currentModule->currentType != nullptr) {
-            std::string functionNameWithClass = currentPackage->currentModule->currentType->toString() + "_" + functionName;
+            std::string functionNameWithClass = currentPackage->currentModule->currentType->toString() + "_" + bfunction->name;
             ArrayRef<Type *> parametersReference(functionParameterTypes);
             // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
             FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);

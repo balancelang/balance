@@ -24,6 +24,8 @@ WHERE               : 'where';
 NONE                : 'None';
 SELF                : 'self';
 TO                  : 'to';
+FOR                 : 'for';
+IN                  : 'in';
 
 
 OPEN_BRACE          : '{';

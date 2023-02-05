@@ -71,7 +71,7 @@ void debug_print_value(std::string message, llvm::Value * value) {
     Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printfFunction, printArgs);
 }
 
-any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
+std::any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     std::string text = ctx->getText();
     std::string className = ctx->className->getText();
 
@@ -101,7 +101,7 @@ any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *
     return nullptr;
 }
 
-any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) {
+std::any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitializerExpressionContext *ctx) {
     std::string text = ctx->getText();
 
     BalanceType * btype = any_cast<BalanceType *>(visit(ctx->classInitializer()->newableType()));
@@ -141,7 +141,7 @@ any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassInitiali
     return new BalanceValue(btype, structMemoryPointer);
 }
 
-any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) {
+std::any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) {
     std::string text = ctx->getText();
 
     BalanceValue * valueMember = any_cast<BalanceValue *>(visit(ctx->member));
@@ -153,8 +153,8 @@ any BalanceVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpre
     return bvalue;
 }
 
-any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ctx) {
-    any text = ctx->getText();
+std::any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ctx) {
+    std::any text = ctx->getText();
 
     Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
 
@@ -178,7 +178,7 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
 
     // Visit the while-block statements
-    visit(ctx->ifBlock());
+    visit(ctx->statementBlock());
 
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(condBlock, currentPackage->currentModule->currentScope->parent);
     // At the end of while-block, jump back to the condition which may jump to mergeBlock or reiterate
@@ -190,7 +190,54 @@ any BalanceVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ct
     return nullptr;
 }
 
-any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) {
+std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *ctx) {
+    std::any text = ctx->getText();
+
+    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
+
+    // Set up the 3 blocks we need: condition, loop-block and merge
+    BasicBlock *condBlock = BasicBlock::Create(*currentPackage->context, "loopcond", function);
+    BasicBlock *loopBlock = BasicBlock::Create(*currentPackage->context, "loop", function);
+    BasicBlock *mergeBlock = BasicBlock::Create(*currentPackage->context, "afterloop", function);
+
+    // for-loop setup which sets up an iterable with hasNext/getNext
+    BalanceValue * iterable = any_cast<BalanceValue *>(visit(ctx->expression()));
+
+    // Jump to condition
+    currentPackage->currentModule->builder->CreateBr(condBlock);
+    currentPackage->currentModule->builder->SetInsertPoint(condBlock);
+
+    // Get the hasNext function from the type
+    BalanceFunction * hasNextFunction = iterable->type->getMethod("hasNext");
+    Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->function, {});
+
+    // Create the condition - if expression is true, jump to loop block, else jump to after loop block
+    currentPackage->currentModule->builder->CreateCondBr(hasNextValue, loopBlock, mergeBlock);
+
+    // Set insert point to the loop-block so we can populate it
+    currentPackage->currentModule->builder->SetInsertPoint(loopBlock);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
+
+    // Assign to loop variable and add to scope
+    BalanceFunction * getNextFunction = iterable->type->getMethod("getNext");
+    Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->function, {});
+    std::string variableName = ctx->variableTypeTuple()->name->getText();
+    currentPackage->currentModule->setValue(variableName, new BalanceValue(getNextFunction->returnType, getNextValue));
+
+    // Visit for-loop body
+    visit(ctx->statementBlock());
+
+    // currentPackage->currentModule->currentScope = new BalanceScopeBlock(condBlock, currentPackage->currentModule->currentScope->parent);
+    // At the end of for-body, call getNext and jump back to the condition which may jump to mergeBlock or reiterate
+    currentPackage->currentModule->builder->CreateBr(condBlock);
+
+    // Make sure new code is added to "block" after the for statement
+    currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
+    currentPackage->currentModule->currentScope = new BalanceScopeBlock(mergeBlock, currentPackage->currentModule->currentScope->parent); // TODO: Store scope in beginning of this function, and restore here?
+    return nullptr;
+}
+
+std::any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) {
     std::string text = ctx->getText();
 
     BalanceValue * valueMember = any_cast<BalanceValue *>(visit(ctx->member));
@@ -254,7 +301,7 @@ any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentContext
     return nullptr;
 }
 
-any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) {
+std::any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) {
     std::string text = ctx->getText();
 
     BalanceValue * valueMember = any_cast<BalanceValue *>(visit(ctx->member));
@@ -266,7 +313,7 @@ any BalanceVisitor::visitMemberIndexExpression(BalanceParser::MemberIndexExpress
     return new BalanceValue(valueMember->type->generics[0], llvmValue);
 }
 
-any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
+std::any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     std::string text = ctx->getText();
     vector<BalanceValue *> values;
     for (BalanceParser::ExpressionContext *expression : ctx->listElements()->expression()) {
@@ -322,7 +369,7 @@ any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
     return new BalanceValue(arrayType, arrayMemoryPointer);
 }
 
-any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
+std::any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
     std::string text = ctx->getText();
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
     Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
@@ -360,7 +407,7 @@ any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx) {
     return nullptr;
 }
 
-any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) {
+std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) {
     if (ctx->variable()->SELF()) {
         BalanceValue * bvalue = currentPackage->currentModule->getValue("this");
         return bvalue;
@@ -408,7 +455,7 @@ any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionCon
     }
 }
 
-any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
+std::any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) {
     std::string text = ctx->getText();
     std::string variableName = ctx->variableTypeTuple()->name->getText();
 
@@ -431,11 +478,10 @@ any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext *ctx)
     return nullptr;
 }
 
-any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) {
+std::any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) {
     // TODO: Reference counting could free up memory here
 
     std::string text = ctx->getText();
-    Function *function = currentPackage->currentModule->builder->GetInsertBlock()->getParent();
     std::string variableName = ctx->IDENTIFIER()->getText();
     BalanceValue *value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
@@ -454,10 +500,10 @@ any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentCon
     }
 
     currentPackage->currentModule->setValue(variableName, value);
-    return nullptr;
+    return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, variable->value));
 }
 
-any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {
+std::any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {
     BalanceType * boolType = currentPackage->currentModule->getType("Bool");
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
@@ -476,7 +522,7 @@ any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressio
     return new BalanceValue(boolType, result);
 }
 
-any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) {
+std::any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) {
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
@@ -520,7 +566,7 @@ any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::MultiplicativeE
     return new BalanceValue(lhsVal->type, result);
 }
 
-any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) {
+std::any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) {
     BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
     BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
@@ -571,14 +617,14 @@ std::any BalanceVisitor::visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx
     return new BalanceValue(currentPackage->currentModule->getType("None"), ConstantPointerNull::get((PointerType *) currentPackage->currentModule->currentLhsType->getReferencableType()));
 }
 
-any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) {
+std::any BalanceVisitor::visitNumericLiteral(BalanceParser::NumericLiteralContext *ctx) {
     std::string value = ctx->DECIMAL_INTEGER()->getText();
     Type *i32_type = IntegerType::getInt32Ty(*currentPackage->context);
     int intValue = stoi(value);
     return new BalanceValue(currentPackage->currentModule->getType("Int"), ConstantInt::get(i32_type, intValue, true));
 }
 
-any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) {
+std::any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ctx) {
     BalanceType * boolType = currentPackage->currentModule->getType("Bool");
     if (ctx->TRUE()) {
         return new BalanceValue(boolType, ConstantInt::get(boolType->getInternalType(), 1, true));
@@ -586,14 +632,14 @@ any BalanceVisitor::visitBooleanLiteral(BalanceParser::BooleanLiteralContext *ct
     return new BalanceValue(boolType, ConstantInt::get(boolType->getInternalType(), 0, true));
 }
 
-any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
+std::any BalanceVisitor::visitDoubleLiteral(BalanceParser::DoubleLiteralContext *ctx) {
     std::string value = ctx->DOUBLE()->getText();
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
     double doubleValue = stod(value);
     return new BalanceValue(doubleType, ConstantFP::get(doubleType->getInternalType(), doubleValue));
 }
 
-any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx) {
+std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext *ctx) {
     std::string text = ctx->STRING()->getText();
     BalanceType * stringType = currentPackage->currentModule->getType("String");
     int stringLength = text.size();
@@ -647,7 +693,7 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
     return new BalanceValue(noneType, llvmValue);
 }
 
-any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
+std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
     std::string text = ctx->getText();
     std::string functionName = ctx->IDENTIFIER()->getText();
 
@@ -806,10 +852,10 @@ any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx) {
         }
     }
     // TODO: Should functions be referenced with getValue as well, so we get the closest lambda/func
-    // return any();
+    // return std::any();
 }
 
-any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) {
+std::any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) {
     std::string text = ctx->getText();
     if (ctx->expression()->getText() == "None") {
         // handled in visitFunctionDefinition, since we will not hit this method on implicit 'return None'
@@ -852,7 +898,7 @@ any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementContext *
     return nullptr;
 }
 
-any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
+std::any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
     std::string text = ctx->getText();
     vector<BalanceType *> functionParameterTypeStrings;
     vector<std::string> functionParameterNames;
@@ -934,7 +980,7 @@ any BalanceVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext
     return new BalanceValue(lambdaType, (Value *)currentPackage->currentModule->builder->CreateLoad(p));
 }
 
-any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
+std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionContext *ctx) {
     std::string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
     BalanceFunction *bfunction;
 

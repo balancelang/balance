@@ -20,7 +20,7 @@ void createMethod_String_toString() {
     });
     llvm::Type * memcpyReturnType = llvm::Type::getInt32Ty(*currentPackage->context);
     llvm::FunctionType * memcpyDeclarationType = llvm::FunctionType::get(memcpyReturnType, memcpyParams, false);
-    currentPackage->builtins->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
+    currentPackage->builtinModules["builtins"]->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
 
 
     std::string functionName = "toString";

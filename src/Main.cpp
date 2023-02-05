@@ -179,8 +179,7 @@ int main(int argc, char **argv) {
         } else {
             currentPackage = new BalancePackage("", entryPoint, verboseLogging);
             currentPackage->isAnalyzeOnly = isAnalyzeOnly;
-            bool success = currentPackage->executeAsScript();
-            return !success;
+            return currentPackage->execute(true) ? 0 : 1;
         }
     }
 

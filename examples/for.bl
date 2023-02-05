@@ -1,0 +1,11 @@
+for (var i in range(10)) {
+    print(i)
+}
+
+for (var i in 0 to 10) {
+    print(i)
+}
+
+for (var i in [0, 1, 2, 3, 4]) {
+    print(i)
+}

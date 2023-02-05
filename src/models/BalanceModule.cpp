@@ -12,11 +12,11 @@ extern BalancePackage *currentPackage;
 
 void BalanceModule::initializeModule() {
     this->builder = new llvm::IRBuilder<>(*currentPackage->context);
-    this->module = new llvm::Module(this->path, *currentPackage->context);
+    this->module = new llvm::Module(this->name, *currentPackage->context);
 
     // Initialize module root scope
     FunctionType *funcType = FunctionType::get(this->builder->getInt32Ty(), false);
-    std::string rootFunctionName = this->path + "_main";
+    std::string rootFunctionName = this->name + "_main";
     Function *rootFunc = Function::Create(funcType, Function::ExternalLinkage, this->isEntrypoint ? "main" : rootFunctionName, this->module);
     BasicBlock *entry = BasicBlock::Create(*currentPackage->context, "entrypoint", rootFunc);
     this->builder->SetInsertPoint(entry);
@@ -37,7 +37,7 @@ void BalanceModule::initializeTypeInfoTable() {
     this->typeInfoStructType = structType;
 
     llvm::ArrayType * arrayType = llvm::ArrayType::get(structType, 0);
-    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, "typeTable");
+    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, this->name + "_typeTable");
 }
 
 void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
@@ -49,7 +49,26 @@ void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
     this->tree = this->parser->root();
 }
 
+void BalanceModule::generateAST() {
+    std::string result = "";
+
+    for (BalanceSource * bsource : this->sources) {
+        result += "\n\n" + bsource->getString();
+    }
+
+    this->antlrStream = new antlr4::ANTLRInputStream(result);
+    this->lexer = new BalanceLexer(this->antlrStream);
+    this->tokenStream = new antlr4::CommonTokenStream(this->lexer);
+    this->tokenStream->fill();
+    this->parser = new BalanceParser(this->tokenStream);
+    this->tree = this->parser->root();
+}
+
 void BalanceModule::generateASTFromPath() {
+    if (!fileExist(this->filePath)) {
+        throw runtime_error("File does not exist: " + this->filePath.string());
+    }
+
     ifstream inputStream;
     inputStream.open(this->filePath);
     this->antlrStream = new antlr4::ANTLRInputStream(inputStream);

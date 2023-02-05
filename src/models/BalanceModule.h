@@ -11,6 +11,9 @@
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "ParserRuleContext.h"
+#include "BalanceSource.h"
+
+#include <filesystem>
 
 using namespace antlrcpptest;
 using namespace antlr4;
@@ -56,10 +59,12 @@ class BalanceModule
 public:
     llvm::IRBuilder<> *builder;
 
-    std::string path;
-    std::string filePath;
+    // filePath relative to package root, without file extension
     std::string name;
+    // absolute file path
+    std::filesystem::path filePath;
     bool isEntrypoint;
+    std::vector<BalanceSource *> sources = {};
 
     // Structures defined in this module
     std::vector<BalanceType *> types = {};
@@ -101,25 +106,18 @@ public:
 
     bool finishedDiscovery;
 
-    BalanceModule(std::string path, bool isEntrypoint)
+    BalanceModule(std::string name, std::filesystem::path filePath, bool isEntrypoint)
     {
-        this->path = path;
+        this->name = name;
+        this->filePath = filePath;
         this->isEntrypoint = isEntrypoint;
-        this->filePath = this->path + ".bl";
-
-        if (this->path.find('/') != std::string::npos)
-        {
-            this->name = this->path.substr(this->path.find_last_of("/"), this->path.size());
-        }
-        else
-        {
-            this->name = this->path;
-        }
+        this->initializeModule();
     }
 
     void initializeTypeInfoTable();
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
+    void generateAST();
     void generateASTFromStream(antlr4::ANTLRInputStream * stream);
     void generateASTFromPath();
     void generateASTFromString(std::string program);

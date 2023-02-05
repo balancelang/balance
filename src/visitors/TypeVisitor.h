@@ -14,6 +14,7 @@ class TypeVisitor : public BalanceParserBaseVisitor
 public:
     std::string getText(antlr4::ParserRuleContext *ctx);
     std::any visitWhileStatement(BalanceParser::WhileStatementContext *ctx) override;
+    std::any visitForStatement(BalanceParser::ForStatementContext *ctx) override;
     std::any visitIfStatement(BalanceParser::IfStatementContext *ctx) override;
     std::any visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) override;
     std::any visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) override;

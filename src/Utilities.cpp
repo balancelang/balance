@@ -61,7 +61,7 @@ BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
         ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, functionNameWithClass, bmodule->module);
     }
 
-    // Import constructor
+    // Import default constructor
     if (btype->internalType != nullptr && !btype->isSimpleType) {
         if (ibtype->initializer != nullptr) {
             // TODO: We will need to differentiate constructors when allowing constructor-overloading
@@ -73,6 +73,16 @@ BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
         }
     } else {
         // TODO: Can this happen?
+    }
+
+    // Import additional constructors
+    for (BalanceFunction * constructor : btype->constructors) {
+        std::string constructorName = btype->name + "_" + constructor->name;
+        FunctionType *constructorType = constructor->function->getFunctionType();
+
+        BalanceFunction *ibfunction = new BalanceFunction(constructor->name, constructor->parameters, constructor->returnType);
+        ibtype->constructors.push_back(ibfunction);
+        ibfunction->function = Function::Create(constructorType, Function::ExternalLinkage, constructorName, bmodule->module);
     }
 
     // TODO: Does the type as a whole need forward declarations?

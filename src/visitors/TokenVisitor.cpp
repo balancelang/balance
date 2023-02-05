@@ -61,7 +61,7 @@ std::any TokenVisitor::visitImportStatement(BalanceParser::ImportStatementContex
 std::any TokenVisitor::visitWhileStatement(BalanceParser::WhileStatementContext *ctx) {
     this->addToken(ctx->WHILE()->getSymbol(), SemanticTokenType::ls_keyword);
     visit(ctx->expression());
-    visit(ctx->ifBlock());
+    visit(ctx->statementBlock());
     return std::any();
 }
 
