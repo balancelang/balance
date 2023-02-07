@@ -129,6 +129,28 @@ std::vector<BalanceType *> BalanceModule::getGenericVariants(std::string typeNam
     return types;
 }
 
+// bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters, BalanceType * returnType) {
+//     if (bfunction->name != functionName) {
+//         return false;
+//     }
+
+//     if (!bfunction->returnType->equalTo(returnType)) {
+//         return false;
+//     }
+
+//     if (bfunction->parameters.size() != parameters.size()) {
+//         return false;
+//     }
+
+//     for (int i = 0; i < bfunction->parameters.size(); i++) {
+//         if (!bfunction->parameters[i]->balanceType->equalTo(parameters[i])) {
+//             return false;
+//         }
+//     }
+
+//     return true;
+// }
+
 BalanceFunction *BalanceModule::getFunction(std::string functionName) {
     for (auto const &x : functions)
     {

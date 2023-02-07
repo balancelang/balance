@@ -93,6 +93,8 @@ public:
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
     std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
+    std::any visitRange(BalanceParser::RangeContext *ctx) override;
+
     BalanceValue * visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx);
 };
 

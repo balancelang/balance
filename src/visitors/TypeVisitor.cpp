@@ -226,6 +226,23 @@ std::any TypeVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentConte
     return std::any();
 }
 
+std::any TypeVisitor::visitRange(BalanceParser::RangeContext *ctx) {
+    std::string text = ctx->getText();
+
+    BalanceType * from = any_cast<BalanceType *>(visit(ctx->from));
+    BalanceType * to = any_cast<BalanceType *>(visit(ctx->to));
+
+    if (from->name != "Int") {
+        currentPackage->currentModule->addTypeError(ctx, "From parameter must be Int. Found " + from->toString());
+    }
+
+    if (to->name != "Int") {
+        currentPackage->currentModule->addTypeError(ctx, "To parameter must be Int. Found " + to->toString());
+    }
+
+    return currentPackage->currentModule->getType("Range");
+}
+
 std::any TypeVisitor::visitMemberAccessExpression(BalanceParser::MemberAccessExpressionContext *ctx) {
     std::string text = ctx->getText();
 

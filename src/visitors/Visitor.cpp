@@ -209,7 +209,7 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
 
     // Get the hasNext function from the type
     BalanceFunction * hasNextFunction = iterable->type->getMethod("hasNext");
-    Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->function, {});
+    Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->function, { iterable->value });
 
     // Create the condition - if expression is true, jump to loop block, else jump to after loop block
     currentPackage->currentModule->builder->CreateCondBr(hasNextValue, loopBlock, mergeBlock);
@@ -220,7 +220,8 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
 
     // Assign to loop variable and add to scope
     BalanceFunction * getNextFunction = iterable->type->getMethod("getNext");
-    Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->function, {});
+    Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->function, { iterable->value });
+
     std::string variableName = ctx->variableTypeTuple()->name->getText();
     currentPackage->currentModule->setValue(variableName, new BalanceValue(getNextFunction->returnType, getNextValue));
 
@@ -448,9 +449,11 @@ std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressi
         }
 
         // TODO: Figure out how we represent values generally - e.g. can we avoid pointer-to-pointers generally?
-        if (value->value->getType()->isPointerTy() && value->value->getType()->getPointerElementType()->isPointerTy()) {
+        if (value->value->getType()->isPointerTy()) {
             return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
         }
+        // if (value->)
+        // return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
         return value;
     }
 }
@@ -467,11 +470,9 @@ std::any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext 
 
     BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
 
-    if (!value->type->isSimpleType && value->type->name != "Lambda") {
-        Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
-        currentPackage->currentModule->builder->CreateStore(value->value, alloca);
-        value = new BalanceValue(value->type, alloca);
-    }
+    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
+    currentPackage->currentModule->builder->CreateStore(value->value, alloca);
+    value = new BalanceValue(value->type, alloca);
 
     currentPackage->currentModule->setValue(variableName, value);
     currentPackage->currentModule->currentLhsType = nullptr;
@@ -722,9 +723,6 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
         } else {
             // Must be a function then
             BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName);
-            if (bfunction == nullptr) {
-                throw std::runtime_error("Failed to find function " + functionName);
-            }
 
             vector<Value *> functionArguments;
             int i = 0;
@@ -1150,4 +1148,16 @@ std::any BalanceVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) 
 
 std::any BalanceVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
     return currentPackage->currentModule->getType(ctx->NONE()->getText());
+}
+
+std::any BalanceVisitor::visitRange(BalanceParser::RangeContext *ctx) {
+    std::string text = ctx->getText();
+
+    BalanceValue * fromValue = any_cast<BalanceValue *>(visit(ctx->from));
+    BalanceValue * toValue = any_cast<BalanceValue *>(visit(ctx->to));
+
+    BalanceFunction *bfunction = currentPackage->currentModule->getFunction("range");
+    Value * rangeResult = currentPackage->currentModule->builder->CreateCall(bfunction->function, {fromValue->value, toValue->value});
+
+    return new BalanceValue(bfunction->returnType, rangeResult);
 }

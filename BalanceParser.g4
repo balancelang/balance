@@ -102,7 +102,7 @@ expression
     ;
 
 range
-    : numericLiteral TO numericLiteral
+    : from=numericLiteral TO to=numericLiteral
     ;
 
 mapInitializer

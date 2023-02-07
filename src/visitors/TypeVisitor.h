@@ -25,6 +25,7 @@ public:
     std::any visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) override;
     std::any visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) override;
     std::any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
+    std::any visitRange(BalanceParser::RangeContext *ctx) override;
     std::any visitVariable(BalanceParser::VariableContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;

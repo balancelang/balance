@@ -16,6 +16,20 @@ class Range {
         self.steps = 1
     }
 
+    Range(start: Int, end: Int) {
+        self.current = start
+        self.start = start
+        self.end = end
+        self.steps = 1
+    }
+
+    Range(start: Int, end: Int, steps: Int) {
+        self.current = start
+        self.start = start
+        self.end = end
+        self.steps = steps
+    }
+
     hasNext(): Bool {
         return self.current < self.end
     }
@@ -26,5 +40,20 @@ class Range {
         return result
     }
 }
+
+// TODO: Change this to return Iterable
+// range(end: Int): Range {
+//     return new Range(end)
+// }
+
+// TODO: Change this to return Iterable
+range(start: Int, end: Int): Range {
+    return new Range(start, end)
+}
+
+// // TODO: Change this to return Iterable
+// range(start: Int, end: Int, steps: Int): Range {
+//     return new Range(start, end, steps)
+// }
 )""";
 }
