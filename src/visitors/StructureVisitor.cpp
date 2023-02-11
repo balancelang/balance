@@ -263,10 +263,11 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
         }
     } else {
         // TODO: Should we allow overriding functions in new scopes?
-        if (currentPackage->currentModule->functions[functionName] != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
-            throw StructureVisitorException();
-        }
+        // TODO: Check if function with same signature exists
+        // if (currentPackage->currentModule->functions[functionName] != nullptr) {
+        //     currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
+        //     throw StructureVisitorException();
+        // }
     }
 
     vector<BalanceParameter *> parameters;
@@ -318,7 +319,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
             currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
         }
     } else {
-        currentPackage->currentModule->functions[functionName] = new BalanceFunction(functionName, parameters, returnType);
+        currentPackage->currentModule->addFunction(new BalanceFunction(functionName, parameters, returnType));
     }
 
     return nullptr;

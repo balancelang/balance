@@ -129,41 +129,55 @@ std::vector<BalanceType *> BalanceModule::getGenericVariants(std::string typeNam
     return types;
 }
 
-// bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters, BalanceType * returnType) {
-//     if (bfunction->name != functionName) {
-//         return false;
-//     }
+bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters) {
+    if (bfunction->name != functionName) {
+        return false;
+    }
 
-//     if (!bfunction->returnType->equalTo(returnType)) {
-//         return false;
-//     }
+    if (bfunction->parameters.size() != parameters.size()) {
+        return false;
+    }
 
-//     if (bfunction->parameters.size() != parameters.size()) {
-//         return false;
-//     }
+    for (int i = 0; i < bfunction->parameters.size(); i++) {
+        if (!bfunction->parameters[i]->balanceType->equalTo(parameters[i])) {
+            return false;
+        }
+    }
 
-//     for (int i = 0; i < bfunction->parameters.size(); i++) {
-//         if (!bfunction->parameters[i]->balanceType->equalTo(parameters[i])) {
-//             return false;
-//         }
-//     }
+    return true;
+}
 
-//     return true;
-// }
+std::vector<BalanceFunction *> BalanceModule::getFunctionsByName(std::string functionName) {
+    std::vector<BalanceFunction *> result;
 
-BalanceFunction *BalanceModule::getFunction(std::string functionName) {
-    for (auto const &x : functions)
+    for (BalanceFunction * bfunction : functions)
     {
-        BalanceFunction * bfunction = x.second;
         if (bfunction->name == functionName) {
+            result.push_back(bfunction);
+        }
+    }
+
+    for (BalanceFunction * bfunction : importedFunctions)
+    {
+        if (bfunction->name == functionName) {
+            result.push_back(bfunction);
+        }
+    }
+
+    return result;
+}
+
+BalanceFunction * BalanceModule::getFunction(std::string functionName, std::vector<BalanceType *> parameters) {
+    for (BalanceFunction * bfunction : functions)
+    {
+        if (functionEqualTo(bfunction, functionName, parameters)) {
             return bfunction;
         }
     }
 
-    for (auto const &x : importedFunctions)
+    for (BalanceFunction * bfunction : importedFunctions)
     {
-        BalanceFunction * bfunction = x.second;
-        if (bfunction->name == functionName) {
+        if (functionEqualTo(bfunction, functionName, parameters)) {
             return bfunction;
         }
     }
@@ -210,6 +224,10 @@ void BalanceModule::addType(BalanceType * balanceType) {
     Constant * typeInfoData = ConstantStruct::get(this->typeInfoStructType, valuesRef);
     balanceType->typeInfoVariable = typeInfoData;
     // new GlobalVariable(*currentPackage->currentModule->module, (StructType *) typeInfoType->getInternalType(), true, GlobalValue::ExternalLinkage, typeInfoData, balanceType->toString() + "_typeInfo");
+}
+
+void BalanceModule::addFunction(BalanceFunction * bfunction) {
+    functions.push_back(bfunction);
 }
 
 void BalanceModule::addTypeError(ParserRuleContext * ctx, std::string message) {

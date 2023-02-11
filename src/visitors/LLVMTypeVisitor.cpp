@@ -60,6 +60,7 @@ using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
 
+// TODO: What's the difference between this and ForwardDeclarationVisitor::visitImportStatement ?
 std::any LLVMTypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
     std::string text = ctx->getText();
 
@@ -87,13 +88,14 @@ std::any LLVMTypeVisitor::visitImportStatement(BalanceParser::ImportStatementCon
                 continue;
             }
 
-            BalanceFunction *bfunction = importedModule->getFunction(importString);
-            if (bfunction != nullptr) {
+            std::vector<BalanceFunction *> bfunctions = importedModule->getFunctionsByName(importString);
+            for (BalanceFunction * bfunction : bfunctions) {
                 createImportedFunction(currentPackage->currentModule, bfunction);
-                continue;
             }
 
-            // TODO: Handle
+            if (bfunctions.empty()) {
+                // TODO: Handle
+            }
         }
     }
 
@@ -196,23 +198,24 @@ std::any LLVMTypeVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefin
 std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
 
+    vector<BalanceType *> functionParameters;
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(parameter));
+        functionParameters.push_back(btype);
+    }
+
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentType != nullptr) {
         if (functionName == currentPackage->currentModule->currentType->name) {
-            vector<BalanceType *> functionArguments;
-            functionArguments.push_back(currentPackage->currentModule->currentType); // implicit 'this'
-            for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
-                BalanceType * btype = any_cast<BalanceType *>(visit(parameter));
-                functionArguments.push_back(btype);
-            }
-            bfunction = currentPackage->currentModule->currentType->getConstructor(functionArguments);
+            functionParameters.insert(functionParameters.begin(), currentPackage->currentModule->currentType); // implicit 'this'
+            bfunction = currentPackage->currentModule->currentType->getConstructor(functionParameters);
         } else {
             bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
         }
     } else if (currentPackage->currentModule->currentType != nullptr) {
         bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
     } else {
-        bfunction = currentPackage->currentModule->functions[functionName];
+        bfunction = currentPackage->currentModule->getFunction(functionName, functionParameters);
     }
 
     if (bfunction->function != nullptr) {

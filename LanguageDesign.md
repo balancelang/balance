@@ -47,7 +47,7 @@
     - overloading
         + constructor overloading
         - method overloading
-        - function overloading
+        + function overloading
     - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
     + constructors

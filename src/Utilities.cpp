@@ -18,7 +18,7 @@ bool fileExist(std::string fileName) {
 void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) {
     BalanceFunction *ibfunction = new BalanceFunction(bfunction->name, bfunction->parameters, bfunction->returnType);
     ibfunction->function = Function::Create(bfunction->function->getFunctionType(), Function::ExternalLinkage, bfunction->name, bmodule->module);
-    bmodule->importedFunctions[bfunction->name] = ibfunction;
+    bmodule->importedFunctions.push_back(ibfunction);
 }
 
 BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {

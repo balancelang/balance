@@ -42,18 +42,18 @@ class Range {
 }
 
 // TODO: Change this to return Iterable
-// range(end: Int): Range {
-//     return new Range(end)
-// }
+range(end: Int): Range {
+    return new Range(end)
+}
 
 // TODO: Change this to return Iterable
 range(start: Int, end: Int): Range {
     return new Range(start, end)
 }
 
-// // TODO: Change this to return Iterable
-// range(start: Int, end: Int, steps: Int): Range {
-//     return new Range(start, end, steps)
-// }
+// TODO: Change this to return Iterable
+range(start: Int, end: Int, steps: Int): Range {
+    return new Range(start, end, steps)
+}
 )""";
 }

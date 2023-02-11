@@ -200,8 +200,7 @@ void BalancePackage::buildStructures(std::map<std::string, BalanceModule *> modu
         }
 
         // Check all functions
-        for (auto const &x : bmodule->functions) {
-            BalanceFunction * bfunction = x.second;
+        for (BalanceFunction * bfunction : bmodule->functions) {
             if (bfunction->function == nullptr) {
                 isFinalized = false;
                 break;
@@ -286,8 +285,7 @@ void BalancePackage::addBuiltinsToModules(std::map<std::string, BalanceModule *>
 
             this->currentModule = bmodule;
 
-            for (auto const &x : builtinsModule->functions) {
-                BalanceFunction * bfunction = x.second;
+            for (BalanceFunction * bfunction : builtinsModule->functions) {
                 createImportedFunction(bmodule, bfunction);
             }
 

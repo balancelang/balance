@@ -675,7 +675,7 @@ std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext 
 }
 
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
-    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print")->function;
+    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print", { currentPackage->currentModule->getType("String") })->function;
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
     BalanceValue * value = any_cast<BalanceValue *>(visit(argument));
 
@@ -705,26 +705,28 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
         return visitFunctionCall__print(ctx);
     }
 
+    std::vector<BalanceType *> functionArgumentTypes;
+    std::vector<Value *> functionArgumentValues;
+    for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
+        BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+        functionArgumentTypes.push_back(bvalue->type);
+        functionArgumentValues.push_back(bvalue->value);
+    }
+
     if (currentPackage->currentModule->accessedValue == nullptr) {
         // Check if function is a variable (lambda e.g.)
         BalanceValue * bvalue = currentPackage->currentModule->getValue(functionName);
         if (bvalue != nullptr) {
-            vector<Value *> functionArguments;
-            for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-                BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
-                functionArguments.push_back(bvalue->value);
-            }
-
-            ArrayRef<Value *> argumentsReference(functionArguments);
+            ArrayRef<Value *> argumentsReference(functionArgumentValues);
             FunctionType *FT = dyn_cast<FunctionType>(bvalue->value->getType()->getPointerElementType());
             Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(FT, bvalue->value, argumentsReference);
             BalanceType * returnType = bvalue->type->generics.back();
             return new BalanceValue(returnType, llvmValue);
         } else {
             // Must be a function then
-            BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName);
+            BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName, functionArgumentTypes);
 
-            vector<Value *> functionArguments;
+            std::vector<Value *> functionArguments;
             int i = 0;
             for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
                 BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
@@ -982,20 +984,21 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
     std::string functionName = ctx->functionSignature()->IDENTIFIER()->getText();
     BalanceFunction *bfunction;
 
+    vector<BalanceType *> functionArgumentTypes;
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->functionSignature()->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(parameter));
+        functionArgumentTypes.push_back(btype);
+    }
+
     if (currentPackage->currentModule->currentType != nullptr) {
         if (functionName == currentPackage->currentModule->currentType->name) {
-            vector<BalanceType *> functionArguments;
-            functionArguments.push_back(currentPackage->currentModule->currentType); // implicit 'this'
-            for (BalanceParser::VariableTypeTupleContext *parameter : ctx->functionSignature()->parameterList()->variableTypeTuple()) {
-                BalanceType * btype = any_cast<BalanceType *>(visit(parameter));
-                functionArguments.push_back(btype);
-            }
-            bfunction = currentPackage->currentModule->currentType->getConstructor(functionArguments);
+            functionArgumentTypes.insert(functionArgumentTypes.begin(), currentPackage->currentModule->currentType); // implicit 'this')
+            bfunction = currentPackage->currentModule->currentType->getConstructor(functionArgumentTypes);
         } else {
             bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
         }
     } else {
-        bfunction = currentPackage->currentModule->getFunction(functionName);
+        bfunction = currentPackage->currentModule->getFunction(functionName, functionArgumentTypes);
     }
 
     currentPackage->currentModule->currentFunction = bfunction;
@@ -1156,7 +1159,11 @@ std::any BalanceVisitor::visitRange(BalanceParser::RangeContext *ctx) {
     BalanceValue * fromValue = any_cast<BalanceValue *>(visit(ctx->from));
     BalanceValue * toValue = any_cast<BalanceValue *>(visit(ctx->to));
 
-    BalanceFunction *bfunction = currentPackage->currentModule->getFunction("range");
+    // Get the range overloads which takes two integers
+    BalanceFunction *bfunction = currentPackage->currentModule->getFunction("range", {
+        currentPackage->currentModule->getType("Int"),
+        currentPackage->currentModule->getType("Int")
+    });
     Value * rangeResult = currentPackage->currentModule->builder->CreateCall(bfunction->function, {fromValue->value, toValue->value});
 
     return new BalanceValue(bfunction->returnType, rangeResult);

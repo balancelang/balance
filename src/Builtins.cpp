@@ -31,7 +31,7 @@ void createFunction__print()
         contentParameter
     };
     BalanceFunction * bfunction = new BalanceFunction("print", parameters, currentPackage->currentModule->getType("None"));
-    currentPackage->currentModule->functions["print"] = bfunction;
+    currentPackage->currentModule->addFunction(bfunction);
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
@@ -170,7 +170,7 @@ void createFunction__open()
 
     // Assign the llvm function to the bfunction
     bfunction->function = openFunction;
-    currentPackage->currentModule->functions["open"] = bfunction;
+    currentPackage->currentModule->addFunction(bfunction);
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }

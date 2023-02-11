@@ -94,20 +94,22 @@ std::any ForwardDeclarationVisitor::visitImportStatement(BalanceParser::ImportSt
             BalanceParser::UnnamedImportDefinitionContext * import = dynamic_cast<BalanceParser::UnnamedImportDefinitionContext *>(parameter);
             std::string importString = import->IDENTIFIER()->getText();
 
-            BalanceFunction * bfunction = importedModule->getFunction(importString);
-            if (bfunction != nullptr) {
-                createImportedFunction(currentPackage->currentModule, bfunction);
-            } else {
-                BalanceType * btype = importedModule->getType(importString);
-                if (btype == nullptr) {
-                    // TODO: Handle
-                }
-
+            BalanceType * btype = importedModule->getType(importString);
+            if (btype != nullptr) {
                 if (btype->isInterface) {
                     // TODO: Handle importing interfaces
                 } else {
                     createImportedClass(currentPackage->currentModule, btype);
                 }
+            }
+
+            std::vector<BalanceFunction *> bfunctions = importedModule->getFunctionsByName(importString);
+            for (BalanceFunction * bfunction : bfunctions) {
+                createImportedFunction(currentPackage->currentModule, bfunction);
+            }
+
+            if (bfunctions.empty()) {
+                // TODO: Handle
             }
         }
     }

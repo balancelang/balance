@@ -68,13 +68,13 @@ public:
 
     // Structures defined in this module
     std::vector<BalanceType *> types = {};
-    std::map<std::string, BalanceFunction *> functions = {};
+    std::vector<BalanceFunction *> functions = {};
     std::map<std::string, llvm::Value *> globals = {};
 
     std::map<std::string, BalanceType *> genericTypes = {};
 
     // Structures imported into this module
-    std::map<std::string, BalanceFunction *> importedFunctions = {};
+    std::vector<BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
 
     BalanceScopeBlock *rootScope;
@@ -115,6 +115,7 @@ public:
     }
 
     void initializeTypeInfoTable();
+    void addFunction(BalanceFunction * function);
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
     void generateAST();
@@ -124,7 +125,8 @@ public:
     BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics = {});
     void addType(BalanceType * balanceType);
     std::vector<BalanceType *> getGenericVariants(std::string typeName);
-    BalanceFunction * getFunction(std::string functionName);
+    BalanceFunction * getFunction(std::string functionName, std::vector<BalanceType *> parameters);
+    std::vector<BalanceFunction *> getFunctionsByName(std::string functionName);
     BalanceValue *getValue(std::string variableName);
     void setValue(std::string variableName, BalanceValue *bvalue);
     bool hasTypeErrors();

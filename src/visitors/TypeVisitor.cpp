@@ -394,6 +394,22 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     vector<BalanceType *> expectedParameters;
     vector<BalanceType *> actualParameters;
 
+    // Don't consider accessedType when parsing arguments
+    BalanceType * backup = currentPackage->currentModule->accessedType;
+    currentPackage->currentModule->accessedType = nullptr;
+
+    // Parse arguments
+    for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(argument));
+        actualParameters.push_back(btype);
+    }
+    currentPackage->currentModule->accessedType = backup;
+
+    // Temporary hack until we have a good way to store builtins
+    if (currentPackage->currentModule->accessedType == nullptr && (functionName == "print" || functionName == "open")) {
+        return returnType;
+    }
+
     // Check if we are accessing a type
     if (currentPackage->currentModule->accessedType != nullptr) {
         // check if function exists
@@ -420,7 +436,7 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
             }
         } else {
             // Get function
-            BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName);
+            BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName, actualParameters);
             if (bfunction == nullptr) {
                 currentPackage->currentModule->addTypeError(ctx, "Unknown function: " + functionName);
                 return currentPackage->currentModule->getType("Unknown");
@@ -433,22 +449,6 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
                 expectedParameters.push_back(parameter->balanceType);
             }
         }
-    }
-
-    // Don't consider accessedType when parsing arguments
-    BalanceType * backup = currentPackage->currentModule->accessedType;
-    currentPackage->currentModule->accessedType = nullptr;
-
-    // Parse arguments
-    for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-        BalanceType * btype = any_cast<BalanceType *>(visit(argument));
-        actualParameters.push_back(btype);
-    }
-    currentPackage->currentModule->accessedType = backup;
-
-    // Temporary hack until we have a good way to store builtins
-    if (functionName == "print" || functionName == "open") {
-        return returnType;
     }
 
     for (int i = 0; i < expectedParameters.size(); i++) {
@@ -519,7 +519,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
             bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
         }
     } else {
-        bfunction = currentPackage->currentModule->getFunction(functionName);
+        bfunction = currentPackage->currentModule->getFunction(functionName, parameters);
     }
 
     for (BalanceParameter * parameter : bfunction->parameters) {
