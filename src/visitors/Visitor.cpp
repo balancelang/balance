@@ -326,6 +326,9 @@ std::any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *c
     auto elementSize = ConstantExpr::getSizeOf(firstElement->value->getType());
 
     BalanceType *arrayType = currentPackage->currentModule->getType("Array", { firstElement->type });
+    if (arrayType == nullptr) {
+        arrayType = currentPackage->currentModule->createGenericType("Array", { firstElement->type });
+    }
     auto arrayLength = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*currentPackage->context), values.size());
 
     auto memoryPointer = llvm::CallInst::CreateMalloc(
@@ -434,27 +437,21 @@ std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressi
             return new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(propertyPointerValue));
         }
 
-        BalanceValue * value = currentPackage->currentModule->getValue(variableName);
+        BalanceValue * bvalue = currentPackage->currentModule->getValue(variableName);
 
         // Check if it is a class property
-        if (value == nullptr && currentPackage->currentModule->currentType != nullptr) {
+        if (bvalue == nullptr && currentPackage->currentModule->currentType != nullptr) {
             BalanceProperty * bproperty = currentPackage->currentModule->currentType->getProperty(variableName);
             auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
             BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
+            thisValue = new BalanceValue(thisValue->type, currentPackage->currentModule->builder->CreateLoad(thisValue->value));
             Type *structType = thisValue->value->getType()->getPointerElementType();
 
             auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
-            value = new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(ptr));
+            return new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(ptr));
         }
-
-        // TODO: Figure out how we represent values generally - e.g. can we avoid pointer-to-pointers generally?
-        if (value->value->getType()->isPointerTy()) {
-            return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
-        }
-        // if (value->)
-        // return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateLoad(value->value));
-        return value;
+        return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
     }
 }
 
@@ -473,7 +470,6 @@ std::any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext 
     Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
     currentPackage->currentModule->builder->CreateStore(value->value, alloca);
     value = new BalanceValue(value->type, alloca);
-
     currentPackage->currentModule->setValue(variableName, value);
     currentPackage->currentModule->currentLhsType = nullptr;
     return nullptr;
@@ -494,14 +490,18 @@ std::any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignme
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
         BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
+        thisValue = new BalanceValue(thisValue->type, currentPackage->currentModule->builder->CreateLoad(thisValue->value));
         Type *structType = thisValue->value->getType()->getPointerElementType();
 
         auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
         return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, ptr));
     }
 
+    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
+    currentPackage->currentModule->builder->CreateStore(value->value, alloca);
+    value = new BalanceValue(value->type, alloca);
     currentPackage->currentModule->setValue(variableName, value);
-    return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, variable->value));
+    return nullptr;
 }
 
 std::any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {
@@ -1010,16 +1010,19 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
     // Add function parameter names and insert in function scope
     Function::arg_iterator args = bfunction->function->arg_begin();
 
-    for (BalanceParameter *parameter : bfunction->parameters) {
-        llvm::Value *x = args++;
-        x->setName(parameter->name);
-        BalanceValue * bvalue = new BalanceValue(parameter->balanceType, x);
-        currentPackage->currentModule->setValue(parameter->name, bvalue);
-    }
-
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
+
+    for (BalanceParameter *parameter : bfunction->parameters) {
+        llvm::Value *x = args++;
+        x->setName(parameter->name);
+
+        Value *alloca = currentPackage->currentModule->builder->CreateAlloca(x->getType());
+        currentPackage->currentModule->builder->CreateStore(x, alloca);
+        BalanceValue * bvalue = new BalanceValue(parameter->balanceType, alloca);
+        currentPackage->currentModule->setValue(parameter->name, bvalue);
+    }
 
     visit(ctx->functionBlock());
 

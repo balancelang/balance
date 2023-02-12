@@ -71,22 +71,18 @@ std::string BalanceType::toString() {
     return result;
 }
 
-bool BalanceType::equalTo(BalanceModule *bmodule, std::string name, std::vector<BalanceType *> generics) {
-    return this->equalTo(new BalanceType(bmodule, name, generics));
-}
-
-bool BalanceType::equalTo(BalanceType *other) {
-    if (this->name != other->name) {
+bool BalanceType::equalTo(std::string name, std::vector<BalanceType *> generics) {
+    if (this->name != name) {
         return false;
     }
 
-    if (this->generics.size() != other->generics.size()) {
+    if (this->generics.size() != generics.size()) {
         return false;
     }
 
     for (int i = 0; i < this->generics.size(); i++) {
         BalanceType *thisI = this->generics[i];
-        BalanceType *otherI = other->generics[i];
+        BalanceType *otherI = generics[i];
 
         bool subResult = thisI->equalTo(otherI);
         if (!subResult) {
@@ -95,6 +91,10 @@ bool BalanceType::equalTo(BalanceType *other) {
     }
 
     return true;
+}
+
+bool BalanceType::equalTo(BalanceType *other) {
+    return this->equalTo(other->name, other->generics);
 }
 
 void BalanceType::addParent(BalanceType * parentType) {

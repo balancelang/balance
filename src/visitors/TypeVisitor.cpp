@@ -1,53 +1,11 @@
 #include "TypeVisitor.h"
 #include "../BalancePackage.h"
 #include "../models/BalanceLambda.h"
+#include "../Utilities.h"
 
 using namespace antlr4;
 
 extern BalancePackage *currentPackage;
-
-// Returns whether a can be assigned to b
-bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType) {
-    // If a is interface, it can never be assigned to something not interface
-    if (!bType->isInterface && aType->isInterface) {
-        currentPackage->currentModule->addTypeError(ctx, "Can't assign interface to non-interface");
-        return false;
-    }
-
-    // If b is interface and a is not, check that a implements b
-    if (bType->isInterface && !aType->isInterface) {
-        if (aType->interfaces[bType->name] == nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Type " + aType->toString() + " does not implement interface " + bType->toString());
-            return false;
-        }
-        return true;
-    }
-
-    // Do similar checks for inheritance, once implemented
-    // a can be assigned to b, if b is ancestor of a
-    for (BalanceType * member : aType->getHierarchy()) {
-        if (member == aType) {
-            continue;
-        }
-
-        // TODO: We may need to consider generics here as well
-        if (member == bType) {
-            return true;
-        }
-    }
-
-    if (!aType->equalTo(bType)) {
-        // TODO: Should only be possible with strict null typing
-        if (!bType->isSimpleType && aType->name == "None") {
-            return true;
-        }
-
-        currentPackage->currentModule->addTypeError(ctx, aType->toString() + " cannot be assigned to " + bType->toString());
-        return false;
-    }
-
-    return true;
-}
 
 std::string TypeVisitor::getText(antlr4::ParserRuleContext *ctx) {
     int a = ctx->start->getStartIndex();

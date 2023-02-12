@@ -106,9 +106,10 @@ public:
 
     bool finishedDiscovery;
 
-    BalanceModule(std::string name, std::filesystem::path filePath, bool isEntrypoint)
+    BalanceModule(std::string name, std::vector<BalanceSource *> sources, bool isEntrypoint)
     {
         this->name = name;
+        this->sources = sources;
         this->filePath = filePath;
         this->isEntrypoint = isEntrypoint;
         this->initializeModule();
@@ -119,10 +120,9 @@ public:
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
     void generateAST();
-    void generateASTFromStream(antlr4::ANTLRInputStream * stream);
-    void generateASTFromPath();
-    void generateASTFromString(std::string program);
-    BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics = {});
+    BalanceType * getType(std::string typeName, std::vector<BalanceType *> generics);
+    BalanceType * getType(std::string typeName);
+    BalanceType * createGenericType(std::string typeName, std::vector<BalanceType *> generics);
     void addType(BalanceType * balanceType);
     std::vector<BalanceType *> getGenericVariants(std::string typeName);
     BalanceFunction * getFunction(std::string functionName, std::vector<BalanceType *> parameters);

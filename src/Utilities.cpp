@@ -240,3 +240,51 @@ void createDefaultToStringMethod(BalanceType * btype) {
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
+
+// Returns whether a can be assigned to b
+bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType) {
+    // If a is interface, it can never be assigned to something not interface
+    if (!bType->isInterface && aType->isInterface) {
+        if (ctx != nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, "Can't assign interface to non-interface");
+        }
+        return false;
+    }
+
+    // If b is interface and a is not, check that a implements b
+    if (bType->isInterface && !aType->isInterface) {
+        if (aType->interfaces[bType->name] == nullptr) {
+            if (ctx != nullptr) {
+                currentPackage->currentModule->addTypeError(ctx, "Type " + aType->toString() + " does not implement interface " + bType->toString());
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // Do similar checks for inheritance, once implemented
+    // a can be assigned to b, if b is ancestor of a
+    for (BalanceType * member : aType->getHierarchy()) {
+        if (member == aType) {
+            continue;
+        }
+
+        // TODO: We may need to consider generics here as well
+        if (member == bType) {
+            return true;
+        }
+    }
+
+    if (!aType->equalTo(bType)) {
+        // TODO: Should only be possible with strict null typing
+        if (!bType->isSimpleType && aType->name == "None") {
+            return true;
+        }
+        if (ctx != nullptr) {
+            currentPackage->currentModule->addTypeError(ctx, aType->toString() + " cannot be assigned to " + bType->toString());
+        }
+        return false;
+    }
+
+    return true;
+}

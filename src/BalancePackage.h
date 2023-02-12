@@ -68,7 +68,7 @@ public:
     void load();
     void populate();
     void throwIfMissing(std::string property);
-    bool compile();
+    bool compile(std::string name, std::vector<BalanceSource *> sources);
     // void buildLanguageServerTokens();
     void buildDependencyTree(BalanceModule * bmodule);
     BalanceModule * getNextElementOrNull();

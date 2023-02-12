@@ -237,7 +237,7 @@ void createTypes() {
 }
 
 void createBuiltins() {
-    BalanceModule * bmodule = new BalanceModule("builtins", std::filesystem::path(""), false);
+    BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
     currentPackage->builtinModules["builtins"] = bmodule;
     currentPackage->currentModule = bmodule;
 

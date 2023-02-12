@@ -40,15 +40,6 @@ void BalanceModule::initializeTypeInfoTable() {
     this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, this->name + "_typeTable");
 }
 
-void BalanceModule::generateASTFromStream(antlr4::ANTLRInputStream *stream) {
-    this->antlrStream = stream;
-    this->lexer = new BalanceLexer(this->antlrStream);
-    this->tokenStream = new antlr4::CommonTokenStream(this->lexer);
-    this->tokenStream->fill();
-    this->parser = new BalanceParser(this->tokenStream);
-    this->tree = this->parser->root();
-}
-
 void BalanceModule::generateAST() {
     std::string result = "";
 
@@ -64,31 +55,12 @@ void BalanceModule::generateAST() {
     this->tree = this->parser->root();
 }
 
-void BalanceModule::generateASTFromPath() {
-    if (!fileExist(this->filePath)) {
-        throw runtime_error("File does not exist: " + this->filePath.string());
-    }
-
-    ifstream inputStream;
-    inputStream.open(this->filePath);
-    this->antlrStream = new antlr4::ANTLRInputStream(inputStream);
-    this->generateASTFromStream(antlrStream);
+BalanceType * BalanceModule::getType(std::string typeName) {
+    std::vector<BalanceType *> v;
+    return this->getType(typeName, v);
 }
 
-void BalanceModule::generateASTFromString(std::string program) {
-    this->antlrStream = new antlr4::ANTLRInputStream(program);
-    this->generateASTFromStream(antlrStream);
-}
-
-BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
-    // Check if it is a type (or generic type which was already defined with generic types)
-    for (BalanceType * btype : types)
-    {
-        if (btype->equalTo(this, typeName, generics)) {
-            return btype;
-        }
-    }
-
+BalanceType * BalanceModule::createGenericType(std::string typeName, std::vector<BalanceType *> generics) {
     // Check if it is a generic type, and create if necessary
     for (auto const &x : genericTypes)
     {
@@ -109,9 +81,43 @@ BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceTy
                 return newGenericType;
             }
 
-            return nullptr;
         }
     }
+
+    // TODO: Make this a full string of X<Y> rather than just X
+    throw std::runtime_error("Failed to create generic type: " + typeName);
+}
+
+BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceType *> generics) {
+    // Check if it is a type (or generic type which was already defined with generic types)
+    for (BalanceType * btype : types)
+    {
+        if (btype->equalTo(typeName, generics)) {
+            return btype;
+        }
+    }
+
+    // TODO: remove
+    // for (auto const &x : genericTypes)
+    // {
+    //     BalanceType * btype = x.second;
+    //     if (btype->name == typeName) {
+    //         // TODO: Figure out where to register these functions
+    //         BalanceType * newGenericType = nullptr;
+    //         if (btype->name == "Array") {
+    //             newGenericType = createType__Array(generics[0]);
+    //         }
+
+    //         if (newGenericType != nullptr && newGenericType->balanceModule != this) {
+    //             createImportedClass(currentPackage->currentModule, newGenericType);
+    //         }
+
+    //         if (newGenericType != nullptr) {
+    //             currentPackage->currentModule->addType(newGenericType);
+    //             return newGenericType;
+    //         }
+    //     }
+    // }
 
     return nullptr;
 }
@@ -139,7 +145,7 @@ bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std:
     }
 
     for (int i = 0; i < bfunction->parameters.size(); i++) {
-        if (!bfunction->parameters[i]->balanceType->equalTo(parameters[i])) {
+        if (!canAssignTo(nullptr, parameters[i], bfunction->parameters[i]->balanceType)) {
             return false;
         }
     }
@@ -168,6 +174,8 @@ std::vector<BalanceFunction *> BalanceModule::getFunctionsByName(std::string fun
 }
 
 BalanceFunction * BalanceModule::getFunction(std::string functionName, std::vector<BalanceType *> parameters) {
+    // TODO: Check for ambigiouity on overloaded functions
+    // e.g. two functions where one takes base class and one takes interface, both implemented by X.
     for (BalanceFunction * bfunction : functions)
     {
         if (functionEqualTo(bfunction, functionName, parameters)) {
@@ -204,10 +212,10 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 }
 
 void BalanceModule::addType(BalanceType * balanceType) {
-    // Check if type is already added
-    if (this->getType(balanceType->name, balanceType->generics) != nullptr) {
-        return;
-    }
+    // TODO: Check if type is already added, make sure we dont end up in a loop here
+    // if (this->getType(balanceType->name, balanceType->generics) != nullptr) {
+    //     return;
+    // }
 
     int typeIndex = this->types.size();
     balanceType->typeIndex = typeIndex;

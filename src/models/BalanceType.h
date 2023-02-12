@@ -72,7 +72,7 @@ public:
     llvm::Type * getInternalType();
     bool isFloatingPointType();
     std::string toString();
-    bool equalTo(BalanceModule * bmodule, std::string name, std::vector<BalanceType *> generics = {});
+    bool equalTo(std::string name, std::vector<BalanceType *> generics);
     bool equalTo(BalanceType * other);
     llvm::Function * getInitializer();
     BalanceProperty * getProperty(std::string propertyName);

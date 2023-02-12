@@ -98,15 +98,18 @@ bool BalancePackage::execute(bool isScript)
         }
     }
 
-    return this->compile();
+    std::filesystem::path p(this->entrypoint);
+    auto source = new BalanceSource();
+    source->filePath = std::filesystem::canonical(p);
+
+    return this->compile(p.stem(), {source});
 }
 
-bool BalancePackage::compile() {
+bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sources) {
     this->reset();
     this->compileBuiltins();
 
-    std::filesystem::path p(this->entrypoint);
-    BalanceModule * bmodule = new BalanceModule(p.stem(), std::filesystem::canonical(p), true);
+    BalanceModule * bmodule = new BalanceModule(name, sources, true);
 
     this->buildDependencyTree(bmodule);
     this->compileModules(this->modules);
@@ -123,8 +126,10 @@ bool BalancePackage::compileBuiltins() {
 }
 
 bool BalancePackage::addBuiltinSource(std::string name, std::string code) {
-    BalanceModule * bmodule = new BalanceModule(name, std::filesystem::path(""), false);
-    bmodule->generateASTFromString(code);
+    auto source = new BalanceSource();
+    source->programString = code;
+    BalanceModule * bmodule = new BalanceModule(name, {source}, false);
+    bmodule->generateAST();
     currentPackage->builtinModules[bmodule->name] = bmodule;
     return true;
 }
@@ -146,7 +151,11 @@ bool BalancePackage::compileModules(std::map<std::string, BalanceModule *> modul
 }
 
 bool BalancePackage::executeString(std::string program) {
-    return true;
+    currentPackage = this;
+    this->name = "program";
+    auto source = new BalanceSource();
+    source->programString = program;
+    return this->compile("program", {source});
 }
 
 void BalancePackage::buildConstructors(std::map<std::string, BalanceModule *> modules) {
@@ -509,7 +518,7 @@ void BalancePackage::buildDependencyTree(BalanceModule * bmodule)
     while (module != nullptr)
     {
         this->currentModule = module;
-        this->currentModule->generateASTFromPath();
+        this->currentModule->generateAST();
         visitor.visit(module->tree);
         module->finishedDiscovery = true;
         module = getNextElementOrNull();
@@ -558,7 +567,7 @@ void BalancePackage::writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    if (currentPackage->verboseLogging)
+    if (currentPackage->verboseLogging && bmodule->name != "builtins")
     {
         bmodule->module->print(llvm::errs(), nullptr);
     }

@@ -13,7 +13,7 @@
     + If statements
     + Function definitions
     + while loops
-    - for loops
+    + for loops
         - break
         - continue
         - funky: Should for-loops be expressions?
@@ -43,7 +43,10 @@
     - Garbage collection
     - Sockets
     + File handles
-    - Range syntax ('0 to 10', and builtin function range(from, to, steps))
+    + Range syntax
+        + builtin class, with overloads: var r = new Range(...)
+        + builtin function, with overloads: range(...)
+        + alternative syntax '0 to 10' (equivalent of range(0, 10))
     - overloading
         + constructor overloading
         - method overloading

@@ -1,4 +1,5 @@
 _build
+*.o
 __pycache__
 *.interp
 *.tokens
