@@ -73,11 +73,6 @@ void debug_print_value(std::string message, llvm::Value * value) {
 
 BalanceValue * BalanceVisitor::visitAndLoad(ParserRuleContext * ctx) {
     BalanceValue * bvalue = any_cast<BalanceValue *>(visit(ctx));
-    // if (bvalue->value->getType()->isPointerTy()) {
-    //     return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
-    // } else {
-    //     return bvalue;
-    // }
 
     if (bvalue->isVariablePointer) {
         return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
