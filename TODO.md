@@ -3,6 +3,10 @@
 - test duplicate class/interface/variable names on import
 - make sure you can't 'new' up interfaces, builtins etc?
 
+## Setup
+- LLVM with debug symbols
+- clang vs gcc
+
 ## interfaces
 - test reusing interface value value in function call that takes same interface value
 - test type checking with wrong interface type

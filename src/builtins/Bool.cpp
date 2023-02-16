@@ -79,7 +79,7 @@ void createMethod_Bool_toString() {
 
     currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
     // if value == 0 (false)                                                                        // 5 = 'false'
-    Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 5, true);
+    Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt64Ty(*currentPackage->context), 5, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueFalse, sizeGEP);
     Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueFalse, pointerGEP);
@@ -89,7 +89,7 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
 
     // if value != 0 (true)                                                                         // 4 = 'true'
-    Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 4, true);
+    Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt64Ty(*currentPackage->context), 4, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueTrue, sizeGEP);
 
     Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true", true);

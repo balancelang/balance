@@ -43,7 +43,7 @@ void createMethod_close() {
     Value * filePtr  = currentPackage->currentModule->builder->CreateLoad(ptr);
 
     // Make sure there's a declaration for fclose (int fclose(FILE *stream))
-    llvm::FunctionType * fcloseDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
+    llvm::FunctionType * fcloseDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), false);
     currentPackage->currentModule->module->getOrInsertFunction("fclose", fcloseDeclarationType);
 
     // CreateCall to fclose with filePtr as argument.
@@ -206,7 +206,7 @@ void createMethod_read() {
     auto sizeIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, sizeIndex, true));
     auto sizeGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {sizeZeroValue, sizeIndexValue});
 
-    Value * bitcastedFileSizeValue = currentPackage->currentModule->builder->CreateIntCast(fileSizeValue, llvm::Type::getInt32Ty(*currentPackage->context), false);
+    Value * bitcastedFileSizeValue = currentPackage->currentModule->builder->CreateIntCast(fileSizeValue, llvm::Type::getInt64Ty(*currentPackage->context), false);
     currentPackage->currentModule->builder->CreateStore(bitcastedFileSizeValue, sizeGEP);
 
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
@@ -227,8 +227,8 @@ void createMethod_write() {
     // size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
     ArrayRef<Type *> params({
         llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
-        llvm::Type::getInt32Ty(*currentPackage->context),
-        llvm::Type::getInt32Ty(*currentPackage->context),
+        llvm::Type::getInt64Ty(*currentPackage->context),
+        llvm::Type::getInt64Ty(*currentPackage->context),
         llvm::Type::getInt32PtrTy(*currentPackage->context)
     });
     llvm::FunctionType * fwriteDeclarationType = llvm::FunctionType::get(llvm::Type::getInt32Ty(*currentPackage->context), params, false);
@@ -284,7 +284,7 @@ void createMethod_write() {
     Function * fwriteFunc = currentPackage->currentModule->module->getFunction("fwrite");
     ArrayRef<Value *> arguments({
         loadedPointerValue,                                                                 // const void *ptr      (string pointer)
-        ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true)),               // size_t size
+        ConstantInt::get(*currentPackage->context, llvm::APInt(64, 1, true)),               // size_t size
         loadedStringLengthValue,              // size_t nmemb     TODO: currently hardcoded to 10
         filePtr                                                                             // FILE *stream
     });

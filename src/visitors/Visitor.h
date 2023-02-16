@@ -95,6 +95,7 @@ public:
     std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
     std::any visitRange(BalanceParser::RangeContext *ctx) override;
 
+    BalanceValue * visitAndLoad(ParserRuleContext * ctx);
     BalanceValue * visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx);
 };
 

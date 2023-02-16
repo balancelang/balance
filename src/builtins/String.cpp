@@ -67,9 +67,9 @@ void createType__String() {
     i8pType->isSimpleType = true;
     bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", i8pType, 0, false);
 
-    BalanceType * i32Type = new BalanceType(currentPackage->currentModule, "int", llvm::Type::getInt32Ty(*currentPackage->context));
-    i32Type->isSimpleType = true;
-    bclass->properties["length"] = new BalanceProperty("length", i32Type, 1, true);
+    BalanceType * i64Type = new BalanceType(currentPackage->currentModule, "int", llvm::Type::getInt64Ty(*currentPackage->context));
+    i64Type->isSimpleType = true;
+    bclass->properties["length"] = new BalanceProperty("length", i64Type, 1, true);
 
     currentPackage->currentModule->currentType = bclass;
     StructType *structType = StructType::create(*currentPackage->context, "String");
@@ -77,7 +77,7 @@ void createType__String() {
         // Pointer to the String
         i8pType->getInternalType(),
         // Size of the string
-        i32Type->getInternalType()
+        i64Type->getInternalType()
         // TODO: We could have an optional pointer to the next part of the string
     });
     structType->setBody(propertyTypesRef, false);

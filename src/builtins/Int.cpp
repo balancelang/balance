@@ -14,10 +14,10 @@ void createMethod_Int_toString() {
     // Create forward declaration of snprintf
     ArrayRef<Type *> snprintfArguments({
         llvm::Type::getInt8PtrTy(*currentPackage->context),
-        llvm::IntegerType::getInt32Ty(*currentPackage->context),
+        llvm::IntegerType::getInt64Ty(*currentPackage->context),
         llvm::Type::getInt8PtrTy(*currentPackage->context)
     });
-    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), snprintfArguments, true);
+    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt64Ty(*currentPackage->context), snprintfArguments, true);
     FunctionCallee snprintfFunction = currentPackage->currentModule->module->getOrInsertFunction("snprintf", snprintfFunctionType);
 
     std::string functionName = "toString";
@@ -73,14 +73,14 @@ void createMethod_Int_toString() {
     // Calculate length of string with int length = snprintf(NULL, 0,"%g",42);
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
-        ConstantInt::get(*currentPackage->context, APInt(32, 0)),
+        ConstantInt::get(*currentPackage->context, APInt(64, 0)),
         geti8StrVal(*currentPackage->currentModule->module, "%d", "args", true),
         intValue
     });
     Value * stringLength = currentPackage->currentModule->builder->CreateCall(snprintfFunction, sizeArguments);
     currentPackage->currentModule->builder->CreateStore(stringLength, sizeGEP);
 
-    Value * stringLengthWithNull = currentPackage->currentModule->builder->CreateAdd(stringLength, ConstantInt::get(*currentPackage->context, APInt(32, 1)));
+    Value * stringLengthWithNull = currentPackage->currentModule->builder->CreateAdd(stringLength, ConstantInt::get(*currentPackage->context, APInt(64, 1)));
 
     auto memoryPointer = llvm::CallInst::CreateMalloc(
         currentPackage->currentModule->builder->GetInsertBlock(),

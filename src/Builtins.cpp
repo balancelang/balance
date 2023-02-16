@@ -116,8 +116,16 @@ void createFunction__open()
 
     // Build llvm function and assign to bfunction
 
+    ArrayRef<Type *> fopenParametersReference({
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0)
+    });
+
     // Create forward declaration of fopen
-    llvm::FunctionType * fopenfunctionType = llvm::FunctionType::get(llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), false);
+    llvm::FunctionType * fopenfunctionType = FunctionType::get(
+        llvm::PointerType::get(llvm::Type::getInt32Ty(*currentPackage->context), 0),
+        fopenParametersReference,
+        false);
     currentPackage->currentModule->module->getOrInsertFunction("fopen", fopenfunctionType);
     Function *fopenFunc = currentPackage->builtinModules["builtins"]->module->getFunction("fopen");
 
@@ -153,7 +161,12 @@ void createFunction__open()
 
     // Create File struct which holds this and return pointer to the struct
     auto structSize = ConstantExpr::getSizeOf(fileType->getInternalType());
-    auto pointer = llvm::CallInst::CreateMalloc(currentPackage->currentModule->builder->GetInsertBlock(), fileType->getReferencableType(), fileType->getInternalType(), structSize, nullptr, nullptr, "");
+    auto pointer = llvm::CallInst::CreateMalloc(
+        currentPackage->currentModule->builder->GetInsertBlock(),
+        llvm::Type::getInt64Ty(*currentPackage->context),
+        fileType->getInternalType(),
+        structSize,
+        nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(pointer);
 
     ArrayRef<Value *> argumentsReference{pointer};

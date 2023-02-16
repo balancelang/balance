@@ -71,6 +71,21 @@ void debug_print_value(std::string message, llvm::Value * value) {
     Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printfFunction, printArgs);
 }
 
+BalanceValue * BalanceVisitor::visitAndLoad(ParserRuleContext * ctx) {
+    BalanceValue * bvalue = any_cast<BalanceValue *>(visit(ctx));
+    // if (bvalue->value->getType()->isPointerTy()) {
+    //     return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
+    // } else {
+    //     return bvalue;
+    // }
+
+    if (bvalue->isVariablePointer) {
+        return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
+    } else {
+        return bvalue;
+    }
+}
+
 std::any BalanceVisitor::visitClassDefinition(BalanceParser::ClassDefinitionContext *ctx) {
     std::string text = ctx->getText();
     std::string className = ctx->className->getText();
@@ -451,7 +466,7 @@ std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressi
             auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
             return new BalanceValue(bproperty->balanceType, currentPackage->currentModule->builder->CreateLoad(ptr));
         }
-        return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateLoad(bvalue->value));
+        return bvalue;
     }
 }
 
@@ -465,27 +480,31 @@ std::any BalanceVisitor::visitNewAssignment(BalanceParser::NewAssignmentContext 
         currentPackage->currentModule->currentLhsType = lhsType;
     }
 
-    BalanceValue * value = any_cast<BalanceValue *>(visit(ctx->expression()));
+    BalanceValue * bvalue = any_cast<BalanceValue *>(visit(ctx->expression()));
 
-    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
-    currentPackage->currentModule->builder->CreateStore(value->value, alloca);
-    value = new BalanceValue(value->type, alloca);
-    currentPackage->currentModule->setValue(variableName, value);
+    if (bvalue->isVariablePointer) {
+        Value * alloca = currentPackage->currentModule->builder->CreateAlloca(bvalue->value->getType()->getPointerElementType());
+        currentPackage->currentModule->builder->CreateStore(bvalue->value, alloca);
+    } else {
+        Value * alloca = currentPackage->currentModule->builder->CreateAlloca(bvalue->value->getType());
+        currentPackage->currentModule->builder->CreateStore(bvalue->value, alloca);
+        bvalue = new BalanceValue(bvalue->type, alloca);
+    }
+
+    bvalue->isVariablePointer = true;
+
+    currentPackage->currentModule->setValue(variableName, bvalue);
     currentPackage->currentModule->currentLhsType = nullptr;
     return nullptr;
 }
 
 std::any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignmentContext *ctx) {
-    // TODO: Reference counting could free up memory here
-
     std::string text = ctx->getText();
     std::string variableName = ctx->IDENTIFIER()->getText();
-    BalanceValue *value = any_cast<BalanceValue *>(visit(ctx->expression()));
+    BalanceValue *bvalue = any_cast<BalanceValue *>(visit(ctx->expression()));
 
     BalanceValue *variable = currentPackage->currentModule->getValue(variableName);
     if (variable == nullptr && currentPackage->currentModule->currentType != nullptr) {
-        // TODO: Check if variableName is in currentType->properties
-        // TODO: Checked by type-checker?
         int intIndex = currentPackage->currentModule->currentType->getProperty(variableName)->index;
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
@@ -494,20 +513,23 @@ std::any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignme
         Type *structType = thisValue->value->getType()->getPointerElementType();
 
         auto ptr = currentPackage->currentModule->builder->CreateGEP(structType, thisValue->value, {zero, index});
-        return new BalanceValue(value->type, currentPackage->currentModule->builder->CreateStore(value->value, ptr));
+        return new BalanceValue(bvalue->type, currentPackage->currentModule->builder->CreateStore(bvalue->value, ptr));
     }
 
-    Value *alloca = currentPackage->currentModule->builder->CreateAlloca(value->value->getType());
-    currentPackage->currentModule->builder->CreateStore(value->value, alloca);
-    value = new BalanceValue(value->type, alloca);
-    currentPackage->currentModule->setValue(variableName, value);
+    if (bvalue->isVariablePointer) {
+        llvm::Value * value = currentPackage->currentModule->builder->CreateLoad(bvalue->value);
+        currentPackage->currentModule->builder->CreateStore(value, variable->value);
+    } else {
+        currentPackage->currentModule->builder->CreateStore(bvalue->value, variable->value);
+    }
+
     return nullptr;
 }
 
 std::any BalanceVisitor::visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) {
     BalanceType * boolType = currentPackage->currentModule->getType("Bool");
-    BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
-    BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
+    BalanceValue *lhsVal = visitAndLoad(ctx->lhs);
+    BalanceValue *rhsVal = visitAndLoad(ctx->rhs);
 
     llvm::Value * result = nullptr;
     if (ctx->LT()) {
@@ -568,8 +590,8 @@ std::any BalanceVisitor::visitMultiplicativeExpression(BalanceParser::Multiplica
 }
 
 std::any BalanceVisitor::visitAdditiveExpression(BalanceParser::AdditiveExpressionContext *ctx) {
-    BalanceValue *lhsVal = any_cast<BalanceValue *>(visit(ctx->lhs));
-    BalanceValue *rhsVal = any_cast<BalanceValue *>(visit(ctx->rhs));
+    BalanceValue *lhsVal = visitAndLoad(ctx->lhs);
+    BalanceValue *rhsVal = visitAndLoad(ctx->rhs);
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
 
     // If either operand is float, cast other to float
@@ -677,15 +699,17 @@ std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext 
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
     FunctionCallee printFunc = currentPackage->currentModule->getFunction("print", { currentPackage->currentModule->getType("String") })->function;
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
-    BalanceValue * value = any_cast<BalanceValue *>(visit(argument));
 
-    BalanceFunction * toStringFunction = value->type->getMethod("toString");
+    BalanceValue * bvalue = visitAndLoad(argument);
+    // BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+
+    BalanceFunction * toStringFunction = bvalue->type->getMethod("toString");
     if (toStringFunction == nullptr) {
         // TODO: Can we predefine a print method? E.g. "MyClass(a=1, b=true)"
-        throw std::runtime_error("Failed to find toString method for type: " + value->type->toString());
+        throw std::runtime_error("Failed to find toString method for type: " + bvalue->type->toString());
     }
 
-    auto args = ArrayRef<Value *>{value->value};
+    auto args = ArrayRef<Value *>{bvalue->value};
     Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction->function, args);
 
     auto printArgs = ArrayRef<Value *>{stringValue};
@@ -708,7 +732,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
     std::vector<BalanceType *> functionArgumentTypes;
     std::vector<Value *> functionArgumentValues;
     for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-        BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+        BalanceValue * bvalue = visitAndLoad(argument);
         functionArgumentTypes.push_back(bvalue->type);
         functionArgumentValues.push_back(bvalue->value);
     }

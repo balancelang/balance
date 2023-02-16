@@ -13,6 +13,7 @@ class BalanceValue
 public:
     BalanceType * type = nullptr;
     llvm::Value * value = nullptr;
+    bool isVariablePointer = false;
 
     BalanceValue(BalanceType * type, llvm::Value * value) {
         this->type = type;

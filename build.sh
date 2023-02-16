@@ -1,7 +1,7 @@
 set -e
 mkdir -p _build
 cd _build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+cmake .. -D CMAKE_BUILD_TYPE=Debug
 make -j8
 
 

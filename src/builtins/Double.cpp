@@ -14,10 +14,10 @@ void createMethod_Double_toString() {
     // Create forward declaration of snprintf
     ArrayRef<Type *> snprintfArguments({
         llvm::Type::getInt8PtrTy(*currentPackage->context),
-        llvm::IntegerType::getInt32Ty(*currentPackage->context),
+        llvm::IntegerType::getInt64Ty(*currentPackage->context),
         llvm::Type::getInt8PtrTy(*currentPackage->context)
     });
-    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), snprintfArguments, true);
+    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt64Ty(*currentPackage->context), snprintfArguments, true);
     FunctionCallee snprintfFunction = currentPackage->currentModule->module->getOrInsertFunction("snprintf", snprintfFunctionType);
 
     std::string functionName = "toString";
@@ -73,7 +73,7 @@ void createMethod_Double_toString() {
     // Calculate length of string with int length = snprintf(NULL, 0,"%g",42);
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
-        ConstantInt::get(*currentPackage->context, APInt(32, 0)),
+        ConstantInt::get(*currentPackage->context, APInt(64, 0)),
         geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
@@ -95,7 +95,7 @@ void createMethod_Double_toString() {
     // int snprintf ( char * s, size_t n, const char * format, ... );
     ArrayRef<Value *> arguments({
         memoryPointer,
-        ConstantInt::get(*currentPackage->context, APInt(32, 50)),
+        ConstantInt::get(*currentPackage->context, APInt(64, 50)),
         geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
