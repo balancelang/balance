@@ -200,8 +200,14 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
 
     vector<BalanceType *> functionParameters;
     for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
-        BalanceType * btype = any_cast<BalanceType *>(visit(parameter));
-        functionParameters.push_back(btype);
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string type = parameter->type->getText();
+            BalanceType * btype = any_cast<BalanceType *>(visit(parameter->type));
+            functionParameters.push_back(btype);
+        } else {
+            functionParameters.push_back(currentPackage->currentModule->getType("Any"));
+        }
     }
 
     BalanceFunction *bfunction;
@@ -260,7 +266,6 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
         }
     }
 
-
     return nullptr;
 }
 
@@ -273,7 +278,11 @@ std::any LLVMTypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ct
         generics.push_back(btype);
     }
 
-    return currentPackage->currentModule->getType(base, generics);
+    BalanceType * btype = currentPackage->currentModule->getType(base, generics);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType(base, generics);
+    }
+    return btype;
 }
 
 std::any LLVMTypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
@@ -295,4 +304,24 @@ std::any LLVMTypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx)
 
 std::any LLVMTypeVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
     return currentPackage->currentModule->getType(ctx->NONE()->getText());
+}
+
+std::any LLVMTypeVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::string text = ctx->getText();
+    std::vector<BalanceType *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
+    }
+
+    BalanceType *returnType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+    generics.push_back(returnType);
+
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
+    }
+
+    return lambdaType;
 }

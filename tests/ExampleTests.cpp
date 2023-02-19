@@ -116,7 +116,8 @@ void examplesWhileTest() {
 
 void examplesForTest() {
     string result = runExample("../examples/for.bl");
-    assertEqual("0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n0\n1\n2\n3\n4\n", result, "For-loop");
+    assertEqual("0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n0\n10\n20\n30\n40\n50\n60\n70\n80\n90\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n", result, "For-loop");
+    // \n0\n1\n2\n3\n4\n
 }
 
 void examplesLambdasTest() {

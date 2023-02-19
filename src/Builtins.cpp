@@ -246,7 +246,7 @@ void createTypes() {
 
     // Generic versions are lazily created with their generic types
     createType__Array(nullptr);
-    // TODO: Lambdas are lazily created with their generic types
+    createType__Lambda({});
 }
 
 void createBuiltins() {

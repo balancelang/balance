@@ -28,12 +28,14 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
             vector<Constant *> values;
             for (BalanceFunction * bfunction : binterface->getMethods()) {
-                values.push_back(btype->getMethod(bfunction->name)->function);
+                Function * function = btype->getMethod(bfunction->name)->function;
+                values.push_back(ConstantExpr::getBitCast(function, bfunction->function->getType()));
             }
 
+            std::string name = className + "_" + binterface->toString() + "_vtable";
             ArrayRef<Constant *> valuesRef(values);
             Constant * vTableData = ConstantStruct::get(binterface->vTableStructType, valuesRef);
-            GlobalVariable * vTableDataVariable = new GlobalVariable(*currentPackage->currentModule->module, binterface->vTableStructType, true, GlobalValue::ExternalLinkage, vTableData, className + "_" + binterface->toString() + "_vtable");
+            GlobalVariable * vTableDataVariable = new GlobalVariable(*currentPackage->currentModule->module, binterface->vTableStructType, true, GlobalValue::ExternalLinkage, vTableData, name);
             btype->interfaceVTables[x.first] = vTableDataVariable;
         }
     }

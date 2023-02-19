@@ -433,12 +433,12 @@ bool BalancePackage::registerGenericTypes(std::map<std::string, BalanceModule *>
             GenericTypeRegistrationVisitor visitor;
             visitor.visit(this->currentModule->tree);
 
-            BalanceType * typeInfoType = currentPackage->currentModule->getType("TypeInfo");
             std::vector<Constant *> typeInfoVariables = {};
             for (BalanceType * btype : bmodule->types) {
                 typeInfoVariables.push_back(btype->typeInfoVariable);
             }
 
+            bmodule->initializeTypeInfoTable();
             ArrayRef<Constant *> valuesRef(typeInfoVariables);
             llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
             Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);

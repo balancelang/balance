@@ -133,5 +133,5 @@ BalanceType * createType__Any() {
 }
 
 void createFunctions__Any() {
-    createMethod_Any_getType();
+    // createMethod_Any_getType();
 }

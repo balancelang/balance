@@ -115,6 +115,7 @@ public:
         this->initializeModule();
     }
 
+    void initializeTypeInfoStruct();
     void initializeTypeInfoTable();
     void addFunction(BalanceFunction * function);
     void addTypeError(ParserRuleContext * ctx, std::string message);

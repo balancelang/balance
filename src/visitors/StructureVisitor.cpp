@@ -125,6 +125,7 @@ std::any StructureVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
 }
 
 std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::string text = ctx->getText();
     std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
@@ -137,8 +138,7 @@ std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx
 
     BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
     if (lambdaType == nullptr) {
-        lambdaType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, lambdaType);
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
     }
 
     return lambdaType;
@@ -170,8 +170,7 @@ std::any StructureVisitor::visitLambdaExpression(BalanceParser::LambdaExpression
     generics.push_back(returnType);
     BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
     if (lambdaType == nullptr) {
-        lambdaType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, lambdaType);
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
     }
     return lambdaType;
 }
@@ -199,8 +198,7 @@ std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *c
 
     BalanceType * genericType = currentPackage->currentModule->getType(base, generics);
     if (genericType == nullptr) {
-        genericType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, genericType);
+        genericType = currentPackage->currentModule->createGenericType(base, generics);
     }
     return genericType;
 }

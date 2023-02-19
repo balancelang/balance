@@ -9,8 +9,14 @@ class BalanceType;
 
 BalanceType * createType__Lambda(std::vector<BalanceType *> generics) {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Lambda", generics);
-    currentPackage->currentModule->addType(bclass);
 
+    if (generics.size() == 0) {
+        // This registers the base type, which can't be instantiated directly.
+        currentPackage->builtinModules["builtins"]->genericTypes["Lambda"] = bclass;
+        return bclass;
+    }
+
+    currentPackage->currentModule->addType(bclass);
     currentPackage->currentModule->currentType = bclass;
 
     vector<Type *> functionParameterTypes;

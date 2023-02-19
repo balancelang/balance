@@ -1,6 +1,7 @@
 #include "BalanceModule.h"
 #include "BalanceValue.h"
 #include "../builtins/Array.h"
+#include "../builtins/Lambda.h"
 #include "../BalancePackage.h"
 
 #include "llvm/IR/Value.h"
@@ -23,11 +24,11 @@ void BalanceModule::initializeModule() {
     this->rootScope = new BalanceScopeBlock(entry, nullptr);
     this->currentScope = this->rootScope;
 
-    this->initializeTypeInfoTable();
+    this->initializeTypeInfoStruct();
 }
 
-void BalanceModule::initializeTypeInfoTable() {
-    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, "TypeInfo");
+void BalanceModule::initializeTypeInfoStruct() {
+    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, this->name + "_TypeInfo");
     llvm::ArrayRef<llvm::Type *> propertyTypesRef({
         Type::getInt32Ty(*currentPackage->context),
         this->builder->CreateGlobalStringPtr("")->getType()
@@ -35,9 +36,11 @@ void BalanceModule::initializeTypeInfoTable() {
     structType->setBody(propertyTypesRef, false);
 
     this->typeInfoStructType = structType;
+}
 
-    llvm::ArrayType * arrayType = llvm::ArrayType::get(structType, 0);
-    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, this->name + "_typeTable");
+void BalanceModule::initializeTypeInfoTable() {
+    llvm::ArrayType * arrayType = llvm::ArrayType::get(this->typeInfoStructType, this->types.size());
+    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, this->name + "_TypeTable");
 }
 
 void BalanceModule::generateAST() {
@@ -70,6 +73,8 @@ BalanceType * BalanceModule::createGenericType(std::string typeName, std::vector
             BalanceType * newGenericType = nullptr;
             if (btype->name == "Array") {
                 newGenericType = createType__Array(generics[0]);
+            } else if (btype->name == "Lambda") {
+                newGenericType = createType__Lambda(generics);
             }
 
             if (newGenericType != nullptr && newGenericType->balanceModule != this) {
@@ -80,7 +85,6 @@ BalanceType * BalanceModule::createGenericType(std::string typeName, std::vector
                 currentPackage->currentModule->addType(newGenericType);
                 return newGenericType;
             }
-
         }
     }
 

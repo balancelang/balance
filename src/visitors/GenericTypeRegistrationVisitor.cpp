@@ -67,9 +67,12 @@ std::any GenericTypeRegistrationVisitor::visitGenericType(BalanceParser::Generic
         BalanceType * btype = any_cast<BalanceType *>(visit(type));
         generics.push_back(btype);
     }
-    BalanceType * btype = new BalanceType(currentPackage->currentModule, className, generics);
-    btype->internalType = StructType::create(*currentPackage->context, className);
-    currentPackage->currentModule->addType(btype);
+
+    BalanceType * btype = currentPackage->currentModule->getType(className, generics);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType(className, generics);
+    }
+
     return btype;
 }
 
@@ -84,4 +87,8 @@ std::any GenericTypeRegistrationVisitor::visitSimpleType(BalanceParser::SimpleTy
         }
     }
     return currentPackage->currentModule->getType(name);
+}
+
+std::any GenericTypeRegistrationVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
+    return currentPackage->currentModule->getType(ctx->NONE()->getText());
 }

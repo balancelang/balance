@@ -25,6 +25,7 @@ public:
     std::any visitClassGenerics(BalanceParser::ClassGenericsContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
+    std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
 };
 
 #endif

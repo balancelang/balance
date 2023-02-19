@@ -616,7 +616,11 @@ std::any TypeVisitor::visitLambda(BalanceParser::LambdaContext *ctx) {
         parameters.push_back(p->balanceType);
     }
     parameters.push_back(returnType);
-    return currentPackage->currentModule->getType("Lambda", parameters);
+    BalanceType * btype = currentPackage->currentModule->getType("Lambda", parameters);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType("Lambda", parameters);
+    }
+    return btype;
 }
 
 std::any TypeVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) {
@@ -757,4 +761,24 @@ std::any TypeVisitor::visitMapInitializerExpression(BalanceParser::MapInitialize
         // Instantiate new map
         throw std::runtime_error("Map type not implemented yet :(");
     }
+}
+
+std::any TypeVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::string text = ctx->getText();
+    std::vector<BalanceType *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
+    }
+
+    BalanceType *returnType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+    generics.push_back(returnType);
+
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
+    }
+
+    return lambdaType;
 }
