@@ -736,6 +736,9 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
         return visitFunctionCall__print(ctx);
     }
 
+    auto backup = currentPackage->currentModule->accessedValue;
+    currentPackage->currentModule->accessedValue = nullptr;
+
     std::vector<BalanceType *> functionArgumentTypes;
     std::vector<Value *> functionArgumentValues;
     for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
@@ -743,6 +746,8 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
         functionArgumentTypes.push_back(bvalue->type);
         functionArgumentValues.push_back(bvalue->value);
     }
+
+    currentPackage->currentModule->accessedValue = backup;
 
     if (currentPackage->currentModule->accessedValue == nullptr) {
         // Check if function is a variable (lambda e.g.)
@@ -862,7 +867,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
             BalanceValue * backup = currentPackage->currentModule->accessedValue;
             currentPackage->currentModule->accessedValue = nullptr;
             for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
-                BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
+                BalanceValue * bvalue = visitAndLoad(argument);
                 functionArguments.push_back(bvalue->value);
             }
             currentPackage->currentModule->accessedValue = backup;

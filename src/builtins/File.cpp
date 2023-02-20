@@ -12,6 +12,8 @@ void createMethod_close() {
 
     std::string functionName = "close";
     std::string functionNameWithClass = "File_" + functionName;
+    BalanceType * fileType = currentPackage->currentModule->getType("File");
+    BalanceParameter * thisParameter = new BalanceParameter(fileType, "this");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentType->getReferencableType() // this argument
@@ -23,7 +25,7 @@ void createMethod_close() {
     llvm::Function * closeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", closeFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, {}, noneType);
+    BalanceFunction * bfunction = new BalanceFunction(functionName, {thisParameter}, noneType);
     currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
     bfunction->function = closeFunc;
 
@@ -98,6 +100,8 @@ void createMethod_read() {
     std::string functionName = "read";
     std::string functionNameWithClass = "File_" + functionName;
     BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceType * fileType = currentPackage->currentModule->getType("File");
+    BalanceParameter * thisParameter = new BalanceParameter(fileType, "this");
 
     ArrayRef<Type *> parametersReference({
         currentPackage->currentModule->currentType->getReferencableType()  // File "this" argument
@@ -109,7 +113,7 @@ void createMethod_read() {
     llvm::Function * readFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", readFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, {}, stringType);
+    BalanceFunction * bfunction = new BalanceFunction(functionName, {thisParameter}, stringType);
     currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
     bfunction->function = readFunc;
 

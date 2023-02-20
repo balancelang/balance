@@ -365,7 +365,11 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
 
     // Temporary hack until we have a good way to store builtins
     if (currentPackage->currentModule->accessedType == nullptr && (functionName == "print" || functionName == "open")) {
-        return returnType;
+        if (functionName == "print") {
+            return currentPackage->currentModule->getType("None");
+        }
+        BalanceFunction *bfunction = currentPackage->currentModule->getFunction(functionName, actualParameters);
+        return bfunction->returnType;
     }
 
     // Check if we are accessing a type
