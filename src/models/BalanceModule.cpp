@@ -235,7 +235,6 @@ void BalanceModule::addType(BalanceType * balanceType) {
 
     Constant * typeInfoData = ConstantStruct::get(this->typeInfoStructType, valuesRef);
     balanceType->typeInfoVariable = typeInfoData;
-    // new GlobalVariable(*currentPackage->currentModule->module, (StructType *) typeInfoType->getInternalType(), true, GlobalValue::ExternalLinkage, typeInfoData, balanceType->toString() + "_typeInfo");
 }
 
 void BalanceModule::addFunction(BalanceFunction * bfunction) {

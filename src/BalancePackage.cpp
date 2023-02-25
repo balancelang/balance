@@ -15,6 +15,7 @@
 #include "visitors/InheritanceVisitor.h"
 #include "visitors/FinalizePropertiesVisitor.h"
 #include "standard-library/Range.h"
+#include "builtins/Any.h"
 
 #include "config.h"
 
@@ -112,17 +113,20 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
     BalanceModule * bmodule = new BalanceModule(name, sources, true);
 
     this->buildDependencyTree(bmodule);
-    this->compileModules(this->modules);
-    this->writePackageToBinary(this->name);
+    bool success = this->compileModules(this->modules);
+    if (success) {
+        this->writePackageToBinary(this->name);
+    }
 
-    return true;
+    return success;
 }
 
 bool BalancePackage::compileBuiltins() {
-    createBuiltins();
+    createBuiltinTypes();
+    createBuiltinFunctions();
     this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
-    this->compileModules(this->builtinModules);
-    return true;
+    bool success = this->compileModules(this->builtinModules);
+    return success;
 }
 
 bool BalancePackage::addBuiltinSource(std::string name, std::string code) {
@@ -135,13 +139,26 @@ bool BalancePackage::addBuiltinSource(std::string name, std::string code) {
 }
 
 bool BalancePackage::compileModules(std::map<std::string, BalanceModule *> modules) {
+    bool success = true;
     this->addBuiltinsToModules(modules);
-    this->registerTypes(modules);
-    this->registerGenericTypes(modules);
-    this->registerInheritance(modules);
-    this->buildTextualRepresentations(modules);
-    this->finalizeProperties(modules);
-    this->typeChecking(modules);
+    success = this->registerTypes(modules);
+    if (!success) return false;
+
+    success = this->registerGenericTypes(modules);
+    if (!success) return false;
+
+    success = this->registerInheritance(modules);
+    if (!success) return false;
+
+    success = this->buildTextualRepresentations(modules);
+    if (!success) return false;
+
+    success = this->finalizeProperties(modules);
+    if (!success) return false;
+
+    success = this->typeChecking(modules);
+    if (!success) return false;
+
     this->buildStructures(modules);
     this->buildVTables(modules);
     this->buildConstructors(modules);
@@ -422,16 +439,15 @@ bool BalancePackage::registerTypes(std::map<std::string, BalanceModule *> module
 bool BalancePackage::registerGenericTypes(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
-        if (bmodule->tree == nullptr) {
-            continue;
-        }
 
         try {
             this->currentModule = bmodule;
 
-            // Visit entire tree
-            GenericTypeRegistrationVisitor visitor;
-            visitor.visit(this->currentModule->tree);
+            if (bmodule->tree != nullptr) {
+                // Visit entire tree
+                GenericTypeRegistrationVisitor visitor;
+                visitor.visit(this->currentModule->tree);
+            }
 
             std::vector<Constant *> typeInfoVariables = {};
             for (BalanceType * btype : bmodule->types) {
@@ -567,7 +583,7 @@ void BalancePackage::writeModuleToBinary(BalanceModule * bmodule) {
     auto RM = Optional<Reloc::Model>();
     auto TargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    if (currentPackage->verboseLogging && bmodule->name != "builtins")
+    if (currentPackage->verboseLogging)
     {
         bmodule->module->print(llvm::errs(), nullptr);
     }

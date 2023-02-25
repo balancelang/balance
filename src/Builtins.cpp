@@ -226,7 +226,6 @@ void createFunctions() {
 
     // Type functions
     createFunctions__Int();
-    createFunctions__Any();
 }
 
 void createTypes() {
@@ -249,13 +248,16 @@ void createTypes() {
     createType__Lambda({});
 }
 
-void createBuiltins() {
+void createBuiltinTypes() {
     BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
     currentPackage->builtinModules["builtins"] = bmodule;
     currentPackage->currentModule = bmodule;
 
     createTypes();
+}
+
+void createBuiltinFunctions() {
     createFunctions();
 
-    bmodule->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
+    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
 }

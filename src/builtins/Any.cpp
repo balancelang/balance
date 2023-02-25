@@ -21,7 +21,9 @@ void createMethod_Any_getType() {
     std::string functionName = "getType";
     std::string functionNameWithClass = "Any_" + functionName;
 
-    std::vector<BalanceParameter *> parameters = {};
+    std::vector<BalanceParameter *> parameters = {
+        new BalanceParameter(anyType, "this")
+    };
 
     // Create llvm::Function
     ArrayRef<Type *> parametersReference({
@@ -129,9 +131,8 @@ BalanceType * createType__Any() {
 
     anyType->internalType = structType;
     currentPackage->currentModule->addType(anyType);
-    return anyType;
-}
 
-void createFunctions__Any() {
-    // createMethod_Any_getType();
+    createMethod_Any_getType();
+
+    return anyType;
 }

@@ -305,7 +305,10 @@ std::any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentCo
         } else {
             auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto indexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, valueMember->type->getProperty(accessName)->index, true));
-            auto loadedPointer = currentPackage->currentModule->builder->CreateLoad(valueMember->value);
+            auto loadedPointer = valueMember->value;
+            if (valueMember->isVariablePointer) {
+                loadedPointer = currentPackage->currentModule->builder->CreateLoad(valueMember->value);
+            }
             auto ptr = currentPackage->currentModule->builder->CreateGEP(loadedPointer, {zeroValue, indexValue});
             if (value->isVariablePointer) {
                 auto loadedValue = currentPackage->currentModule->builder->CreateLoad(value->value);
@@ -704,7 +707,8 @@ std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext 
 }
 
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
-    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print", { currentPackage->currentModule->getType("String") })->function;
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print", { stringType })->function;
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
 
     BalanceValue * bvalue = visitAndLoad(argument);
@@ -880,7 +884,10 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
         } else {
             vector<Value *> functionArguments;
             // Add "this" as first argument
-            Value * thisLoaded = currentPackage->currentModule->builder->CreateLoad(currentPackage->currentModule->accessedValue->value);
+            Value * thisLoaded = currentPackage->currentModule->accessedValue->value;
+            if (currentPackage->currentModule->accessedValue->isVariablePointer) {
+                thisLoaded = currentPackage->currentModule->builder->CreateLoad(currentPackage->currentModule->accessedValue->value);
+            }
 
             // Check if we need to cast the value (e.g. calling base-method on child-instance)
             if (!currentPackage->currentModule->accessedValue->type->equalTo(bfunction->parameters[0]->balanceType)) {
