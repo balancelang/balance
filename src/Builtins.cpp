@@ -226,6 +226,7 @@ void createFunctions() {
 
     // Type functions
     createFunctions__Int();
+    createFunctions__Any();
 }
 
 void createTypes() {

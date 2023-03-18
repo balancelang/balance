@@ -132,7 +132,9 @@ BalanceType * createType__Any() {
     anyType->internalType = structType;
     currentPackage->currentModule->addType(anyType);
 
-    createMethod_Any_getType();
-
     return anyType;
+}
+
+void createFunctions__Any() {
+    createMethod_Any_getType();
 }

@@ -108,11 +108,15 @@ bool BalancePackage::execute(bool isScript)
 
 bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sources) {
     this->reset();
-    this->compileBuiltins();
 
     BalanceModule * bmodule = new BalanceModule(name, sources, true);
-
     this->buildDependencyTree(bmodule);
+
+    // Registers all builtin and user types
+    this->registerAllTypes();
+
+    this->compileBuiltins();
+
     bool success = this->compileModules(this->modules);
     if (success) {
         this->writePackageToBinary(this->name);
@@ -121,10 +125,43 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
     return success;
 }
 
-bool BalancePackage::compileBuiltins() {
+void BalancePackage::registerAllTypes() {
+    // Register all builtin types
     createBuiltinTypes();
-    createBuiltinFunctions();
     this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
+    this->registerTypes(this->builtinModules);
+    this->registerGenericTypes(this->builtinModules);
+    this->addBuiltinsToModules(this->builtinModules);
+    this->addBuiltinsToModules(this->modules);
+
+    // Register all user types
+    this->registerTypes(this->modules);
+    this->registerGenericTypes(this->modules);
+
+    // Create typeInfoTable
+    this->initializeTypeInfoTables(this->builtinModules);
+    this->initializeTypeInfoTables(this->modules);
+}
+
+void BalancePackage::initializeTypeInfoTables(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+        std::vector<Constant *> typeInfoVariables = {};
+        for (BalanceType * btype : bmodule->types) {
+            typeInfoVariables.push_back(btype->typeInfoVariable);
+        }
+
+        bmodule->initializeTypeInfoTable();
+        ArrayRef<Constant *> valuesRef(typeInfoVariables);
+        llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
+        Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
+        bmodule->typeInfoTable->setInitializer(typeTableData);
+    }
+}
+
+bool BalancePackage::compileBuiltins() {
+    this->currentModule = currentPackage->builtinModules["builtins"];
+    createBuiltinFunctions();
     bool success = this->compileModules(this->builtinModules);
     return success;
 }
@@ -140,12 +177,6 @@ bool BalancePackage::addBuiltinSource(std::string name, std::string code) {
 
 bool BalancePackage::compileModules(std::map<std::string, BalanceModule *> modules) {
     bool success = true;
-    this->addBuiltinsToModules(modules);
-    success = this->registerTypes(modules);
-    if (!success) return false;
-
-    success = this->registerGenericTypes(modules);
-    if (!success) return false;
 
     success = this->registerInheritance(modules);
     if (!success) return false;
@@ -299,7 +330,6 @@ void BalancePackage::buildForwardDeclarations(std::map<std::string, BalanceModul
 
 void BalancePackage::addBuiltinsToModules(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : builtinModules) {
-        // BalanceModule * builtinsModule = this->builtinModules["builtins"];
         BalanceModule * builtinsModule = x.second;
 
         for (auto const &x : modules)
@@ -448,17 +478,6 @@ bool BalancePackage::registerGenericTypes(std::map<std::string, BalanceModule *>
                 GenericTypeRegistrationVisitor visitor;
                 visitor.visit(this->currentModule->tree);
             }
-
-            std::vector<Constant *> typeInfoVariables = {};
-            for (BalanceType * btype : bmodule->types) {
-                typeInfoVariables.push_back(btype->typeInfoVariable);
-            }
-
-            bmodule->initializeTypeInfoTable();
-            ArrayRef<Constant *> valuesRef(typeInfoVariables);
-            llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
-            Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
-            bmodule->typeInfoTable->setInitializer(typeTableData);
 
             // Replace generic types with concrete types which should be known by now.
             for (BalanceType * btype : bmodule->types) {

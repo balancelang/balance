@@ -88,6 +88,8 @@ public:
     void writePackageToBinary(std::string entrypointName);
     void llvmCompile(std::map<std::string, BalanceModule *> modules);
     void writeModuleToBinary(BalanceModule * bmodule);
+    void registerAllTypes();
+    void initializeTypeInfoTables(std::map<std::string, BalanceModule *> modules);
 };
 
 #endif
