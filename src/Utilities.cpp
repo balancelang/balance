@@ -41,7 +41,7 @@ BalanceType * createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     // TODO: Do we need to import this as well?
     ibtype->initializer = btype->initializer;
     ibtype->isSimpleType = btype->isSimpleType;
-    ibtype->hasBody = btype->hasBody;
+    ibtype->hasBody = true;
     bmodule->addType(ibtype);
 
     // Import class properties

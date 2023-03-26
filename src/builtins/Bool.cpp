@@ -110,9 +110,10 @@ void createType__Bool() {
     bclass->hasBody = true;
 
     currentPackage->currentModule->addType(bclass);
-    currentPackage->currentModule->currentType = bclass;
+}
 
+void createFunctions__Bool() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Bool");
     createMethod_Bool_toString();
-
     currentPackage->currentModule->currentType = nullptr;
 }

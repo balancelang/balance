@@ -24,6 +24,7 @@ public:
     int typeIndex = 0;
     bool isPublic = true;                               // TODO: Not used yet, will determine if type can be referenced from Balance-code
     bool isSimpleType = false;
+    bool isInternalType = false;                        // Is this an internal type, e.g. i8*
     bool isInterface = false;
     bool isGenericPlaceholder = false;
     BalanceModule *balanceModule;

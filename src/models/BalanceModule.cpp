@@ -221,6 +221,10 @@ void BalanceModule::addType(BalanceType * balanceType) {
     //     return;
     // }
 
+    // if (balanceType->isInternalType) {
+    //     return;
+    // }
+
     int typeIndex = this->types.size();
     balanceType->typeIndex = typeIndex;
     this->types.push_back(balanceType);

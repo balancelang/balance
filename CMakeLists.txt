@@ -142,6 +142,7 @@ add_executable(balance
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
+               src/builtins/natives/Int64.cpp
                src/builtins/Any.cpp
                src/builtins/Type.cpp
                src/builtins/File.cpp

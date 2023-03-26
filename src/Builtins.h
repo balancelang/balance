@@ -13,7 +13,6 @@ void create_function_print();
 
 // All
 void createFunctions();
-void createTypes();
 void createBuiltinTypes();
 void createBuiltinFunctions();
 

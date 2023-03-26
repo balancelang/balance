@@ -708,7 +708,7 @@ std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext 
 
 BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx) {
     BalanceType * stringType = currentPackage->currentModule->getType("String");
-    FunctionCallee printFunc = currentPackage->currentModule->getFunction("print", { stringType })->function;
+    BalanceFunction * printFunction = currentPackage->currentModule->getFunction("print", { stringType });
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
 
     BalanceValue * bvalue = visitAndLoad(argument);
@@ -724,7 +724,7 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
     Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction->function, args);
 
     auto printArgs = ArrayRef<Value *>{stringValue};
-    Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunc, printArgs);
+    Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunction->function, printArgs);
     BalanceType * noneType = currentPackage->currentModule->getType("None");
     return new BalanceValue(noneType, llvmValue);
 }

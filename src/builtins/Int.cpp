@@ -117,5 +117,7 @@ void createType__Int() {
 }
 
 void createFunctions__Int() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Int");
     createMethod_Int_toString();
+    currentPackage->currentModule->currentType = nullptr;
 }

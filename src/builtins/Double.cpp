@@ -114,9 +114,10 @@ void createType__Double() {
     bclass->hasBody = true;
 
     currentPackage->currentModule->addType(bclass);
-    currentPackage->currentModule->currentType = bclass;
+}
 
+void createFunctions__Double() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Double");
     createMethod_Double_toString();
-
     currentPackage->currentModule->currentType = nullptr;
 }

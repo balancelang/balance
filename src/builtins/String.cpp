@@ -61,24 +61,28 @@ void createMethod_String_toString() {
 void createType__String() {
     BalanceType * bclass = new BalanceType(currentPackage->currentModule, "String");
 
-    // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
+    BalanceType * intType = currentPackage->currentModule->getType("Int");
+    bclass->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
     currentPackage->currentModule->addType(bclass);
-    BalanceType * i8pType = new BalanceType(currentPackage->currentModule, "charPointer", llvm::Type::getInt8PtrTy(*currentPackage->context));
-    i8pType->isSimpleType = true;
-    bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", i8pType, 0, false);
 
-    BalanceType * i64Type = new BalanceType(currentPackage->currentModule, "int", llvm::Type::getInt64Ty(*currentPackage->context));
-    i64Type->isSimpleType = true;
-    bclass->properties["length"] = new BalanceProperty("length", i64Type, 1, true);
+    // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
+    BalanceType * charPointerType = new BalanceType(currentPackage->currentModule, "CharPointer", llvm::Type::getInt8PtrTy(*currentPackage->context));
+    charPointerType->isSimpleType = true;
+    charPointerType->isInternalType = true;
+    currentPackage->currentModule->addType(charPointerType);
+    bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", charPointerType, 1, false);
+
+    BalanceType * int64Type = currentPackage->currentModule->getType("Int64");
+    bclass->properties["length"] = new BalanceProperty("length", int64Type, 2, true);
 
     currentPackage->currentModule->currentType = bclass;
     StructType *structType = StructType::create(*currentPackage->context, "String");
     ArrayRef<Type *> propertyTypesRef({
+        bclass->properties["typeId"]->balanceType->getReferencableType(),
         // Pointer to the String
-        i8pType->getInternalType(),
+        charPointerType->getInternalType(),
         // Size of the string
-        i64Type->getInternalType()
-        // TODO: We could have an optional pointer to the next part of the string
+        int64Type->getInternalType()
     });
     structType->setBody(propertyTypesRef, false);
     bclass->internalType = structType;
@@ -86,7 +90,11 @@ void createType__String() {
 
     createDefaultConstructor(currentPackage->currentModule, bclass);
 
-    createMethod_String_toString();
+    currentPackage->currentModule->currentType = nullptr;
+}
 
+void createFunctions__String() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("String");
+    createMethod_String_toString();
     currentPackage->currentModule->currentType = nullptr;
 }

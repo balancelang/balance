@@ -28,10 +28,16 @@ BalanceType * createType__Type() {
     bclass->internalType = structType;
     bclass->hasBody = true;
 
-    createDefaultConstructor(currentPackage->currentModule, bclass);
-    createDefaultToStringMethod(bclass);
-
     currentPackage->currentModule->currentType = nullptr;
 
     return bclass;
+}
+
+void createFunctions__Type() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Type");
+
+    createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
+    createDefaultToStringMethod(currentPackage->currentModule->currentType);
+
+    currentPackage->currentModule->currentType = nullptr;
 }

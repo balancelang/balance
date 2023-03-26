@@ -319,8 +319,13 @@ void createType__File() {
     bclass->internalType = structType;
     bclass->hasBody = true;
 
-    createDefaultConstructor(currentPackage->currentModule, bclass);
-    createDefaultToStringMethod(bclass);
+    currentPackage->currentModule->currentType = nullptr;
+}
+
+void createFunctions__File() {
+    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("File");
+    createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
+    createDefaultToStringMethod(currentPackage->currentModule->currentType);
 
     // Create close method
     createMethod_close();

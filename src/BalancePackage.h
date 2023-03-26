@@ -82,7 +82,8 @@ public:
     void buildVTables(std::map<std::string, BalanceModule *> modules);
     void buildConstructors(std::map<std::string, BalanceModule *> modules);
     void buildForwardDeclarations(std::map<std::string, BalanceModule *> modules);
-    void addBuiltinsToModules(std::map<std::string, BalanceModule *> modules);
+    void addBuiltinTypesToModules(std::map<std::string, BalanceModule *> modules);
+    void addBuiltinFunctionsToModules(std::map<std::string, BalanceModule *> modules);
     bool compileBuiltins();
     bool compileModules(std::map<std::string, BalanceModule *> modules);
     void writePackageToBinary(std::string entrypointName);

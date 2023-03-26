@@ -1,5 +1,7 @@
 #include "Builtins.h"
 #include "BalancePackage.h"
+
+#include "builtins/natives/Int64.h"
 #include "builtins/File.h"
 #include "builtins/Int.h"
 #include "builtins/String.h"
@@ -199,7 +201,7 @@ void createType__FatPointer() {
     BalanceType * btype = new BalanceType(currentPackage->currentModule, "FatPointer");
 
     currentPackage->currentModule->addType(btype);
-    BalanceType * pointerType = new BalanceType(currentPackage->currentModule, "pointer", llvm::Type::getInt64PtrTy(*currentPackage->context));
+    BalanceType * pointerType = new BalanceType(currentPackage->currentModule, "Int64Pointer", llvm::Type::getInt64PtrTy(*currentPackage->context));
     pointerType->isSimpleType = true;
     btype->properties["thisPointer"] = new BalanceProperty("thisPointer", pointerType, false);
     btype->properties["vtablePointer"] = new BalanceProperty("vtablePointer", pointerType, false);
@@ -221,16 +223,29 @@ void createType__FatPointer() {
 }
 
 void createFunctions() {
-    createFunction__print();
-    createFunction__open();
-
     // Type functions
     createFunctions__Int();
-    createFunctions__Any();
+    createFunctions__String();
+    createFunctions__Bool();
+    createFunctions__Double();
+    createFunctions__File();
+    createFunctions__Type();
+
+    // Any is handled else-where
+
+    createFunction__print();
+    createFunction__open();
 }
 
-void createTypes() {
-    // eventually split this up in first creating the types, and then creating their functions etc.
+void createBuiltinTypes() {
+    BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
+    currentPackage->builtinModules["builtins"] = bmodule;
+    currentPackage->currentModule = bmodule;
+
+    // Create native types
+    createType__Int64();
+
+    // Create non native types
     createType__Int();
 
     createType__Any();
@@ -249,15 +264,8 @@ void createTypes() {
     createType__Lambda({});
 }
 
-void createBuiltinTypes() {
-    BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
-    currentPackage->builtinModules["builtins"] = bmodule;
-    currentPackage->currentModule = bmodule;
-
-    createTypes();
-}
-
 void createBuiltinFunctions() {
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
     createFunctions();
 
     currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));

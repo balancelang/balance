@@ -129,18 +129,25 @@ void BalancePackage::registerAllTypes() {
     // Register all builtin types
     createBuiltinTypes();
     this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
+    this->addBuiltinTypesToModules(this->builtinModules);
     this->registerTypes(this->builtinModules);
     this->registerGenericTypes(this->builtinModules);
-    this->addBuiltinsToModules(this->builtinModules);
-    this->addBuiltinsToModules(this->modules);
+
+    createBuiltinFunctions();
+    this->addBuiltinFunctionsToModules(this->builtinModules);
+    this->addBuiltinFunctionsToModules(this->modules);
 
     // Register all user types
+    this->addBuiltinTypesToModules(this->modules);
     this->registerTypes(this->modules);
     this->registerGenericTypes(this->modules);
 
     // Create typeInfoTable
-    this->initializeTypeInfoTables(this->builtinModules);
+    // this->initializeTypeInfoTables(this->builtinModules);
     this->initializeTypeInfoTables(this->modules);
+
+    // Can't create these until after all types are registered
+    createFunctions__Any();
 }
 
 void BalancePackage::initializeTypeInfoTables(std::map<std::string, BalanceModule *> modules) {
@@ -161,7 +168,6 @@ void BalancePackage::initializeTypeInfoTables(std::map<std::string, BalanceModul
 
 bool BalancePackage::compileBuiltins() {
     this->currentModule = currentPackage->builtinModules["builtins"];
-    createBuiltinFunctions();
     bool success = this->compileModules(this->builtinModules);
     return success;
 }
@@ -328,7 +334,32 @@ void BalancePackage::buildForwardDeclarations(std::map<std::string, BalanceModul
 }
 
 
-void BalancePackage::addBuiltinsToModules(std::map<std::string, BalanceModule *> modules) {
+void BalancePackage::addBuiltinTypesToModules(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : builtinModules) {
+        BalanceModule * builtinsModule = x.second;
+
+        for (auto const &x : modules)
+        {
+            BalanceModule *bmodule = x.second;
+            if (bmodule->tree == nullptr) {
+                continue;
+            }
+
+            this->currentModule = bmodule;
+
+            for (BalanceType * bclass : builtinsModule->types) {
+                createImportedClass(bmodule, bclass);
+            }
+
+            for (auto const &x : builtinsModule->genericTypes) {
+                // TODO: Assume we can just import them when we know the generic types
+                bmodule->genericTypes[x.first] = x.second;
+            }
+        }
+    }
+}
+
+void BalancePackage::addBuiltinFunctionsToModules(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : builtinModules) {
         BalanceModule * builtinsModule = x.second;
 
@@ -343,15 +374,6 @@ void BalancePackage::addBuiltinsToModules(std::map<std::string, BalanceModule *>
 
             for (BalanceFunction * bfunction : builtinsModule->functions) {
                 createImportedFunction(bmodule, bfunction);
-            }
-
-            for (BalanceType * bclass : builtinsModule->types) {
-                createImportedClass(bmodule, bclass);
-            }
-
-            for (auto const &x : builtinsModule->genericTypes) {
-                // TODO: Assume we can just import them when we know the generic types
-                bmodule->genericTypes[x.first] = x.second;
             }
         }
     }
