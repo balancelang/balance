@@ -142,7 +142,9 @@ add_executable(balance
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
+               src/builtins/BuiltinType.cpp
                src/builtins/natives/Int64.cpp
+               src/builtins/natives/Int8Pointer.cpp
                src/builtins/Any.cpp
                src/builtins/Type.cpp
                src/builtins/File.cpp
@@ -152,6 +154,8 @@ add_executable(balance
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
                src/builtins/Lambda.cpp
+               src/builtins/None.cpp
+               src/builtins/FatPointer.cpp
                src/standard-library/Range.cpp
                src/language-server/LanguageServer.h
                tests/TestHelpers.cpp

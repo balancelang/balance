@@ -131,7 +131,7 @@ std::any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassIni
     currentPackage->currentModule->builder->Insert(structMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{structMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(btype->getInitializer(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(btype->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
 
     // Get constructor, if not default
     vector<BalanceType *> functionArguments = {btype};
@@ -145,7 +145,7 @@ std::any BalanceVisitor::visitClassInitializerExpression(BalanceParser::ClassIni
     BalanceFunction * constructor = btype->getConstructor(functionArguments);
     if (constructor != nullptr) {
         ArrayRef<Value *> argumentsReference{functionValues};
-        currentPackage->currentModule->builder->CreateCall(constructor->function, argumentsReference);
+        currentPackage->currentModule->builder->CreateCall(constructor->getLlvmFunction(currentPackage->currentModule), argumentsReference);
     }
 
     return new BalanceValue(btype, structMemoryPointer);
@@ -219,7 +219,7 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
 
     // Get the hasNext function from the type
     BalanceFunction * hasNextFunction = iterable->type->getMethod("hasNext");
-    Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->function, { iterable->value });
+    Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->getLlvmFunction(currentPackage->currentModule), { iterable->value });
 
     // Create the condition - if expression is true, jump to loop block, else jump to after loop block
     currentPackage->currentModule->builder->CreateCondBr(hasNextValue, loopBlock, mergeBlock);
@@ -230,7 +230,7 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
 
     // Assign to loop variable and add to scope
     BalanceFunction * getNextFunction = iterable->type->getMethod("getNext");
-    Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->function, { iterable->value });
+    Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->getLlvmFunction(currentPackage->currentModule), { iterable->value });
 
     std::string variableName = ctx->variableTypeTuple()->name->getText();
     currentPackage->currentModule->setValue(variableName, new BalanceValue(getNextFunction->returnType, getNextValue));
@@ -376,7 +376,7 @@ std::any BalanceVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext *c
         nullptr, nullptr, "");
     currentPackage->currentModule->builder->Insert(arrayMemoryPointer);
     ArrayRef<Value *> constructorArguments{arrayMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(arrayType->getInitializer(), constructorArguments);
+    currentPackage->currentModule->builder->CreateCall(arrayType->getInitializer()->getLlvmFunction(currentPackage->currentModule), constructorArguments);
 
     // length
     auto lengthZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
@@ -686,7 +686,7 @@ std::any BalanceVisitor::visitStringLiteral(BalanceParser::StringLiteralContext 
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
 
     int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
@@ -721,10 +721,10 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
     }
 
     auto args = ArrayRef<Value *>{bvalue->value};
-    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction->function, args);
+    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction->getLlvmFunction(currentPackage->currentModule), args);
 
     auto printArgs = ArrayRef<Value *>{stringValue};
-    Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunction->function, printArgs);
+    Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunction->getLlvmFunction(currentPackage->currentModule), printArgs);
     BalanceType * noneType = currentPackage->currentModule->getType("None");
     return new BalanceValue(noneType, llvmValue);
 }
@@ -803,7 +803,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
                 } else {
                     // Check if we need to cast the value (e.g. passing child-instance to function accepting base-class)
                     if (!bvalue->type->equalTo(bparameter->balanceType)) {
-                        BitCastInst * castInstruction = new BitCastInst(bvalue->value, bfunction->function->getArg(i)->getType());
+                        BitCastInst * castInstruction = new BitCastInst(bvalue->value, bfunction->getLlvmFunction(currentPackage->currentModule)->getArg(i)->getType());
                         Value * castValue = currentPackage->currentModule->builder->Insert(castInstruction);
                         functionArguments.push_back(castValue);
                     } else {
@@ -814,7 +814,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
             }
 
             ArrayRef<Value *> argumentsReference(functionArguments);
-            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function, argumentsReference);
+            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->getLlvmFunction(currentPackage->currentModule), argumentsReference);
             return new BalanceValue(bfunction->returnType, llvmValue);
         }
     } else {
@@ -878,7 +878,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
 
             ArrayRef<Value *> argumentsReference(functionArguments);
 
-            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function->getFunctionType(), functionValue, argumentsReference);
+            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->getLlvmFunction(currentPackage->currentModule)->getFunctionType(), functionValue, argumentsReference);
 
             return new BalanceValue(bfunction->returnType, llvmValue);
         } else {
@@ -891,7 +891,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
 
             // Check if we need to cast the value (e.g. calling base-method on child-instance)
             if (!currentPackage->currentModule->accessedValue->type->equalTo(bfunction->parameters[0]->balanceType)) {
-                BitCastInst * castInstruction = new BitCastInst(thisLoaded, bfunction->function->getArg(0)->getType());
+                BitCastInst * castInstruction = new BitCastInst(thisLoaded, bfunction->getLlvmFunction(currentPackage->currentModule)->getArg(0)->getType());
                 Value * castValue = currentPackage->currentModule->builder->Insert(castInstruction);
                 functionArguments.push_back(castValue);
             } else {
@@ -908,7 +908,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
             currentPackage->currentModule->accessedValue = backup;
 
             ArrayRef<Value *> argumentsReference(functionArguments);
-            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->function->getFunctionType(), (Value *)bfunction->function, argumentsReference);
+            Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(bfunction->getLlvmFunction(currentPackage->currentModule)->getFunctionType(), (Value *)bfunction->getLlvmFunction(currentPackage->currentModule), argumentsReference);
 
             return new BalanceValue(bfunction->returnType, llvmValue);
         }
@@ -1070,11 +1070,12 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
     currentPackage->currentModule->currentFunction = bfunction;
 
     BalanceScopeBlock *scope = currentPackage->currentModule->currentScope;
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", bfunction->function);
+
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", bfunction->getLlvmFunction(currentPackage->currentModule));
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(functionBody, scope);
 
     // Add function parameter names and insert in function scope
-    Function::arg_iterator args = bfunction->function->arg_begin();
+    Function::arg_iterator args = bfunction->getLlvmFunction(currentPackage->currentModule)->arg_begin();
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -1095,7 +1096,7 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
 
     /* BEGIN Remove empty blocks */
     vector<BasicBlock *> removes;
-    for (Function::iterator b = bfunction->function->begin(), be = bfunction->function->end(); b != be; ++b) {
+    for (Function::iterator b = bfunction->getLlvmFunction(currentPackage->currentModule)->begin(), be = bfunction->getLlvmFunction(currentPackage->currentModule)->end(); b != be; ++b) {
         BasicBlock* BB = &*b;
         if (BB->size() == 0) {
             removes.push_back(BB);
@@ -1111,7 +1112,7 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
         currentPackage->currentModule->builder->CreateRetVoid();
     }
 
-    bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
+    bool hasError = verifyFunction(*bfunction->getLlvmFunction(currentPackage->currentModule), &llvm::errs());
     if (hasError) {
         currentPackage->currentModule->module->print(llvm::errs(), nullptr);
         throw std::runtime_error("Error verifying function: " + bfunction->name);
@@ -1142,7 +1143,7 @@ std::any BalanceVisitor::visitMapInitializerExpression(BalanceParser::MapInitial
         currentPackage->currentModule->builder->Insert(structMemoryPointer);
 
         ArrayRef<Value *> argumentsReference{structMemoryPointer};
-        currentPackage->currentModule->builder->CreateCall(btype->getInitializer(), argumentsReference);
+        currentPackage->currentModule->builder->CreateCall(btype->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
 
         std::vector<BalanceProperty *> bproperties = btype->getProperties();
         for(BalanceParser::MapItemContext * mapItem : ctx->mapInitializer()->mapItemList()->mapItem()) {
@@ -1234,7 +1235,7 @@ std::any BalanceVisitor::visitRange(BalanceParser::RangeContext *ctx) {
         currentPackage->currentModule->getType("Int"),
         currentPackage->currentModule->getType("Int")
     });
-    Value * rangeResult = currentPackage->currentModule->builder->CreateCall(bfunction->function, {fromValue->value, toValue->value});
+    Value * rangeResult = currentPackage->currentModule->builder->CreateCall(bfunction->getLlvmFunction(currentPackage->currentModule), {fromValue->value, toValue->value});
 
     return new BalanceValue(bfunction->returnType, rangeResult);
 }

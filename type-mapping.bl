@@ -1,0 +1,19 @@
+// Is it possible to define some kind of type-mapping, where the return type depends on the input?
+
+class Request1 {}
+class Response1 {}
+
+typemapping MyTypeMapping {
+    Request1: Response1,
+    Request2: Response2,
+}
+
+var collection: List<MyTypeMapping> = []
+
+set(t: )
+
+get(t: MyTypeMapping<A, B>) -> B {
+    ...
+}
+
+var x = myFunc({ Request1() })  // x inferred to have type Response1

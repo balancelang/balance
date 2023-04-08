@@ -42,7 +42,7 @@ public:
     std::vector<BalanceFunction *> constructors = {};
     std::map<std::string, BalanceType *> interfaces = {};
 
-    llvm::Function * initializer = nullptr;
+    BalanceFunction * initializer = nullptr;
 
     // If interface, this holds the vtable struct (the vtable function types)
     llvm::StructType *vTableStructType = nullptr;
@@ -75,7 +75,7 @@ public:
     std::string toString();
     bool equalTo(std::string name, std::vector<BalanceType *> generics);
     bool equalTo(BalanceType * other);
-    llvm::Function * getInitializer();
+    BalanceFunction * getInitializer();
     BalanceProperty * getProperty(std::string propertyName);
     std::vector<BalanceProperty *> getProperties();
     bool finalized();

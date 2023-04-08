@@ -23,24 +23,17 @@ void BalanceModule::initializeModule() {
     this->builder->SetInsertPoint(entry);
     this->rootScope = new BalanceScopeBlock(entry, nullptr);
     this->currentScope = this->rootScope;
-
-    this->initializeTypeInfoStruct();
 }
 
 void BalanceModule::initializeTypeInfoStruct() {
-    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, this->name + "_TypeInfo");
+    llvm::StructType *structType = llvm::StructType::create(*currentPackage->context, "TypeInfo");
     llvm::ArrayRef<llvm::Type *> propertyTypesRef({
         Type::getInt32Ty(*currentPackage->context),
         this->builder->CreateGlobalStringPtr("")->getType()
     });
     structType->setBody(propertyTypesRef, false);
 
-    this->typeInfoStructType = structType;
-}
-
-void BalanceModule::initializeTypeInfoTable() {
-    llvm::ArrayType * arrayType = llvm::ArrayType::get(this->typeInfoStructType, this->types.size());
-    this->typeInfoTable = new llvm::GlobalVariable(*this->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, nullptr, this->name + "_TypeTable");
+    currentPackage->typeInfoStructType = structType;
 }
 
 void BalanceModule::generateAST() {
@@ -72,9 +65,11 @@ BalanceType * BalanceModule::createGenericType(std::string typeName, std::vector
             // TODO: Figure out where to register these functions
             BalanceType * newGenericType = nullptr;
             if (btype->name == "Array") {
-                newGenericType = createType__Array(generics[0]);
+                ArrayBalanceType * arrayType = (ArrayBalanceType *) currentPackage->getBuiltinType("Array");
+                newGenericType = arrayType->registerGenericType(generics[0]);
             } else if (btype->name == "Lambda") {
-                newGenericType = createType__Lambda(generics);
+                LambdaBalanceType * lambdaType = (LambdaBalanceType *) currentPackage->getBuiltinType("Lambda");
+                newGenericType = lambdaType->registerGenericType(generics);
             }
 
             if (newGenericType != nullptr && newGenericType->balanceModule != this) {
@@ -96,6 +91,12 @@ BalanceType * BalanceModule::getType(std::string typeName, std::vector<BalanceTy
     // Check if it is a type (or generic type which was already defined with generic types)
     for (BalanceType * btype : types)
     {
+        if (btype->equalTo(typeName, generics)) {
+            return btype;
+        }
+    }
+
+    for (BalanceType * btype : importedTypes) {
         if (btype->equalTo(typeName, generics)) {
             return btype;
         }
@@ -225,20 +226,22 @@ void BalanceModule::addType(BalanceType * balanceType) {
     //     return;
     // }
 
-    int typeIndex = this->types.size();
-    balanceType->typeIndex = typeIndex;
     this->types.push_back(balanceType);
 
-    // Create typeInfo for type
-    ArrayRef<Constant *> valuesRef({
-        // typeId
-        ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIndex, true)),
-        // name
-        currentPackage->currentModule->builder->CreateGlobalStringPtr(balanceType->toString())
-    });
 
-    Constant * typeInfoData = ConstantStruct::get(this->typeInfoStructType, valuesRef);
-    balanceType->typeInfoVariable = typeInfoData;
+    // int typeIndex = this->types.size();
+    // balanceType->typeIndex = typeIndex;
+
+    // // Create typeInfo for type
+    // ArrayRef<Constant *> valuesRef({
+    //     // typeId
+    //     ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIndex, true)),
+    //     // name
+    //     currentPackage->currentModule->builder->CreateGlobalStringPtr(balanceType->toString())
+    // });
+
+    // Constant * typeInfoData = ConstantStruct::get(currentPackage->typeInfoStructType, valuesRef);
+    // balanceType->typeInfoVariable = typeInfoData;
 }
 
 void BalanceModule::addFunction(BalanceFunction * bfunction) {
@@ -265,4 +268,13 @@ void BalanceModule::reportTypeErrors() {
     for (TypeError * typeError : this->typeErrors) {
         std::cout << "Type error: " + typeError->message + ", on line " + std::to_string(typeError->range->start->line) << std::endl;
     }
+}
+
+bool BalanceModule::isTypeImported(BalanceType * btype) {
+    for (BalanceType * importedType : this->importedTypes) {
+        if (btype == importedType) {
+            return true;
+        }
+    }
+    return false;
 }

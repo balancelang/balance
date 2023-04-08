@@ -63,7 +63,7 @@ std::any TypeRegistrationVisitor::visitInterfaceDefinition(BalanceParser::Interf
 
     BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
 
-    binterface->internalType = fatPointerType->getInternalType(); // ->getReferencableType(); //llvm::StructType::create(*currentPackage->context, interfaceName);
+    // binterface->internalType = fatPointerType->getInternalType(); // ->getReferencableType(); //llvm::StructType::create(*currentPackage->context, interfaceName);
     currentPackage->currentModule->currentType = binterface;
     currentPackage->currentModule->addType(binterface);
 

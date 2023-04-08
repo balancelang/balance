@@ -9,9 +9,52 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Bool_toString() {
-    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
+void BoolType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Bool");
+    this->balanceType->isSimpleType = true;
+    currentPackage->currentModule->addType(this->balanceType);
+}
+
+void BoolType::finalizeType() {
+    this->balanceType->internalType = Type::getInt1Ty(*currentPackage->context);
+}
+
+void BoolType::registerMethods() {
+    this->registerMethod_toString();
+}
+
+void BoolType::finalizeMethods() {
+    this->finalizeMethod_toString();
+}
+
+void BoolType::registerFunctions() {
+
+}
+
+void BoolType::finalizeFunctions() {
+
+}
+
+void BoolType::registerMethod_toString() {
+    std::string functionName = "toString";
     BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(this->balanceType, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
+    this->balanceType->addMethod(functionName, bfunction);
+}
+
+void BoolType::finalizeMethod_toString() {
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
+
+    ArrayRef<Type *> parametersReference({
+        boolType->getReferencableType()
+    });
 
     BalanceParameter * valueParameter = new BalanceParameter(boolType, "value");
 
@@ -24,18 +67,11 @@ void createMethod_Bool_toString() {
     };
 
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        boolType->getReferencableType()
-    });
 
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    llvm::Function * boolToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
-    bfunction->function = boolToStringFunc;
+    toStringFunction->setLlvmFunction(boolToStringFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -53,7 +89,7 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
     int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
@@ -101,19 +137,5 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
 
-void createType__Bool() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Bool");
-    bclass->internalType = Type::getInt1Ty(*currentPackage->context);
-    bclass->isSimpleType = true;
-    bclass->hasBody = true;
-
-    currentPackage->currentModule->addType(bclass);
-}
-
-void createFunctions__Bool() {
-    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Bool");
-    createMethod_Bool_toString();
-    currentPackage->currentModule->currentType = nullptr;
 }

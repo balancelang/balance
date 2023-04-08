@@ -1,16 +1,71 @@
 #include "String.h"
 #include "../models/BalanceType.h"
 #include "../BalancePackage.h"
-#include "../models/BalanceProperty.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
 extern BalancePackage *currentPackage;
 
-void createMethod_String_toString() {
-    BalanceType *stringType = currentPackage->currentModule->getType("String");
+void StringType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "String");
+    currentPackage->currentModule->addType(this->balanceType);
+}
 
+void StringType::finalizeType() {
+    BalanceType * intType = currentPackage->currentModule->getType("Int");      // TODO: Int32
+    this->balanceType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
+
+    BalanceType * int8PointerType = currentPackage->currentModule->getType("Int8Pointer");
+    this->balanceType->properties["stringPointer"] = new BalanceProperty("stringPointer", int8PointerType, 1, false);
+
+    BalanceType * int64Type = currentPackage->currentModule->getType("Int64");
+    this->balanceType->properties["length"] = new BalanceProperty("length", int64Type, 2, true);
+
+    StructType *structType = StructType::create(*currentPackage->context, "String");
+    ArrayRef<Type *> propertyTypesRef({
+        this->balanceType->properties["typeId"]->balanceType->getReferencableType(),
+        // Pointer to the String
+        int8PointerType->getInternalType(),
+        // Size of the string
+        int64Type->getInternalType()
+    });
+    structType->setBody(propertyTypesRef, false);
+    this->balanceType->internalType = structType;
+    this->balanceType->hasBody = true;
+    createDefaultConstructor(currentPackage->currentModule, this->balanceType);
+}
+
+void StringType::registerMethods() {
+    this->registerMethod_String_toString();
+}
+
+void StringType::finalizeMethods() {
+    this->finalizeMethod_String_toString();
+}
+
+void StringType::registerFunctions() {
+    this->registerMethod_String_toString();
+}
+
+void StringType::finalizeFunctions() {
+
+}
+
+void StringType::registerMethod_String_toString() {
+    std::string functionName = "toString";
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(stringType, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, stringType, functionName, parameters, stringType);
+    stringType->addMethod(functionName, bfunction);
+}
+
+void StringType::finalizeMethod_String_toString() {
+    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
     // Create forward declaration of memcpy
     // void * memcpy ( void * destination, const void * source, size_t num );
     ArrayRef<Type *> memcpyParams({
@@ -22,30 +77,9 @@ void createMethod_String_toString() {
     llvm::FunctionType * memcpyDeclarationType = llvm::FunctionType::get(memcpyReturnType, memcpyParams, false);
     currentPackage->builtinModules["builtins"]->module->getOrInsertFunction("memcpy", memcpyDeclarationType);
 
-
-    std::string functionName = "toString";
-    std::string functionNameWithClass = "String_" + functionName;
-
-    BalanceParameter * valueParameter = new BalanceParameter(stringType, "value");
-
-    // Create BalanceFunction
-    std::vector<BalanceParameter *> parameters = {
-        valueParameter
-    };
-
-    // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        stringType->getReferencableType()
-    });
-
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * intToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", intToStringFunc);
-
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
-    bfunction->function = intToStringFunc;
+    llvm::Function * intToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, toStringFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, toStringFunction->getFunctionName() + "_body", intToStringFunc);
+    toStringFunction->setLlvmFunction(intToStringFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -56,45 +90,4 @@ void createMethod_String_toString() {
 
     currentPackage->currentModule->builder->CreateRet(stringValue);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
-void createType__String() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "String");
-
-    BalanceType * intType = currentPackage->currentModule->getType("Int");
-    bclass->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
-    currentPackage->currentModule->addType(bclass);
-
-    // Define the string type as a { i32*, i32 } - pointer to the string and size of the string
-    BalanceType * charPointerType = new BalanceType(currentPackage->currentModule, "CharPointer", llvm::Type::getInt8PtrTy(*currentPackage->context));
-    charPointerType->isSimpleType = true;
-    charPointerType->isInternalType = true;
-    currentPackage->currentModule->addType(charPointerType);
-    bclass->properties["stringPointer"] = new BalanceProperty("stringPointer", charPointerType, 1, false);
-
-    BalanceType * int64Type = currentPackage->currentModule->getType("Int64");
-    bclass->properties["length"] = new BalanceProperty("length", int64Type, 2, true);
-
-    currentPackage->currentModule->currentType = bclass;
-    StructType *structType = StructType::create(*currentPackage->context, "String");
-    ArrayRef<Type *> propertyTypesRef({
-        bclass->properties["typeId"]->balanceType->getReferencableType(),
-        // Pointer to the String
-        charPointerType->getInternalType(),
-        // Size of the string
-        int64Type->getInternalType()
-    });
-    structType->setBody(propertyTypesRef, false);
-    bclass->internalType = structType;
-    bclass->hasBody = true;
-
-    createDefaultConstructor(currentPackage->currentModule, bclass);
-
-    currentPackage->currentModule->currentType = nullptr;
-}
-
-void createFunctions__String() {
-    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("String");
-    createMethod_String_toString();
-    currentPackage->currentModule->currentType = nullptr;
 }

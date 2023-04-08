@@ -19,34 +19,112 @@
 
 extern BalancePackage *currentPackage;
 
-void createFunction__print()
+void registerNativeTypes() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->nativeTypes) {
+        builtinType->registerType();
+    }
+    currentPackage->currentModule = backup;
+}
+
+void finalizeNativeTypes() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->nativeTypes) {
+        builtinType->finalizeType();
+    }
+    currentPackage->currentModule = backup;
+}
+
+
+void registerBuiltinTypes() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->registerType();
+    }
+    currentPackage->currentModule = backup;
+}
+
+void finalizeBuiltinTypes() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->finalizeType();
+    }
+    currentPackage->currentModule = backup;
+}
+
+void registerBuiltinMethods() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->registerMethods();
+    }
+    currentPackage->currentModule = backup;
+}
+
+void finalizeBuiltinMethods() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->finalizeMethods();
+    }
+    currentPackage->currentModule = backup;
+}
+
+void registerBuiltinFunctions() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->registerFunctions();
+    }
+
+    // Register all non-class functions
+    registerFunction__print();
+    // registerFunction__open();
+
+    currentPackage->currentModule = backup;
+}
+
+void finalizeBuiltinFunctions() {
+    BalanceModule * backup = currentPackage->currentModule;
+    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        builtinType->finalizeFunctions();
+    }
+
+    // Finalize all non-class functions
+    finalizeFunction__print();
+    // finalizeFunction__open();
+
+    currentPackage->currentModule = backup;
+}
+
+void registerFunction__print() {
+    // TODO: One day we might change this to "Any" and then do toString on it
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceParameter * contentParameter = new BalanceParameter(stringType, "content");
+    std::vector<BalanceParameter *> parameters = {
+        contentParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, nullptr, "print", parameters, currentPackage->currentModule->getType("None"));
+    currentPackage->currentModule->addFunction(bfunction);
+}
+
+void finalizeFunction__print()
 {
+    BalanceFunction * printFunction = currentPackage->currentModule->getFunctionsByName("print")[0];
     // Create forward declaration of printf
     llvm::FunctionType * printfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0), true);
     FunctionCallee printfFunction = currentPackage->currentModule->module->getOrInsertFunction("printf", printfFunctionType);
 
-    // TODO: One day we might change this to "Any" and then do toString on it
-    BalanceParameter * contentParameter = new BalanceParameter(currentPackage->currentModule->getType("String"), "content");
-
-    // Create BalanceFunction
-    std::vector<BalanceParameter *> parameters = {
-        contentParameter
-    };
-    BalanceFunction * bfunction = new BalanceFunction("print", parameters, currentPackage->currentModule->getType("None"));
-    currentPackage->currentModule->addFunction(bfunction);
-
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        contentParameter->balanceType->getReferencableType()
-    });
-
-    Type * returnType = llvm::Type::getVoidTy(*currentPackage->context);
-    FunctionType *functionType = FunctionType::get(returnType, parametersReference, false);
-
-    llvm::Function * printFunc = Function::Create(functionType, Function::ExternalLinkage, "print", currentPackage->currentModule->module);
+    llvm::Function * printFunc = Function::Create(printFunction->getLlvmFunctionType(), Function::ExternalLinkage, "print", currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, "print_body", printFunc);
 
-    bfunction->function = printFunc;
+    printFunction->setLlvmFunction(printFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -96,28 +174,33 @@ void createFunction__print()
     currentPackage->currentModule->builder->CreateCall(printfFunction, newlineArguments);
     currentPackage->currentModule->builder->CreateRetVoid();
 
-    bool hasError = verifyFunction(*bfunction->function, &llvm::errs());
+    bool hasError = verifyFunction(*printFunction->getLlvmFunction(currentPackage->currentModule), &llvm::errs());
     if (hasError) {
-        throw std::runtime_error("Error verifying function: " + bfunction->name);
+        throw std::runtime_error("Error verifying function: " + printFunction->name);
     }
 
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
-void createFunction__open()
-{
-    BalanceParameter * pathParameter = new BalanceParameter(currentPackage->currentModule->getType("String"), "path");
-    BalanceParameter * modeParameter = new BalanceParameter(currentPackage->currentModule->getType("String"), "mode");
-
+void registerFunction__open() {
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceType * fileType = currentPackage->currentModule->getType("File");
+    BalanceParameter * pathParameter = new BalanceParameter(stringType, "path");
+    BalanceParameter * modeParameter = new BalanceParameter(stringType, "mode");
     std::vector<BalanceParameter *> parameters = {
         pathParameter,
         modeParameter
     };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, nullptr, "open", parameters, fileType);
+    currentPackage->currentModule->addFunction(bfunction);
+}
+
+void finalizeFunction__open()
+{
+    BalanceFunction * bfunction = currentPackage->currentModule->getFunctionsByName("open")[0];
     BalanceType * fileType = currentPackage->currentModule->getType("File");
-    BalanceFunction * bfunction = new BalanceFunction("open", parameters, fileType);
 
     // Build llvm function and assign to bfunction
-
     ArrayRef<Type *> fopenParametersReference({
         llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0),
         llvm::PointerType::get(llvm::Type::getInt8Ty(*currentPackage->context), 0)
@@ -132,13 +215,8 @@ void createFunction__open()
     Function *fopenFunc = currentPackage->builtinModules["builtins"]->module->getFunction("fopen");
 
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        pathParameter->balanceType->getReferencableType(),
-        modeParameter->balanceType->getReferencableType()
-    });
-    FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
-    llvm::Function * openFunction = Function::Create(functionType, Function::ExternalLinkage, bfunction->name, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, bfunction->name + "_body", openFunction);
+    llvm::Function * openFunction = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFunctionName(), currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, bfunction->getFunctionName() + "_body", openFunction);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -172,7 +250,7 @@ void createFunction__open()
     currentPackage->currentModule->builder->Insert(pointer);
 
     ArrayRef<Value *> argumentsReference{pointer};
-    currentPackage->currentModule->builder->CreateCall(fileType->initializer, argumentsReference); // TODO: should it have a constructor?
+    currentPackage->currentModule->builder->CreateCall(fileType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference); // TODO: should it have a constructor?
 
     // Get reference to 0th property (filePointer) and assign
     int intIndex = fileType->properties["filePointer"]->index;
@@ -184,89 +262,44 @@ void createFunction__open()
     currentPackage->currentModule->builder->CreateRet(pointer);
 
     // Assign the llvm function to the bfunction
-    bfunction->function = openFunction;
-    currentPackage->currentModule->addFunction(bfunction);
-
+    bfunction->setLlvmFunction(openFunction);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
-void createType__None() {
-    BalanceType * btype = new BalanceType(currentPackage->currentModule, "None", Type::getVoidTy(*currentPackage->context));
-    btype->isSimpleType = true;
-    currentPackage->currentModule->addType(btype);
-}
+// void createFunctions() {
+//     // Type functions
+//     // createFunctions__Int();
+//     createFunctions__String();
+//     createFunctions__Bool();
+//     createFunctions__Double();
+//     createFunctions__File();
+//     createFunctions__Type();
 
-void createType__FatPointer() {
-    // TODO: Make sure you can't instantiate this from balance
-    BalanceType * btype = new BalanceType(currentPackage->currentModule, "FatPointer");
+//     // Any is handled else-where
 
-    currentPackage->currentModule->addType(btype);
-    BalanceType * pointerType = new BalanceType(currentPackage->currentModule, "Int64Pointer", llvm::Type::getInt64PtrTy(*currentPackage->context));
-    pointerType->isSimpleType = true;
-    btype->properties["thisPointer"] = new BalanceProperty("thisPointer", pointerType, false);
-    btype->properties["vtablePointer"] = new BalanceProperty("vtablePointer", pointerType, false);
+//     createFunction__print();
+//     createFunction__open();
+// }
 
-    currentPackage->currentModule->currentType = btype;
-    StructType *structType = StructType::create(*currentPackage->context, "FatPointer");
-    ArrayRef<Type *> propertyTypesRef({
-        btype->properties["thisPointer"]->balanceType->getInternalType(),
-        btype->properties["vtablePointer"]->balanceType->getInternalType()
-    });
-    structType->setBody(propertyTypesRef, false);
-    btype->hasBody = true;
-    btype->internalType = structType;
+// void createBuiltinTypes() {
+//     BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
+//     currentPackage->builtinModules["builtins"] = bmodule;
+//     currentPackage->currentModule = bmodule;
 
-    // TODO: Might not be needed
-    createDefaultConstructor(currentPackage->currentModule, btype);
+//     // Create non native types
+//     // createType__Int();
 
-    currentPackage->currentModule->currentType = nullptr;
-}
+//     createType__Any();
+//     createType__None();
 
-void createFunctions() {
-    // Type functions
-    createFunctions__Int();
-    createFunctions__String();
-    createFunctions__Bool();
-    createFunctions__Double();
-    createFunctions__File();
-    createFunctions__Type();
+//     createType__String();
+//     createType__Bool();
+//     createType__Double();
+//     createType__File();
 
-    // Any is handled else-where
+//     createType__Type();
 
-    createFunction__print();
-    createFunction__open();
-}
-
-void createBuiltinTypes() {
-    BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
-    currentPackage->builtinModules["builtins"] = bmodule;
-    currentPackage->currentModule = bmodule;
-
-    // Create native types
-    createType__Int64();
-
-    // Create non native types
-    createType__Int();
-
-    createType__Any();
-    createType__None();
-
-    createType__String();
-    createType__Bool();
-    createType__Double();
-    createType__File();
-
-    createType__Type();
-    createType__FatPointer();
-
-    // Generic versions are lazily created with their generic types
-    createType__Array(nullptr);
-    createType__Lambda({});
-}
-
-void createBuiltinFunctions() {
-    currentPackage->currentModule = currentPackage->builtinModules["builtins"];
-    createFunctions();
-
-    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
-}
+//     // Generic versions are lazily created with their generic types
+//     createType__Array(nullptr);
+//     createType__Lambda({});
+// }

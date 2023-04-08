@@ -1,9 +1,9 @@
-#ifndef TYPE_BALANCE_TYPE_H
-#define TYPE_BALANCE_TYPE_H
+#ifndef FAT_POINTER_TYPE_H
+#define FAT_POINTER_TYPE_H
 
 #include "BuiltinType.h"
 
-class TypeBalanceType : public BuiltinType {
+class FatPointerType : public BuiltinType {
     void registerType() override;
     void finalizeType() override;
 

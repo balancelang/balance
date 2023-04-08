@@ -112,8 +112,47 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
     BalanceModule * bmodule = new BalanceModule(name, sources, true);
     this->buildDependencyTree(bmodule);
 
-    // Registers all builtin and user types
-    this->registerAllTypes();
+    BalanceModule * builtinsModule = new BalanceModule("builtins", {}, false);
+    currentPackage->builtinModules["builtins"] = builtinsModule;
+    builtinsModule->initializeTypeInfoStruct();
+
+    // Register native types (Int32, Int64, ...)
+    registerNativeTypes();
+
+    // Register reference types (Int, String, Double, ...)
+    registerBuiltinTypes();
+
+    // Register other builtin types (Range, ...)
+    // this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
+    this->registerTypes(this->builtinModules);
+    this->registerGenericTypes(this->builtinModules);
+
+    // Register user types (class, interface, ...)
+    this->registerTypes(this->modules);
+    this->registerGenericTypes(this->modules);
+
+    // Create typeInfoTables
+    std::vector<BalanceType *> allTypes = this->getAllTypes();
+    this->initializeTypeInfoTables(allTypes);
+    // this->initializeTypeInfoTables(this->modules, allTypes);
+
+    finalizeNativeTypes();
+    finalizeBuiltinTypes();
+
+    // Register all builtin functions
+    registerBuiltinMethods();
+    registerBuiltinFunctions();
+
+    this->addBuiltinTypesToModules(this->builtinModules);
+    this->addBuiltinTypesToModules(this->modules);
+    this->addBuiltinFunctionsToModules(this->builtinModules);
+    this->addBuiltinFunctionsToModules(this->modules);
+
+    finalizeBuiltinMethods();
+    finalizeBuiltinFunctions();
+
+    // Finalize builtins module
+    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
 
     this->compileBuiltins();
 
@@ -125,45 +164,29 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
     return success;
 }
 
-void BalancePackage::registerAllTypes() {
-    // Register all builtin types
-    createBuiltinTypes();
-    this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
-    this->addBuiltinTypesToModules(this->builtinModules);
-    this->registerTypes(this->builtinModules);
-    this->registerGenericTypes(this->builtinModules);
+void BalancePackage::initializeTypeInfoTables(std::vector<BalanceType *> types) {
+    BalanceModule *bmodule = this->builtinModules["builtins"];
+    std::vector<Constant *> typeInfoVariables = {};
+    for (int i = 0; i < types.size(); i++) {
+        BalanceType * btype = types[i];
+        btype->typeIndex = i;
 
-    createBuiltinFunctions();
-    this->addBuiltinFunctionsToModules(this->builtinModules);
-    this->addBuiltinFunctionsToModules(this->modules);
-
-    // Register all user types
-    this->addBuiltinTypesToModules(this->modules);
-    this->registerTypes(this->modules);
-    this->registerGenericTypes(this->modules);
-
-    // Create typeInfoTable
-    // this->initializeTypeInfoTables(this->builtinModules);
-    this->initializeTypeInfoTables(this->modules);
-
-    // Can't create these until after all types are registered
-    createFunctions__Any();
-}
-
-void BalancePackage::initializeTypeInfoTables(std::map<std::string, BalanceModule *> modules) {
-    for (auto const &x : modules) {
-        BalanceModule *bmodule = x.second;
-        std::vector<Constant *> typeInfoVariables = {};
-        for (BalanceType * btype : bmodule->types) {
-            typeInfoVariables.push_back(btype->typeInfoVariable);
-        }
-
-        bmodule->initializeTypeInfoTable();
-        ArrayRef<Constant *> valuesRef(typeInfoVariables);
-        llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
-        Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
-        bmodule->typeInfoTable->setInitializer(typeTableData);
+        // Create typeInfo for type
+        ArrayRef<Constant *> valuesRef({
+            // typeId
+            ConstantInt::get(*currentPackage->context, llvm::APInt(32, btype->typeIndex, true)),
+            // name
+            bmodule->builder->CreateGlobalStringPtr(btype->toString())
+        });
+        Constant * typeInfoData = ConstantStruct::get(currentPackage->typeInfoStructType, valuesRef);
+        btype->typeInfoVariable = typeInfoData;
+        typeInfoVariables.push_back(btype->typeInfoVariable);
     }
+
+    llvm::ArrayType * arrayType = llvm::ArrayType::get(this->typeInfoStructType, typeInfoVariables.size());
+    ArrayRef<Constant *> valuesRef(typeInfoVariables);
+    Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
+    this->typeInfoTable = new llvm::GlobalVariable(*bmodule->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, typeTableData, "TypeTable");
 }
 
 bool BalancePackage::compileBuiltins() {
@@ -264,7 +287,7 @@ void BalancePackage::buildStructures(std::map<std::string, BalanceModule *> modu
 
         // Check all functions
         for (BalanceFunction * bfunction : bmodule->functions) {
-            if (bfunction->function == nullptr) {
+            if (!bfunction->finalized()) {
                 isFinalized = false;
                 break;
             }
@@ -333,7 +356,6 @@ void BalancePackage::buildForwardDeclarations(std::map<std::string, BalanceModul
     }
 }
 
-
 void BalancePackage::addBuiltinTypesToModules(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : builtinModules) {
         BalanceModule * builtinsModule = x.second;
@@ -372,9 +394,15 @@ void BalancePackage::addBuiltinFunctionsToModules(std::map<std::string, BalanceM
 
             this->currentModule = bmodule;
 
+            // Import functions
             for (BalanceFunction * bfunction : builtinsModule->functions) {
                 createImportedFunction(bmodule, bfunction);
             }
+
+            // // Import methods
+            // for (BalanceType * btype : builtinsModule->types) {
+            //     createImportedClass(bmodule, btype);
+            // }
         }
     }
 }
@@ -729,4 +757,36 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
         SmallVector<std::pair<int, const clang::driver::Command *>, 4> FailingCommands;
         TheDriver.ExecuteCompilation(*C, FailingCommands);
     }
+}
+
+std::vector<BalanceType *> BalancePackage::getAllTypes() {
+    std::vector<BalanceType *> allTypes = {};
+
+    for (auto const &x : this->builtinModules)
+    {
+        BalanceModule *bmodule = x.second;
+        for (BalanceType * btype : bmodule->types) {
+            allTypes.push_back(btype);
+        }
+    }
+
+    for (auto const &x : this->modules)
+    {
+        BalanceModule *bmodule = x.second;
+        for (BalanceType * btype : bmodule->types) {
+            allTypes.push_back(btype);
+        }
+    }
+
+    return allTypes;
+}
+
+BuiltinType * BalancePackage::getBuiltinType(std::string typeName) {
+    for (BuiltinType * btype : this->builtinTypes) {
+        if (btype->balanceType->name == typeName) {
+            return btype;
+        }
+    }
+
+    return nullptr;
 }

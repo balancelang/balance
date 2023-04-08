@@ -9,7 +9,7 @@ void BalanceType::addMethod(std::string name, BalanceFunction *method) {
 
 void BalanceType::addConstructor(std::string name, std::vector<BalanceParameter *> parameters) {
     std::string constructorName = name + std::to_string(this->constructors.size());
-    BalanceFunction * constructor = new BalanceFunction(constructorName, parameters, currentPackage->currentModule->getType("None"));
+    BalanceFunction * constructor = new BalanceFunction(currentPackage->currentModule, this, constructorName, parameters, currentPackage->currentModule->getType("None"));
     this->constructors.push_back(constructor);
 }
 
@@ -101,7 +101,7 @@ void BalanceType::addParent(BalanceType * parentType) {
     this->parents.push_back(parentType);
 }
 
-llvm::Function * BalanceType::getInitializer() {
+BalanceFunction * BalanceType::getInitializer() {
     return this->initializer;
 }
 
@@ -121,7 +121,7 @@ bool BalanceType::finalized() {
     }
 
     for (auto const &x : this->methods) {
-        if (x.second->function == nullptr) {
+        if (!x.second->finalized()) {
             return false;
         }
     }

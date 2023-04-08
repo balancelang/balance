@@ -1,9 +1,9 @@
-#ifndef TYPE_BALANCE_TYPE_H
-#define TYPE_BALANCE_TYPE_H
+#ifndef INT_8_POINTER_TYPE_H
+#define INT_8_POINTER_TYPE_H
 
-#include "BuiltinType.h"
+#include "../BuiltinType.h"
 
-class TypeBalanceType : public BuiltinType {
+class Int8PointerType : public BuiltinType {
     void registerType() override;
     void finalizeType() override;
 

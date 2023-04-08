@@ -1,7 +1,23 @@
-#ifndef LAMBDA_H
-#define LAMBDA_H
-    #include "../models/BalanceType.h"
+#ifndef LAMBDA_TYPE_H
+#define LAMBDA_TYPE_H
 
-    BalanceType * createType__Lambda(std::vector<BalanceType *> generics);
+#include "BuiltinType.h"
+
+class LambdaBalanceType : public BuiltinType {
+public:
+    void registerType() override;
+    void finalizeType() override;
+
+    void registerMethods() override;
+    void finalizeMethods() override;
+
+    void registerFunctions() override;
+    void finalizeFunctions() override;
+
+    void registerMethod_toString();
+    void finalizeMethod_toString();
+
+    BalanceType * registerGenericType(std::vector<BalanceType *> generics);
+};
+
 #endif
-

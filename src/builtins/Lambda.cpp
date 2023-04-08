@@ -5,19 +5,32 @@
 
 extern BalancePackage *currentPackage;
 
-class BalanceType;
+void LambdaBalanceType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Lambda", {});
 
-BalanceType * createType__Lambda(std::vector<BalanceType *> generics) {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Lambda", generics);
+    // This registers the base type, which can't be instantiated directly.
+    currentPackage->builtinModules["builtins"]->genericTypes["Lambda"] = this->balanceType;
+}
 
-    if (generics.size() == 0) {
-        // This registers the base type, which can't be instantiated directly.
-        currentPackage->builtinModules["builtins"]->genericTypes["Lambda"] = bclass;
-        return bclass;
-    }
+void LambdaBalanceType::finalizeType() {
 
-    currentPackage->currentModule->addType(bclass);
-    currentPackage->currentModule->currentType = bclass;
+}
+void LambdaBalanceType::registerMethods() {
+
+}
+void LambdaBalanceType::finalizeMethods() {
+
+}
+void LambdaBalanceType::registerFunctions() {
+
+}
+void LambdaBalanceType::finalizeFunctions() {
+
+}
+
+BalanceType * LambdaBalanceType::registerGenericType(std::vector<BalanceType *> generics) {
+    BalanceType * lambdaType = new BalanceType(currentPackage->currentModule, "Lambda", generics);
+    currentPackage->currentModule->addType(lambdaType);
 
     vector<Type *> functionParameterTypes;
     //                                              -1 since last parameter is return
@@ -28,12 +41,12 @@ BalanceType * createType__Lambda(std::vector<BalanceType *> generics) {
     ArrayRef<Type *> parametersReference(functionParameterTypes);
 
     Type * returnType = generics.back()->getReferencableType();
-    bclass->internalType = FunctionType::get(returnType, parametersReference, false);
-    bclass->hasBody = true;
+    lambdaType->internalType = FunctionType::get(returnType, parametersReference, false);
+    lambdaType->hasBody = true;
 
-    createDefaultConstructor(currentPackage->currentModule, bclass);
+    createDefaultConstructor(currentPackage->currentModule, lambdaType);
 
     currentPackage->currentModule->currentType = nullptr;
 
-    return bclass;
+    return lambdaType;
 }

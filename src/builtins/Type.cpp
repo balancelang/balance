@@ -9,35 +9,41 @@
 
 extern BalancePackage *currentPackage;
 
-BalanceType * createType__Type() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Type");
-
-    currentPackage->currentModule->addType(bclass);
-    BalanceType * stringType = currentPackage->currentModule->getType("String");
-    BalanceType * intType = currentPackage->currentModule->getType("Int");
-    bclass->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
-    bclass->properties["name"] = new BalanceProperty("name", stringType, 1);
-
-    currentPackage->currentModule->currentType = bclass;
-    StructType *structType = StructType::create(*currentPackage->context, "Type");
-    ArrayRef<Type *> propertyTypesRef({
-        bclass->properties["typeId"]->balanceType->getReferencableType(),
-        bclass->properties["name"]->balanceType->getReferencableType(),
-    });
-    structType->setBody(propertyTypesRef, false);
-    bclass->internalType = structType;
-    bclass->hasBody = true;
-
-    currentPackage->currentModule->currentType = nullptr;
-
-    return bclass;
+void TypeBalanceType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Type");
+    currentPackage->currentModule->addType(this->balanceType);
 }
 
-void createFunctions__Type() {
-    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Type");
+void TypeBalanceType::finalizeType() {
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceType * intType = currentPackage->currentModule->getType("Int");
+    this->balanceType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
+    this->balanceType->properties["name"] = new BalanceProperty("name", stringType, 1);
 
-    createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
-    createDefaultToStringMethod(currentPackage->currentModule->currentType);
+    StructType *structType = StructType::create(*currentPackage->context, "Type");
+    ArrayRef<Type *> propertyTypesRef({
+        this->balanceType->properties["typeId"]->balanceType->getReferencableType(),
+        this->balanceType->properties["name"]->balanceType->getReferencableType(),
+    });
+    structType->setBody(propertyTypesRef, false);
+    this->balanceType->internalType = structType;
+    this->balanceType->hasBody = true;
 
-    currentPackage->currentModule->currentType = nullptr;
+    createDefaultConstructor(currentPackage->currentModule, this->balanceType);
+}
+
+void TypeBalanceType::registerMethods() {
+
+}
+
+void TypeBalanceType::finalizeMethods() {
+    // createDefaultToStringMethod(this->balanceType);
+}
+
+void TypeBalanceType::registerFunctions() {
+
+}
+
+void TypeBalanceType::finalizeFunctions() {
+
 }

@@ -28,8 +28,8 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
             vector<Constant *> values;
             for (BalanceFunction * bfunction : binterface->getMethods()) {
-                Function * function = btype->getMethod(bfunction->name)->function;
-                values.push_back(ConstantExpr::getBitCast(function, bfunction->function->getType()));
+                Function * function = btype->getMethod(bfunction->name)->getFunctionDefinition();
+                values.push_back(ConstantExpr::getBitCast(function, bfunction->getFunctionDefinition()->getType()));
             }
 
             std::string name = className + "_" + binterface->toString() + "_vtable";

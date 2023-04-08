@@ -7,7 +7,47 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Double_toString() {
+void DoubleType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Double");
+    this->balanceType->isSimpleType = true;
+    currentPackage->currentModule->addType(this->balanceType);
+}
+
+void DoubleType::finalizeType() {
+    this->balanceType->internalType = Type::getDoubleTy(*currentPackage->context);
+}
+
+void DoubleType::registerMethods() {
+    this->registerMethod_toString();
+}
+
+void DoubleType::finalizeMethods() {
+    this->finalizeMethod_toString();
+}
+
+void DoubleType::registerFunctions() {
+
+}
+
+void DoubleType::finalizeFunctions() {
+
+}
+
+void DoubleType::registerMethod_toString() {
+    std::string functionName = "toString";
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(this->balanceType, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
+    this->balanceType->addMethod(functionName, bfunction);
+}
+
+void DoubleType::finalizeMethod_toString() {
+    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
     BalanceType * stringType = currentPackage->currentModule->getType("String");
 
@@ -20,29 +60,11 @@ void createMethod_Double_toString() {
     llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt64Ty(*currentPackage->context), snprintfArguments, true);
     FunctionCallee snprintfFunction = currentPackage->currentModule->module->getOrInsertFunction("snprintf", snprintfFunctionType);
 
-    std::string functionName = "toString";
-    std::string functionNameWithClass = "Double_" + functionName;
-
-    BalanceParameter * valueParameter = new BalanceParameter(doubleType, "value");
-
-    // Create BalanceFunction
-    std::vector<BalanceParameter *> parameters = {
-        valueParameter
-    };
-
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        doubleType->getReferencableType()
-    });
+    llvm::Function * doubleToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, toStringFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, toStringFunction->getFunctionName() + "_body", doubleToStringFunc);
 
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * doubleToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", doubleToStringFunc);
-
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
-    bfunction->function = doubleToStringFunc;
+    toStringFunction->setLlvmFunction(doubleToStringFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -60,7 +82,7 @@ void createMethod_Double_toString() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->initializer, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
     int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
@@ -105,19 +127,4 @@ void createMethod_Double_toString() {
 
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
-void createType__Double() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Double");
-    bclass->internalType = Type::getDoubleTy(*currentPackage->context);
-    bclass->isSimpleType = true;
-    bclass->hasBody = true;
-
-    currentPackage->currentModule->addType(bclass);
-}
-
-void createFunctions__Double() {
-    currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Double");
-    createMethod_Double_toString();
-    currentPackage->currentModule->currentType = nullptr;
 }

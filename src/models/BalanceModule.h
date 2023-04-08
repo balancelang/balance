@@ -76,6 +76,7 @@ public:
     // Structures imported into this module
     std::vector<BalanceFunction *> importedFunctions = {};
     std::map<std::string, llvm::Value *> importedGlobals = {};
+    std::vector<BalanceType *> importedTypes = {};
 
     BalanceScopeBlock *rootScope;
     BalanceType *currentType = nullptr;
@@ -83,9 +84,6 @@ public:
     BalanceLambda *currentLambda = nullptr;         // Used by TypeVisitor.cpp
     BalanceScopeBlock *currentScope;
     BalanceType * currentLhsType = nullptr;
-
-    llvm::GlobalVariable * typeInfoTable = nullptr;
-    llvm::StructType * typeInfoStructType = nullptr;
 
     // Used to store e.g. 'x' in 'x.toString()', so we know 'toString()' is attached to x.
     BalanceValue * accessedValue = nullptr;
@@ -116,7 +114,6 @@ public:
     }
 
     void initializeTypeInfoStruct();
-    void initializeTypeInfoTable();
     void addFunction(BalanceFunction * function);
     void addTypeError(ParserRuleContext * ctx, std::string message);
     void initializeModule();
@@ -132,6 +129,7 @@ public:
     void setValue(std::string variableName, BalanceValue *bvalue);
     bool hasTypeErrors();
     void reportTypeErrors();
+    bool isTypeImported(BalanceType * btype);
 };
 
 #endif

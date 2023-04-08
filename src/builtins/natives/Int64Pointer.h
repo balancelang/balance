@@ -1,9 +1,11 @@
-#ifndef TYPE_BALANCE_TYPE_H
-#define TYPE_BALANCE_TYPE_H
+#ifndef INT_64_POINTER_TYPE_H
+#define INT_64_POINTER_TYPE_H
 
 #include "BuiltinType.h"
 
-class TypeBalanceType : public BuiltinType {
+extern BalancePackage *currentPackage;
+
+class Int64PointerType : public BuiltinType {
     void registerType() override;
     void finalizeType() override;
 
@@ -12,6 +14,9 @@ class TypeBalanceType : public BuiltinType {
 
     void registerFunctions() override;
     void finalizeFunctions() override;
+
+    void registerMethod_Int_toString();
+    void finalizeMethod_Int_toString();
 };
 
 #endif

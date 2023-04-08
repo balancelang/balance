@@ -3,6 +3,7 @@
 
 #include "visitors/Visitor.h"
 #include "Builtins.h"
+#include "builtins/BuiltinType.h"
 
 #include <string>
 #include <map>
@@ -25,10 +26,15 @@ public:
     std::map<std::string, std::string> entrypoints = {};
     std::map<std::string, BalanceModule *> modules = {};
     std::map<std::string, BalanceModule *> builtinModules = {};
+    std::vector<BuiltinType *> nativeTypes = {};
+    std::vector<BuiltinType *> builtinTypes = {};
     BalanceModule *currentModule = nullptr;
     llvm::LLVMContext *context;
     bool isAnalyzeOnly = false;
     bool verboseLogging = false;
+
+    llvm::GlobalVariable * typeInfoTable = nullptr;
+    llvm::StructType * typeInfoStructType = nullptr;
 
     std::function<void(std::string)> logger;
 
@@ -47,6 +53,22 @@ public:
                 std::cout << "LOG: " << x << std::endl;
             }
         };
+
+        this->nativeTypes.push_back(new Int64Type());
+        this->nativeTypes.push_back(new Int8PointerType());
+
+        // this->builtinTypes = getBuiltinTypes();
+        this->builtinTypes.push_back(new IntType());
+        this->builtinTypes.push_back(new AnyType());
+        this->builtinTypes.push_back(new BoolType());
+        this->builtinTypes.push_back(new DoubleType());
+        this->builtinTypes.push_back(new StringType());
+        this->builtinTypes.push_back(new NoneBalanceType());
+        this->builtinTypes.push_back(new TypeBalanceType());
+        this->builtinTypes.push_back(new FileBalanceType());
+        // this->builtinTypes.push_back(new FatPointerType());
+        this->builtinTypes.push_back(new ArrayBalanceType());
+        this->builtinTypes.push_back(new LambdaBalanceType());
     }
 
     void reset() {
@@ -90,7 +112,9 @@ public:
     void llvmCompile(std::map<std::string, BalanceModule *> modules);
     void writeModuleToBinary(BalanceModule * bmodule);
     void registerAllTypes();
-    void initializeTypeInfoTables(std::map<std::string, BalanceModule *> modules);
+    void initializeTypeInfoTables(std::vector<BalanceType *> types);
+    std::vector<BalanceType *> getAllTypes();
+    BuiltinType * getBuiltinType(std::string typeName);
 };
 
 #endif

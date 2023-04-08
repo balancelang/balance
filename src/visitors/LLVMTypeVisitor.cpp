@@ -224,7 +224,7 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
         bfunction = currentPackage->currentModule->getFunction(functionName, functionParameters);
     }
 
-    if (bfunction->function != nullptr) {
+    if (bfunction->finalized()) {
         return nullptr;
     }
 
@@ -257,12 +257,12 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
             FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
             function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
 
-            bfunction->function = function;
+            bfunction->setLlvmFunction(function);
         } else {
             ArrayRef<Type *> parametersReference(functionParameterTypes);
             FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
             function = Function::Create(functionType, Function::ExternalLinkage, functionName, currentPackage->currentModule->module);
-            bfunction->function = function;
+            bfunction->setLlvmFunction(function);
         }
     }
 
