@@ -18,6 +18,7 @@
 #include "builtins/Any.h"
 
 #include "config.h"
+#include "assert.h"
 
 #include <map>
 #include <queue>
@@ -116,45 +117,15 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
     currentPackage->builtinModules["builtins"] = builtinsModule;
     builtinsModule->initializeTypeInfoStruct();
 
-    // Register native types (Int32, Int64, ...)
-    registerNativeTypes();
+    this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
 
-    // Register reference types (Int, String, Double, ...)
-    registerBuiltinTypes();
-
-    // Register other builtin types (Range, ...)
-    // this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
-    this->registerTypes(this->builtinModules);
-    this->registerGenericTypes(this->builtinModules);
-
-    // Register user types (class, interface, ...)
-    this->registerTypes(this->modules);
-    this->registerGenericTypes(this->modules);
-
-    // Create typeInfoTables
-    std::vector<BalanceType *> allTypes = this->getAllTypes();
-    this->initializeTypeInfoTables(allTypes);
-    // this->initializeTypeInfoTables(this->modules, allTypes);
-
-    finalizeNativeTypes();
-    finalizeBuiltinTypes();
-
-    // Register all builtin functions
-    registerBuiltinMethods();
-    registerBuiltinFunctions();
-
-    this->addBuiltinTypesToModules(this->builtinModules);
-    this->addBuiltinTypesToModules(this->modules);
-    this->addBuiltinFunctionsToModules(this->builtinModules);
-    this->addBuiltinFunctionsToModules(this->modules);
-
-    finalizeBuiltinMethods();
-    finalizeBuiltinFunctions();
-
-    // Finalize builtins module
-    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
+    registerTypesAndFunctions();
+    finalizeTypesAndFunctions();
 
     this->compileBuiltins();
+
+    // TODO: Some builtin functions are not found until after compiling - should be a visitor step after registerTypes
+    this->addBuiltinFunctionsToModules(this->modules);
 
     bool success = this->compileModules(this->modules);
     if (success) {
@@ -163,6 +134,115 @@ bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sour
 
     return success;
 }
+
+// Register everything - no LLVM considered in this step
+void BalancePackage::registerTypesAndFunctions() {
+    // Register native types (Int32, Int64, ...)
+    registerNativeTypes();
+
+    // Register reference types (Int, String, Double, ...)
+    registerBuiltinTypes();
+
+    // Import native/builtin types in rest of builtinModules
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Register other builtin types (Range, ...)
+    this->registerTypes(this->builtinModules);
+
+    // Import new builtin types into core builtins (e.g. if they need them in functions)
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Register all generic types
+    this->registerGenericTypes(this->builtinModules);
+
+    // Make sure generic types are available in all modules
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Import all builtins to the user modules
+    this->addBuiltinTypesToModules(this->modules);
+
+    // Register user types
+    this->registerTypes(this->modules);
+    this->registerGenericTypes(this->modules);
+
+    // Register all builtin functions
+    registerBuiltinMethods();
+    registerBuiltinFunctions();
+
+    this->addBuiltinFunctionsToModules(this->builtinModules);
+    this->addBuiltinFunctionsToModules(this->modules);
+
+    // Create typeInfoTables
+    std::vector<BalanceType *> allTypes = this->getAllTypes();
+    this->initializeTypeInfoTables(allTypes);
+
+    this->registerInitializers(this->builtinModules);
+    this->registerInitializers(this->modules);
+}
+
+// Finalize everything - finalize LLVM types and functions
+void BalancePackage::finalizeTypesAndFunctions() {
+    finalizeNativeTypes();
+    finalizeBuiltinTypes();
+
+    this->finalizeInitializers({ { "builtins", this->builtinModules["builtins"] } });
+
+    finalizeBuiltinFunctions();
+    finalizeBuiltinMethods();
+
+    // Refresh all imports
+    // finalizeImports({ { "builtins", this->builtinModules["builtins"] } });
+    finalizeImports(builtinModules);
+    finalizeImports(modules);
+}
+
+void BalancePackage::finalizeImports(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->importedTypes) {
+            // Import each class method
+            for (BalanceFunction *bfunction : btype->getMethods()) {
+                createImportedFunction(currentPackage->currentModule, bfunction);
+            }
+
+            // Import default constructor
+            if (!btype->isSimpleType) {
+                createImportedFunction(currentPackage->currentModule, btype->getInitializer());
+            }
+
+            // Import additional constructors
+            for (BalanceFunction * constructor : btype->constructors) {
+                createImportedFunction(currentPackage->currentModule, constructor);
+            }
+        }
+
+        for (BalanceFunction * bfunction : currentPackage->currentModule->importedFunctions) {
+            createImportedFunction(currentPackage->currentModule, bfunction);
+        }
+    }
+}
+
+void BalancePackage::registerInitializers(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->types) {
+            registerInitializer(btype);
+        }
+    }
+}
+
+void BalancePackage::finalizeInitializers(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->types) {
+            finalizeInitializer(btype);
+        }
+    }
+}
+
 
 void BalancePackage::initializeTypeInfoTables(std::vector<BalanceType *> types) {
     BalanceModule *bmodule = this->builtinModules["builtins"];
@@ -192,6 +272,10 @@ void BalancePackage::initializeTypeInfoTables(std::vector<BalanceType *> types) 
 bool BalancePackage::compileBuiltins() {
     this->currentModule = currentPackage->builtinModules["builtins"];
     bool success = this->compileModules(this->builtinModules);
+
+    // Finalize builtins module
+    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
+
     return success;
 }
 
@@ -251,6 +335,7 @@ void BalancePackage::buildConstructors(std::map<std::string, BalanceModule *> mo
     }
 }
 
+// TODO: Does this need to run with a Visitor? Can we just iterate modules/types?
 void BalancePackage::buildStructures(std::map<std::string, BalanceModule *> modules)
 {
     std::queue<BalanceModule *> queue;
@@ -363,7 +448,7 @@ void BalancePackage::addBuiltinTypesToModules(std::map<std::string, BalanceModul
         for (auto const &x : modules)
         {
             BalanceModule *bmodule = x.second;
-            if (bmodule->tree == nullptr) {
+            if (bmodule == builtinsModule) {
                 continue;
             }
 
@@ -398,11 +483,6 @@ void BalancePackage::addBuiltinFunctionsToModules(std::map<std::string, BalanceM
             for (BalanceFunction * bfunction : builtinsModule->functions) {
                 createImportedFunction(bmodule, bfunction);
             }
-
-            // // Import methods
-            // for (BalanceType * btype : builtinsModule->types) {
-            //     createImportedClass(bmodule, btype);
-            // }
         }
     }
 }
@@ -510,6 +590,11 @@ bool BalancePackage::registerTypes(std::map<std::string, BalanceModule *> module
         } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;
+        }
+
+        // Assert
+        for (BalanceType * btype : bmodule->types) {
+            assert(btype->internalType == nullptr);
         }
     }
 

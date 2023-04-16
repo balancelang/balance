@@ -18,6 +18,7 @@ public:
     void finalizeMethod_toString();
 
     BalanceType * registerGenericType(std::vector<BalanceType *> generics);
+    void tryFinalizeGenericType(BalanceType * balanceType);
 };
 
 #endif

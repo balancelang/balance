@@ -55,7 +55,8 @@ BalanceType * ArrayBalanceType::registerGenericType(BalanceType * generic) {
     arrayType->internalType = structType;
     arrayType->hasBody = true;
 
-    createDefaultConstructor(currentPackage->currentModule, arrayType);
+    registerInitializer(arrayType);
+    finalizeInitializer(arrayType);
 
     this->registerMethod_toString(arrayType);
     this->finalizeMethod_toString(arrayType);

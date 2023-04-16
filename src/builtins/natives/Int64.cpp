@@ -6,15 +6,13 @@
 extern BalancePackage *currentPackage;
 
 void Int64Type::registerType() {
-    BalanceType * int64Type = new BalanceType(currentPackage->currentModule, "Int64", llvm::Type::getInt64Ty(*currentPackage->context));
-    this->balanceType = int64Type;
-    int64Type->isSimpleType = true;
-    int64Type->isPublic = false;
-    currentPackage->currentModule->addType(int64Type);
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Int64");
+    this->balanceType->isSimpleType = true;
+    currentPackage->currentModule->addType(this->balanceType);
 }
 
 void Int64Type::finalizeType() {
-
+    this->balanceType->internalType = llvm::Type::getInt64Ty(*currentPackage->context);
 }
 
 void Int64Type::registerMethods() {

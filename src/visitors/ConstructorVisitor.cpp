@@ -88,10 +88,10 @@ std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinition
     for (BalanceType * btype : btypes) {
         currentPackage->currentModule->currentType = btype;
 
-        if (btype->getInitializer() == nullptr) {
-            createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
-            createDefaultToStringMethod(currentPackage->currentModule->currentType);
-        }
+        assert(btype->initializer != nullptr);
+        assert(btype->initializer->function == nullptr);
+        finalizeInitializer(currentPackage->currentModule->currentType);
+        createDefaultToStringMethod(currentPackage->currentModule->currentType);
 
         currentPackage->currentModule->currentType = nullptr;
     }

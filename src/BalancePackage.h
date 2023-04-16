@@ -54,19 +54,20 @@ public:
             }
         };
 
-        this->nativeTypes.push_back(new Int64Type());
         this->nativeTypes.push_back(new Int8PointerType());
+        this->nativeTypes.push_back(new Int64PointerType());
+        this->nativeTypes.push_back(new Int64Type());
 
         // this->builtinTypes = getBuiltinTypes();
+        this->builtinTypes.push_back(new NoneBalanceType());
         this->builtinTypes.push_back(new IntType());
         this->builtinTypes.push_back(new AnyType());
         this->builtinTypes.push_back(new BoolType());
         this->builtinTypes.push_back(new DoubleType());
         this->builtinTypes.push_back(new StringType());
-        this->builtinTypes.push_back(new NoneBalanceType());
         this->builtinTypes.push_back(new TypeBalanceType());
         this->builtinTypes.push_back(new FileBalanceType());
-        // this->builtinTypes.push_back(new FatPointerType());
+        this->builtinTypes.push_back(new FatPointerType());
         this->builtinTypes.push_back(new ArrayBalanceType());
         this->builtinTypes.push_back(new LambdaBalanceType());
     }
@@ -115,6 +116,11 @@ public:
     void initializeTypeInfoTables(std::vector<BalanceType *> types);
     std::vector<BalanceType *> getAllTypes();
     BuiltinType * getBuiltinType(std::string typeName);
+    void finalizeTypesAndFunctions();
+    void registerTypesAndFunctions();
+    void registerInitializers(std::map<std::string, BalanceModule *> modules);
+    void finalizeInitializers(std::map<std::string, BalanceModule *> modules);
+    void finalizeImports(std::map<std::string, BalanceModule *> modules);
 };
 
 #endif

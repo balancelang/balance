@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include "assert.h"
 
 extern BalancePackage *currentPackage;
 
@@ -16,14 +17,12 @@ bool fileExist(std::string fileName) {
 }
 
 void createImportedFunction(BalanceModule *bmodule, BalanceFunction *bfunction) {
-    if (bfunction == nullptr) {
+    if (bmodule->isFunctionImported(bfunction)) {
         return;
     }
 
-    if (bfunction->imports.find(bmodule) == bfunction->imports.end()) {
-        bfunction->imports[bmodule] = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), bmodule->module);
-        bmodule->importedFunctions.push_back(bfunction);
-    }
+    bfunction->imports[bmodule] = new BalanceImportedFunction(bmodule, bfunction);
+    bmodule->importedFunctions.push_back(bfunction);
 }
 
 void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
@@ -32,43 +31,15 @@ void createImportedClass(BalanceModule *bmodule, BalanceType * btype) {
     }
 
     bmodule->importedTypes.push_back(btype);
-
-    for (BalanceType * generic : btype->generics) {
-        createImportedClass(bmodule, generic);
-    }
-
-    // Import class properties
-    for (auto const &x : btype->properties) {
-        createImportedClass(bmodule, x.second->balanceType);
-    }
-
-    // Import each class method
-    for (BalanceFunction *bfunction : btype->getMethods()) {
-        createImportedClass(bmodule, bfunction->returnType);
-        createImportedFunction(bmodule, bfunction);
-    }
-
-    // Import default constructor
-    createImportedFunction(bmodule, btype->getInitializer());
-
-    // Import additional constructors
-    for (BalanceFunction * constructor : btype->constructors) {
-        createImportedFunction(bmodule, constructor);
-    }
 }
 
-void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
-    std::string constructorName = "initializer";
+void finalizeInitializer(BalanceType * btype) {
+    if (btype->isSimpleType || btype->name == "Lambda") {
+        return;
+    }
+
     vector<Type *> functionParameterTypes;
-
-    // TODO: Constructor should return Type of class?
-    BalanceType * returnType = currentPackage->currentModule->getType("None");
-
-    ArrayRef<Type *> parametersReference{btype->getReferencableType()};
-    FunctionType *functionType = FunctionType::get(returnType->getInternalType(), parametersReference, false);
-    BalanceParameter * thisParameter = new BalanceParameter(btype, "this");
-    btype->initializer = new BalanceFunction(bmodule, btype, constructorName, {thisParameter}, returnType);
-    Function * function = Function::Create(functionType, Function::ExternalLinkage, btype->initializer->getFullyQualifiedFunctionName(), bmodule->module);
+    Function * function = Function::Create(btype->getInitializer()->getLlvmFunctionType(), Function::ExternalLinkage, btype->initializer->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     btype->getInitializer()->setLlvmFunction(function);
 
     // Add parameter names
@@ -76,7 +47,7 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
     llvm::Value *thisValue = args++;
     thisValue->setName("this");
 
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, constructorName + "_body", function);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, btype->getInitializer()->getFunctionName() + "_body", function);
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
@@ -130,6 +101,20 @@ void createDefaultConstructor(BalanceModule *bmodule, BalanceType * btype) {
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
 
+void registerInitializer(BalanceType * btype) {
+    if (btype->isSimpleType) {
+        return;
+    }
+
+    assert(btype->initializer == nullptr);
+
+    std::string constructorName = "initializer";
+    BalanceType * returnType = currentPackage->currentModule->getType("None");
+    assert(returnType != nullptr);
+    BalanceParameter * thisParameter = new BalanceParameter(btype, "this");
+    btype->initializer = new BalanceFunction(currentPackage->currentModule, btype, constructorName, {thisParameter}, returnType);
+}
+
 Constant *geti8StrVal(Module &M, char const *str, Twine const &name, bool addNull) {
     Constant *strConstant = ConstantDataArray::getString(M.getContext(), str, addNull);
     auto *GVStr = new GlobalVariable(M, strConstant->getType(), true, GlobalValue::InternalLinkage, strConstant, name);
@@ -144,7 +129,6 @@ void createDefaultToStringMethod(BalanceType * btype) {
     // TODO: This function must be able to handle cycles, so it doesn't visit something it has already visited again
     // Just print: A(b: B(a: [cycle]))
     std::string functionName = "toString";
-    std::string functionNameWithClass = btype->toString() + "_" + functionName;
 
     // Create BalanceFunction
     BalanceParameter * valueParameter = new BalanceParameter(btype, "value");
@@ -159,8 +143,7 @@ void createDefaultToStringMethod(BalanceType * btype) {
         btype->getReferencableType()
     });
 
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-    llvm::Function * btypeDefaultToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    llvm::Function * btypeDefaultToStringFunc = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", btypeDefaultToStringFunc);
     bfunction->setLlvmFunction(btypeDefaultToStringFunc);
 

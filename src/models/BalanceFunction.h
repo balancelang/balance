@@ -9,12 +9,23 @@
 class BalanceModule;
 class BalanceParameter;
 class BalanceType;
+class BalanceFunction;
+
+
+class BalanceImportedFunction
+{
+public:
+    BalanceModule * bmodule = nullptr;
+    BalanceFunction * bfunction = nullptr;
+    llvm::Function * function = nullptr;
+
+    BalanceImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction);
+    llvm::Function * getLlvmFunction();
+};
+
 
 class BalanceFunction
 {
-private:
-    llvm::Function *function = nullptr;
-
 public:
     std::string name;
     BalanceModule * balanceModule;
@@ -23,8 +34,9 @@ public:
     std::vector<BalanceParameter *> parameters;
     bool hasExplicitReturn = false;
 
+    llvm::Function *function = nullptr;
     // Mapping from module to the forward declaration of that function
-    std::map<BalanceModule *, llvm::Function *> imports = {};
+    std::map<BalanceModule *, BalanceImportedFunction *> imports = {};
 
     BalanceFunction(BalanceModule * balanceModule, BalanceType * balanceType, std::string name, std::vector<BalanceParameter *> parameters, BalanceType * returnType)
     {

@@ -5,6 +5,7 @@
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
 #include "Visitor.h"
+#include "../builtins/Lambda.h"
 
 #include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
@@ -52,6 +53,7 @@
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
+#include "../Builtins.h"
 
 #include <typeindex>
 #include <typeinfo>
@@ -151,6 +153,9 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
 
         if (!currentPackage->currentModule->currentType->hasBody) {
             ArrayRef<Type *> propertyTypesRef(propertyTypes);
+            if (currentPackage->currentModule->currentType->internalType == nullptr) {
+                currentPackage->currentModule->currentType->internalType = llvm::StructType::create(*currentPackage->context, currentPackage->currentModule->currentType->name);
+            }
             StructType * structType = (StructType *) currentPackage->currentModule->currentType->internalType;
             structType->setBody(propertyTypesRef, false);
             currentPackage->currentModule->currentType->hasBody = true;
@@ -158,6 +163,8 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
 
         currentPackage->currentModule->currentType = nullptr;
     }
+
+    currentPackage->currentModule->currentType = nullptr;
 
     return nullptr;
 }
@@ -182,6 +189,12 @@ std::any LLVMTypeVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefin
     BalanceType * binterface = currentPackage->currentModule->getType(interfaceName);
 
     currentPackage->currentModule->currentType = binterface;
+
+    if (binterface->internalType == nullptr) {
+        BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
+        binterface->internalType = fatPointerType->getInternalType();
+        binterface->hasBody = true;
+    }
 
     // Visit all interface functions
     for (auto const &x : ctx->interfaceElement()) {
@@ -208,6 +221,13 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
         } else {
             functionParameters.push_back(currentPackage->currentModule->getType("Any"));
         }
+    }
+
+    BalanceType *returnType;
+    if (ctx->returnType()) {
+        returnType = any_cast<BalanceType *>(visit(ctx->returnType()->balanceType()));
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
     }
 
     BalanceFunction *bfunction;
@@ -248,22 +268,8 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
             functionParameterNames.push_back(bparameter->name);
         }
 
-        // Check if we are parsing a class method
-        Function *function;
-        if (currentPackage->currentModule->currentType != nullptr) {
-            std::string functionNameWithClass = currentPackage->currentModule->currentType->toString() + "_" + bfunction->name;
-            ArrayRef<Type *> parametersReference(functionParameterTypes);
-            // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
-            FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
-            function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-
-            bfunction->setLlvmFunction(function);
-        } else {
-            ArrayRef<Type *> parametersReference(functionParameterTypes);
-            FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
-            function = Function::Create(functionType, Function::ExternalLinkage, functionName, currentPackage->currentModule->module);
-            bfunction->setLlvmFunction(function);
-        }
+        Function * function = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+        bfunction->setLlvmFunction(function);
     }
 
     return nullptr;
@@ -282,6 +288,14 @@ std::any LLVMTypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ct
     if (btype == nullptr) {
         btype = currentPackage->currentModule->createGenericType(base, generics);
     }
+
+    if (!btype->finalized()) {
+        if (btype->name == "Lambda") {
+            LambdaBalanceType * lambdaType = (LambdaBalanceType *) currentPackage->getBuiltinType("Lambda");
+            lambdaType->tryFinalizeGenericType(btype);
+        }
+    }
+
     return btype;
 }
 
@@ -324,4 +338,43 @@ std::any LLVMTypeVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx)
     }
 
     return lambdaType;
+}
+
+std::any LLVMTypeVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
+    std::string text = ctx->getText();
+    vector<BalanceType *> generics;
+
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->lambda()->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string typeString = parameter->type->getText();
+            btype = currentPackage->currentModule->getType(typeString);
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
+        generics.push_back(btype);
+    }
+
+    // If we don't have a return type, assume none
+    BalanceType * returnType;
+    if (ctx->lambda()->returnType()) {
+        std::string functionReturnTypeString = ctx->lambda()->returnType()->balanceType()->getText();
+        returnType = currentPackage->currentModule->getType(functionReturnTypeString);
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
+    }
+
+    generics.push_back(returnType);
+
+    BalanceType * btype = currentPackage->currentModule->getType("Lambda", generics);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType("Lambda", generics);
+    }
+
+    if (!btype->finalized()) {
+        LambdaBalanceType * lambdaType = (LambdaBalanceType *) currentPackage->getBuiltinType("Lambda");
+        lambdaType->tryFinalizeGenericType(btype);
+    }
+
+    return btype;
 }

@@ -59,7 +59,6 @@ void BoolType::finalizeMethod_toString() {
     BalanceParameter * valueParameter = new BalanceParameter(boolType, "value");
 
     std::string functionName = "toString";
-    std::string functionNameWithClass = "Bool_" + functionName;
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -68,7 +67,7 @@ void BoolType::finalizeMethod_toString() {
 
     // Create llvm::Function
 
-    llvm::Function * boolToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    llvm::Function * boolToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, toStringFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
     toStringFunction->setLlvmFunction(boolToStringFunc);

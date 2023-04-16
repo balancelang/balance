@@ -19,7 +19,8 @@ void createImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction
 void createImportedClass(BalanceModule *bmodule, BalanceType * btype);
 BalanceType * createGenericType(BalanceModule * bmodule, BalanceType * base, std::vector<BalanceType *> generics);
 
-void createDefaultConstructor(BalanceModule * bmodule, BalanceType * btype);
+void registerInitializer(BalanceType * btype);
+void finalizeInitializer(BalanceType * btype);
 void createDefaultToStringMethod(BalanceType * btype);
 llvm::Constant *geti8StrVal(llvm::Module &M, char const *str, llvm::Twine const &name, bool addNull);
 bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType);

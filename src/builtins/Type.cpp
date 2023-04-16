@@ -28,8 +28,6 @@ void TypeBalanceType::finalizeType() {
     structType->setBody(propertyTypesRef, false);
     this->balanceType->internalType = structType;
     this->balanceType->hasBody = true;
-
-    createDefaultConstructor(currentPackage->currentModule, this->balanceType);
 }
 
 void TypeBalanceType::registerMethods() {

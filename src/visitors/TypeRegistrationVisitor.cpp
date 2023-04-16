@@ -33,7 +33,7 @@ std::any TypeRegistrationVisitor::visitClassDefinition(BalanceParser::ClassDefin
         throw TypeRegistrationVisitorException();
     }
 
-    btype = new BalanceType(currentPackage->currentModule, className, llvm::StructType::create(*currentPackage->context, className));
+    btype = new BalanceType(currentPackage->currentModule, className);
     currentPackage->currentModule->currentType = btype;
 
     if (ctx->classGenerics()) {
@@ -59,11 +59,7 @@ std::any TypeRegistrationVisitor::visitInterfaceDefinition(BalanceParser::Interf
 
     BalanceType *binterface = new BalanceType(currentPackage->currentModule, interfaceName);
     binterface->isInterface = true;
-    binterface->hasBody = true;
 
-    BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
-
-    // binterface->internalType = fatPointerType->getInternalType(); // ->getReferencableType(); //llvm::StructType::create(*currentPackage->context, interfaceName);
     currentPackage->currentModule->currentType = binterface;
     currentPackage->currentModule->addType(binterface);
 

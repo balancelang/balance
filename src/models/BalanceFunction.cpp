@@ -1,5 +1,20 @@
 #include "BalanceFunction.h"
 
+#include "../Utilities.h"
+
+BalanceImportedFunction::BalanceImportedFunction(BalanceModule * bmodule, BalanceFunction * bfunction) {
+    this->bmodule = bmodule;
+    this->bfunction = bfunction;
+}
+
+llvm::Function * BalanceImportedFunction::getLlvmFunction() {
+    if (this->function == nullptr) {
+        this->function = llvm::Function::Create(this->bfunction->getLlvmFunctionType(), llvm::Function::ExternalLinkage, this->bfunction->getFullyQualifiedFunctionName(), this->bmodule->module);
+    }
+
+    return this->function;
+}
+
 llvm::Function * BalanceFunction::getLlvmFunction(BalanceModule * bmodule) {
     if (this->balanceModule == bmodule) {
         return this->function;
@@ -7,7 +22,18 @@ llvm::Function * BalanceFunction::getLlvmFunction(BalanceModule * bmodule) {
 
     for (auto const &x : this->imports) {
         if (x.first == bmodule) {
-            return x.second;
+            return x.second->getLlvmFunction();
+        }
+    }
+
+    // Otherwise lazily create the import
+    if (bmodule->isTypeImported(this->balanceType)) {
+        createImportedFunction(bmodule, this);
+
+        for (auto const &x : this->imports) {
+            if (x.first == bmodule) {
+                return x.second->getLlvmFunction();
+            }
         }
     }
 
@@ -35,7 +61,15 @@ llvm::FunctionType * BalanceFunction::getLlvmFunctionType() {
 }
 
 std::string BalanceFunction::getFunctionName() {
-    return this->name;
+    std::string functionName = this->name;
+
+    for (BalanceParameter * bparameter : this->parameters) {
+        functionName += "_" + bparameter->balanceType->toString();
+    }
+
+    functionName += "_" + this->returnType->toString();
+
+    return functionName;
 }
 
 std::string BalanceFunction::getFullyQualifiedFunctionName() {

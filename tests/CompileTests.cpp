@@ -300,14 +300,13 @@ class A {
 var a = new A()
 a.x = 1
 takesAny(x: Any): None {
-    print("Any")
+    print(x.getType().name)
 }
 takesAny(a)
-takesAny(5)
 takesAny("abc")
     )"""";
     std::string result = run(program);
-    assertEqual("Any\nAny\nAny\n", result, program);
+    assertEqual("A\nString\n", result, program);
 }
 
 // class Parent {

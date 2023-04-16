@@ -77,7 +77,6 @@ BalanceType * BalanceModule::createGenericType(std::string typeName, std::vector
             }
 
             if (newGenericType != nullptr) {
-                currentPackage->currentModule->addType(newGenericType);
                 return newGenericType;
             }
         }
@@ -217,31 +216,7 @@ void BalanceModule::setValue(std::string variableName, BalanceValue *bvalue) {
 }
 
 void BalanceModule::addType(BalanceType * balanceType) {
-    // TODO: Check if type is already added, make sure we dont end up in a loop here
-    // if (this->getType(balanceType->name, balanceType->generics) != nullptr) {
-    //     return;
-    // }
-
-    // if (balanceType->isInternalType) {
-    //     return;
-    // }
-
     this->types.push_back(balanceType);
-
-
-    // int typeIndex = this->types.size();
-    // balanceType->typeIndex = typeIndex;
-
-    // // Create typeInfo for type
-    // ArrayRef<Constant *> valuesRef({
-    //     // typeId
-    //     ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIndex, true)),
-    //     // name
-    //     currentPackage->currentModule->builder->CreateGlobalStringPtr(balanceType->toString())
-    // });
-
-    // Constant * typeInfoData = ConstantStruct::get(currentPackage->typeInfoStructType, valuesRef);
-    // balanceType->typeInfoVariable = typeInfoData;
 }
 
 void BalanceModule::addFunction(BalanceFunction * bfunction) {
@@ -277,4 +252,8 @@ bool BalanceModule::isTypeImported(BalanceType * btype) {
         }
     }
     return false;
+}
+
+bool BalanceModule::isFunctionImported(BalanceFunction * bfunction) {
+    return bfunction->imports.find(this) != bfunction->imports.end();
 }

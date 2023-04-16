@@ -14,6 +14,8 @@
 
 #include "models/BalanceType.h"
 
+#include <assert.h>
+
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 
@@ -25,6 +27,13 @@ void registerNativeTypes() {
     for (BuiltinType * builtinType : currentPackage->nativeTypes) {
         builtinType->registerType();
     }
+
+    // Assert
+    for (BuiltinType * builtinType : currentPackage->nativeTypes) {
+        assert(builtinType->balanceType != nullptr);
+        assert(builtinType->balanceType->internalType == nullptr);
+    }
+
     currentPackage->currentModule = backup;
 }
 
@@ -44,6 +53,13 @@ void registerBuiltinTypes() {
     for (BuiltinType * builtinType : currentPackage->builtinTypes) {
         builtinType->registerType();
     }
+
+    // Assert
+    for (BuiltinType * builtinType : currentPackage->builtinTypes) {
+        assert(builtinType->balanceType != nullptr);
+        assert(builtinType->balanceType->internalType == nullptr);
+    }
+
     currentPackage->currentModule = backup;
 }
 
@@ -61,7 +77,13 @@ void registerBuiltinMethods() {
     currentPackage->currentModule = currentPackage->builtinModules["builtins"];
     for (BuiltinType * builtinType : currentPackage->builtinTypes) {
         builtinType->registerMethods();
+
+        // Assert
+        for (BalanceFunction * bfunction : builtinType->balanceType->getMethods()) {
+            assert(bfunction->function == nullptr);
+        }
     }
+
     currentPackage->currentModule = backup;
 }
 
@@ -70,7 +92,13 @@ void finalizeBuiltinMethods() {
     currentPackage->currentModule = currentPackage->builtinModules["builtins"];
     for (BuiltinType * builtinType : currentPackage->builtinTypes) {
         builtinType->finalizeMethods();
+
+        // Assert
+        for (BalanceFunction * bfunction : builtinType->balanceType->getMethods()) {
+            assert(bfunction->function != nullptr);
+        }
     }
+
     currentPackage->currentModule = backup;
 }
 
@@ -83,7 +111,12 @@ void registerBuiltinFunctions() {
 
     // Register all non-class functions
     registerFunction__print();
-    // registerFunction__open();
+    registerFunction__open();
+
+    // Assert
+    for (BalanceFunction * bfunction : currentPackage->currentModule->functions) {
+        assert(bfunction->function == nullptr);
+    }
 
     currentPackage->currentModule = backup;
 }
@@ -97,7 +130,12 @@ void finalizeBuiltinFunctions() {
 
     // Finalize all non-class functions
     finalizeFunction__print();
-    // finalizeFunction__open();
+    finalizeFunction__open();
+
+    // Assert
+    for (BalanceFunction * bfunction : currentPackage->currentModule->functions) {
+        assert(bfunction->function != nullptr);
+    }
 
     currentPackage->currentModule = backup;
 }
@@ -121,7 +159,7 @@ void finalizeFunction__print()
     FunctionCallee printfFunction = currentPackage->currentModule->module->getOrInsertFunction("printf", printfFunctionType);
 
     // Create llvm::Function
-    llvm::Function * printFunc = Function::Create(printFunction->getLlvmFunctionType(), Function::ExternalLinkage, "print", currentPackage->currentModule->module);
+    llvm::Function * printFunc = Function::Create(printFunction->getLlvmFunctionType(), Function::ExternalLinkage, printFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, "print_body", printFunc);
 
     printFunction->setLlvmFunction(printFunc);
@@ -215,7 +253,7 @@ void finalizeFunction__open()
     Function *fopenFunc = currentPackage->builtinModules["builtins"]->module->getFunction("fopen");
 
     // Create llvm::Function
-    llvm::Function * openFunction = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFunctionName(), currentPackage->currentModule->module);
+    llvm::Function * openFunction = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, bfunction->getFunctionName() + "_body", openFunction);
 
     // Store current block so we can return to it after function declaration
@@ -265,41 +303,3 @@ void finalizeFunction__open()
     bfunction->setLlvmFunction(openFunction);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
-
-// void createFunctions() {
-//     // Type functions
-//     // createFunctions__Int();
-//     createFunctions__String();
-//     createFunctions__Bool();
-//     createFunctions__Double();
-//     createFunctions__File();
-//     createFunctions__Type();
-
-//     // Any is handled else-where
-
-//     createFunction__print();
-//     createFunction__open();
-// }
-
-// void createBuiltinTypes() {
-//     BalanceModule * bmodule = new BalanceModule("builtins", {}, false);
-//     currentPackage->builtinModules["builtins"] = bmodule;
-//     currentPackage->currentModule = bmodule;
-
-//     // Create non native types
-//     // createType__Int();
-
-//     createType__Any();
-//     createType__None();
-
-//     createType__String();
-//     createType__Bool();
-//     createType__Double();
-//     createType__File();
-
-//     createType__Type();
-
-//     // Generic versions are lazily created with their generic types
-//     createType__Array(nullptr);
-//     createType__Lambda({});
-// }

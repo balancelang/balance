@@ -130,6 +130,7 @@ public:
     bool hasTypeErrors();
     void reportTypeErrors();
     bool isTypeImported(BalanceType * btype);
+    bool isFunctionImported(BalanceFunction * bfunction);
 };
 
 #endif

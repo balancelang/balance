@@ -144,6 +144,7 @@ add_executable(balance
                src/visitors/TokenVisitor.cpp
                src/builtins/BuiltinType.cpp
                src/builtins/natives/Int64.cpp
+               src/builtins/natives/Int64Pointer.cpp
                src/builtins/natives/Int8Pointer.cpp
                src/builtins/Any.cpp
                src/builtins/Type.cpp

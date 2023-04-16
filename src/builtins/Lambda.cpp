@@ -2,6 +2,7 @@
 
 #include "../Builtins.h"
 #include "../BalancePackage.h"
+#include "assert.h"
 
 extern BalancePackage *currentPackage;
 
@@ -31,22 +32,28 @@ void LambdaBalanceType::finalizeFunctions() {
 BalanceType * LambdaBalanceType::registerGenericType(std::vector<BalanceType *> generics) {
     BalanceType * lambdaType = new BalanceType(currentPackage->currentModule, "Lambda", generics);
     currentPackage->currentModule->addType(lambdaType);
+    return lambdaType;
+}
 
-    vector<Type *> functionParameterTypes;
+void LambdaBalanceType::tryFinalizeGenericType(BalanceType * balanceType) {
+    assert(balanceType->name == "Lambda");
+
+    std::vector<llvm::Type *> functionParameterTypes;
     //                                              -1 since last parameter is return
-    for (int i = 0; i < generics.size() - 1; i++) {
-        functionParameterTypes.push_back(generics[i]->getReferencableType());
+    for (int i = 0; i < balanceType->generics.size() - 1; i++) {
+        if (!balanceType->generics[i]->finalized()) {
+            return;
+        }
+        functionParameterTypes.push_back(balanceType->generics[i]->getReferencableType());
     }
 
     ArrayRef<Type *> parametersReference(functionParameterTypes);
 
-    Type * returnType = generics.back()->getReferencableType();
-    lambdaType->internalType = FunctionType::get(returnType, parametersReference, false);
-    lambdaType->hasBody = true;
+    BalanceType * returnType = balanceType->generics.back();
+    if (!returnType->finalized()) {
+        return;
+    }
 
-    createDefaultConstructor(currentPackage->currentModule, lambdaType);
-
-    currentPackage->currentModule->currentType = nullptr;
-
-    return lambdaType;
+    balanceType->internalType = FunctionType::get(returnType->getReferencableType(), parametersReference, false);
+    balanceType->hasBody = true;
 }

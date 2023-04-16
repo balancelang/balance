@@ -7,6 +7,7 @@
 #include "builtins/BuiltinType.h"
 #include "builtins/natives/Int8Pointer.h"
 #include "builtins/natives/Int64.h"
+#include "builtins/natives/Int64Pointer.h"
 #include "builtins/Int.h"
 #include "builtins/Any.h"
 #include "builtins/Array.h"

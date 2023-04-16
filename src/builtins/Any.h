@@ -12,6 +12,9 @@ class AnyType : public BuiltinType {
 
     void registerFunctions() override;
     void finalizeFunctions() override;
+
+    void registerMethod_getType();
+    void finalizeMethod_getType();
 };
 
 #endif

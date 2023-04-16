@@ -1,9 +1,7 @@
 #ifndef INT_64_POINTER_TYPE_H
 #define INT_64_POINTER_TYPE_H
 
-#include "BuiltinType.h"
-
-extern BalancePackage *currentPackage;
+#include "../BuiltinType.h"
 
 class Int64PointerType : public BuiltinType {
     void registerType() override;

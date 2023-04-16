@@ -5,13 +5,13 @@
 extern BalancePackage *currentPackage;
 
 void NoneBalanceType::registerType() {
-    this->balanceType = new BalanceType(currentPackage->currentModule, "None", llvm::Type::getVoidTy(*currentPackage->context));
+    this->balanceType = new BalanceType(currentPackage->currentModule, "None");
     this->balanceType->isSimpleType = true;
     currentPackage->currentModule->addType(this->balanceType);
 }
 
 void NoneBalanceType::finalizeType() {
-
+    this->balanceType->internalType = llvm::Type::getVoidTy(*currentPackage->context);
 }
 
 void NoneBalanceType::registerMethods() {

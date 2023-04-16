@@ -30,7 +30,7 @@ void FatPointerType::registerMethods() {
 }
 
 void FatPointerType::finalizeMethods() {
-    // createDefaultConstructor(currentPackage->currentModule, btype);
+
 }
 
 void FatPointerType::registerFunctions() {
