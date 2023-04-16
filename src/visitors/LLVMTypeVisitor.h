@@ -20,6 +20,12 @@ public:
     std::any visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) override;
     std::any visitClassProperty(BalanceParser::ClassPropertyContext *ctx) override;
     std::any visitInterfaceDefinition(BalanceParser::InterfaceDefinitionContext *ctx) override;
+    std::any visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) override;
+
+    std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
+    std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
+    std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
+    std::any visitLambdaType(BalanceParser::LambdaTypeContext *ctx) override;
 };
 
 #endif

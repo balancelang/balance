@@ -11,16 +11,19 @@
 #include "visitors/InterfaceVTableVisitor.h"
 #include "visitors/ClassVTableVisitor.h"
 #include "visitors/TypeRegistrationVisitor.h"
+#include "visitors/GenericTypeRegistrationVisitor.h"
 #include "visitors/InheritanceVisitor.h"
 #include "visitors/FinalizePropertiesVisitor.h"
+#include "standard-library/Range.h"
+#include "builtins/Any.h"
 
 #include "config.h"
+#include "assert.h"
 
 #include <map>
 #include <queue>
 #include "rapidjson/filereadstream.h"
 #include "rapidjson/document.h"
-#include <filesystem>
 
 namespace fs = std::filesystem;
 
@@ -63,7 +66,7 @@ void BalancePackage::populate()
     {
         std::string entrypointName = itr->name.GetString();
         std::string entrypointValue = itr->value.GetString();
-        std::string entrypointPath = this->packagePath + "/" + entrypointValue;
+        std::string entrypointPath = this->packageRootPath / entrypointValue;
         this->entrypoints[entrypointName] = entrypointPath;
 
         // Check if entrypointValue exists?
@@ -76,15 +79,18 @@ void BalancePackage::populate()
     // Dependencies
 }
 
-bool BalancePackage::execute()
+bool BalancePackage::execute(bool isScript)
 {
-    if (fileExist(this->packageJsonPath)) {
+    if (isScript) {
+        // Already has entryPoint then
+        this->name = "default";
+    } else if (fileExist(this->packageJsonPath)) {
         // Load json file into properties
         this->load();
         this->populate();
     } else {
         // Find all balance scripts and add as entrypoints
-        for (const auto & entry : fs::directory_iterator(this->packagePath)) {
+        for (const auto & entry : fs::directory_iterator(this->packageRootPath)) {
             auto extension = entry.path().extension().string();
             if (extension == ".bl") {
                 std::string filename = entry.path().filename().string();
@@ -94,172 +100,233 @@ bool BalancePackage::execute()
         }
     }
 
-    return this->compileAndPersist();
+    std::filesystem::path p(this->entrypoint);
+    auto source = new BalanceSource();
+    source->filePath = std::filesystem::canonical(p);
+
+    return this->compile(p.stem(), {source});
 }
 
-bool BalancePackage::executeAsScript() {
-    this->entrypoints["default"] = this->entrypoint;
-    return this->compileAndPersist();
-}
-
-bool BalancePackage::compileAndPersist()
-{
-    bool compileSuccess = true;
-    for (auto const &entryPoint : this->entrypoints)
-    {
-        // For now we reset and build each entryPoint from scratch. We can probably optimize that some day.
-        this->reset();
-
-        bool success = true;
-
-        this->logger("Compiling entrypoint: " + entryPoint.second);
-
-        // (PackageVisitor.cpp) Build import tree
-        this->buildDependencyTree(entryPoint.second);
-
-        this->logger("Creating builtins entrypoint");
-        createBuiltins();
-
-        // Add builtins to modules
-        this->logger("Adding builtins to modules");
-        this->addBuiltinsToModules();
-
-        // TypeRegistrationVisitor.cpp - visit all types so they exist
-        this->logger("Registering types");
-        success = this->registerTypes();
-        if (!success) {
-            compileSuccess = false;
-            continue;
-        }
-
-        // Visit inheritance and register base classes
-        success = this->registerInheritance();
-        if (!success) {
-            compileSuccess = false;
-            continue;
-        }
-
-        // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
-        this->logger("Building textual representations");
-        success = this->buildTextualRepresentations();
-        if (!success) {
-            compileSuccess = false;
-            continue;
-        }
-
-        success = this->finalizeProperties();
-        if (!success) {
-            compileSuccess = false;
-            continue;
-        }
-
-        // Type checking, also creates all class, class-methods and function definitions (textually only)
-        this->logger("Running type checking");
-        success = this->typeChecking();
-        if (!success) {
-            compileSuccess = false;
-            continue;
-        }
-
-        if (this->isAnalyzeOnly) {
-            continue;
-        }
-
-        // Run loop that builds LLVM functions and handles cycles
-        this->buildStructures();
-
-        // Build vtables for interfaces etc.
-        this->buildVTables();
-
-        // Make sure all classes have constructors (we need constructor function to make forward declaration)
-        this->buildConstructors();
-
-        // Make sure all modules have forward declarations of imported classes etc.
-        this->buildForwardDeclarations();
-
-        // (Visitor.cpp) Compile everything, now that functions, classes etc exist
-        this->compile();
-
-        // Persist modules as binary
-        this->writePackageToBinary(entryPoint.first);
-    }
-
-    return compileSuccess;
-}
-
-// TODO: Combine this function and the above
-bool BalancePackage::executeString(std::string program) {
+bool BalancePackage::compile(std::string name, std::vector<BalanceSource *> sources) {
     this->reset();
 
-    bool success = true;
-    currentPackage = this;
-    modules["program"] = new BalanceModule("program", true);
-    modules["program"]->initializeModule();
-    modules["program"]->generateASTFromString(program);
-    this->currentModule = modules["program"];
+    BalanceModule * bmodule = new BalanceModule(name, sources, true);
+    this->buildDependencyTree(bmodule);
 
-    createBuiltins();
-    this->addBuiltinsToModules();
+    BalanceModule * builtinsModule = new BalanceModule("builtins", {}, false);
+    currentPackage->builtinModules["builtins"] = builtinsModule;
+    builtinsModule->initializeTypeInfoStruct();
 
-    this->logger("Registering types");
-    success = this->registerTypes();
-    if (!success) {
-        return false;
+    this->addBuiltinSource("standard-library/range", getStandardLibraryRangeCode());
+
+    registerTypesAndFunctions();
+    finalizeTypesAndFunctions();
+
+    this->compileBuiltins();
+
+    // TODO: Some builtin functions are not found until after compiling - should be a visitor step after registerTypes
+    this->addBuiltinFunctionsToModules(this->modules);
+
+    bool success = this->compileModules(this->modules);
+    if (success) {
+        this->writePackageToBinary(this->name);
     }
 
-    // Visit inheritance and register base classes
-    success = this->registerInheritance();
-    if (!success) {
-        return false;
+    return success;
+}
+
+// Register everything - no LLVM considered in this step
+void BalancePackage::registerTypesAndFunctions() {
+    // Register native types (Int32, Int64, ...)
+    registerNativeTypes();
+
+    // Register reference types (Int, String, Double, ...)
+    registerBuiltinTypes();
+
+    // Import native/builtin types in rest of builtinModules
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Register other builtin types (Range, ...)
+    this->registerTypes(this->builtinModules);
+
+    // Import new builtin types into core builtins (e.g. if they need them in functions)
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Register all generic types
+    this->registerGenericTypes(this->builtinModules);
+
+    // Make sure generic types are available in all modules
+    this->addBuiltinTypesToModules(this->builtinModules);
+
+    // Import all builtins to the user modules
+    this->addBuiltinTypesToModules(this->modules);
+
+    // Register user types
+    this->registerTypes(this->modules);
+    this->registerGenericTypes(this->modules);
+
+    // Register all builtin functions
+    registerBuiltinMethods();
+    registerBuiltinFunctions();
+
+    this->addBuiltinFunctionsToModules(this->builtinModules);
+    this->addBuiltinFunctionsToModules(this->modules);
+
+    // Create typeInfoTables
+    std::vector<BalanceType *> allTypes = this->getAllTypes();
+    this->initializeTypeInfoTables(allTypes);
+
+    this->registerInitializers(this->builtinModules);
+    this->registerInitializers(this->modules);
+}
+
+// Finalize everything - finalize LLVM types and functions
+void BalancePackage::finalizeTypesAndFunctions() {
+    finalizeNativeTypes();
+    finalizeBuiltinTypes();
+
+    this->finalizeInitializers({ { "builtins", this->builtinModules["builtins"] } });
+
+    finalizeBuiltinFunctions();
+    finalizeBuiltinMethods();
+
+    // Refresh all imports
+    // finalizeImports({ { "builtins", this->builtinModules["builtins"] } });
+    finalizeImports(builtinModules);
+    finalizeImports(modules);
+}
+
+void BalancePackage::finalizeImports(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->importedTypes) {
+            // Import each class method
+            for (BalanceFunction *bfunction : btype->getMethods()) {
+                createImportedFunction(currentPackage->currentModule, bfunction);
+            }
+
+            // Import default constructor
+            if (!btype->isSimpleType) {
+                createImportedFunction(currentPackage->currentModule, btype->getInitializer());
+            }
+
+            // Import additional constructors
+            for (BalanceFunction * constructor : btype->constructors) {
+                createImportedFunction(currentPackage->currentModule, constructor);
+            }
+        }
+
+        for (BalanceFunction * bfunction : currentPackage->currentModule->importedFunctions) {
+            createImportedFunction(currentPackage->currentModule, bfunction);
+        }
+    }
+}
+
+void BalancePackage::registerInitializers(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->types) {
+            registerInitializer(btype);
+        }
+    }
+}
+
+void BalancePackage::finalizeInitializers(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules)
+    {
+        currentPackage->currentModule = x.second;
+        for (BalanceType * btype : currentPackage->currentModule->types) {
+            finalizeInitializer(btype);
+        }
+    }
+}
+
+
+void BalancePackage::initializeTypeInfoTables(std::vector<BalanceType *> types) {
+    BalanceModule *bmodule = this->builtinModules["builtins"];
+    std::vector<Constant *> typeInfoVariables = {};
+    for (int i = 0; i < types.size(); i++) {
+        BalanceType * btype = types[i];
+        btype->typeIndex = i;
+
+        // Create typeInfo for type
+        ArrayRef<Constant *> valuesRef({
+            // typeId
+            ConstantInt::get(*currentPackage->context, llvm::APInt(32, btype->typeIndex, true)),
+            // name
+            bmodule->builder->CreateGlobalStringPtr(btype->toString())
+        });
+        Constant * typeInfoData = ConstantStruct::get(currentPackage->typeInfoStructType, valuesRef);
+        btype->typeInfoVariable = typeInfoData;
+        typeInfoVariables.push_back(btype->typeInfoVariable);
     }
 
-    success = this->finalizeProperties();
-    if (!success) {
-        return false;
-    }
+    llvm::ArrayType * arrayType = llvm::ArrayType::get(this->typeInfoStructType, typeInfoVariables.size());
+    ArrayRef<Constant *> valuesRef(typeInfoVariables);
+    Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
+    this->typeInfoTable = new llvm::GlobalVariable(*bmodule->module, arrayType, true, llvm::GlobalValue::ExternalLinkage, typeTableData, "TypeTable");
+}
 
-    // (StructureVisitor.cpp) Visit all class, class-methods and function definitions (textually only)
-    success = this->buildTextualRepresentations();
-    if (!success) {
-        return false;
-    }
+bool BalancePackage::compileBuiltins() {
+    this->currentModule = currentPackage->builtinModules["builtins"];
+    bool success = this->compileModules(this->builtinModules);
 
-    success = this->finalizeProperties();
-    if (!success) {
-        return false;
-    }
+    // Finalize builtins module
+    currentPackage->builtinModules["builtins"]->builder->CreateRet(ConstantInt::get(*currentPackage->context, APInt(32, 0)));
 
-    // Type checking, also creates all class, class-methods and function definitions (textually only)
-    success = this->typeChecking();
-    if (!success) {
-        return false;
-    }
+    return success;
+}
 
-    // Run loop that builds LLVM functions and handles cycles
-    this->buildStructures();
-
-    // Build vtables for interfaces etc.
-    this->buildVTables();
-
-    // Make sure all classes have constructors (we need constructor function to make forward declaration)
-    this->buildConstructors();
-
-    // Make sure all modules have forward declarations of imported classes etc.
-    this->buildForwardDeclarations();
-
-    // (Visitor.cpp) Compile everything, now that functions, classes etc exist
-    this->compile();
-
-    // Persist modules as binary
-    this->writePackageToBinary("program");
-
+bool BalancePackage::addBuiltinSource(std::string name, std::string code) {
+    auto source = new BalanceSource();
+    source->programString = code;
+    BalanceModule * bmodule = new BalanceModule(name, {source}, false);
+    bmodule->generateAST();
+    currentPackage->builtinModules[bmodule->name] = bmodule;
     return true;
 }
 
-void BalancePackage::buildConstructors() {
+bool BalancePackage::compileModules(std::map<std::string, BalanceModule *> modules) {
+    bool success = true;
+
+    success = this->registerInheritance(modules);
+    if (!success) return false;
+
+    success = this->buildTextualRepresentations(modules);
+    if (!success) return false;
+
+    success = this->finalizeProperties(modules);
+    if (!success) return false;
+
+    success = this->typeChecking(modules);
+    if (!success) return false;
+
+    this->buildStructures(modules);
+    this->buildVTables(modules);
+    this->buildConstructors(modules);
+    this->buildForwardDeclarations(modules);
+    this->llvmCompile(modules);
+    return true;
+}
+
+bool BalancePackage::executeString(std::string program) {
+    currentPackage = this;
+    this->name = "program";
+    auto source = new BalanceSource();
+    source->programString = program;
+    return this->compile("program", {source});
+}
+
+void BalancePackage::buildConstructors(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         this->currentModule = bmodule;
 
         // Visit entire tree
@@ -268,7 +335,8 @@ void BalancePackage::buildConstructors() {
     }
 }
 
-void BalancePackage::buildStructures()
+// TODO: Does this need to run with a Visitor? Can we just iterate modules/types?
+void BalancePackage::buildStructures(std::map<std::string, BalanceModule *> modules)
 {
     std::queue<BalanceModule *> queue;
 
@@ -283,6 +351,10 @@ void BalancePackage::buildStructures()
         BalanceModule *bmodule = queue.front();
         this->currentModule = bmodule;
         queue.pop();
+
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
 
         // Visit entire tree
         LLVMTypeVisitor visitor;
@@ -299,9 +371,8 @@ void BalancePackage::buildStructures()
         }
 
         // Check all functions
-        for (auto const &x : bmodule->functions) {
-            BalanceFunction * bfunction = x.second;
-            if (bfunction->function == nullptr) {
+        for (BalanceFunction * bfunction : bmodule->functions) {
+            if (!bfunction->finalized()) {
                 isFinalized = false;
                 break;
             }
@@ -323,10 +394,14 @@ void BalancePackage::buildStructures()
     }
 }
 
-void BalancePackage::buildVTables() {
+void BalancePackage::buildVTables(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         this->currentModule = bmodule;
 
         // Visit entire tree
@@ -337,6 +412,10 @@ void BalancePackage::buildVTables() {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         this->currentModule = bmodule;
 
         // Visit entire tree
@@ -345,11 +424,15 @@ void BalancePackage::buildVTables() {
     }
 }
 
-void BalancePackage::buildForwardDeclarations()
+void BalancePackage::buildForwardDeclarations(std::map<std::string, BalanceModule *> modules)
 {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         this->currentModule = bmodule;
 
         // Visit entire tree
@@ -358,35 +441,60 @@ void BalancePackage::buildForwardDeclarations()
     }
 }
 
+void BalancePackage::addBuiltinTypesToModules(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : builtinModules) {
+        BalanceModule * builtinsModule = x.second;
 
-void BalancePackage::addBuiltinsToModules() {
-    BalanceModule * builtinsModule = this->builtins;
+        for (auto const &x : modules)
+        {
+            BalanceModule *bmodule = x.second;
+            if (bmodule == builtinsModule) {
+                continue;
+            }
 
-    for (auto const &x : modules)
-    {
-        BalanceModule *bmodule = x.second;
-        this->currentModule = bmodule;
+            this->currentModule = bmodule;
 
-        for (auto const &x : builtinsModule->functions) {
-            BalanceFunction * bfunction = x.second;
-            createImportedFunction(bmodule, bfunction);
-        }
+            for (BalanceType * bclass : builtinsModule->types) {
+                createImportedClass(bmodule, bclass);
+            }
 
-        for (BalanceType * bclass : builtinsModule->types) {
-            createImportedClass(bmodule, bclass);
-        }
-
-        for (auto const &x : builtinsModule->genericTypes) {
-            // TODO: Assume we can just import them when we know the generic types
-            bmodule->genericTypes[x.first] = x.second;
+            for (auto const &x : builtinsModule->genericTypes) {
+                // TODO: Assume we can just import them when we know the generic types
+                bmodule->genericTypes[x.first] = x.second;
+            }
         }
     }
 }
 
-bool BalancePackage::buildTextualRepresentations()
+void BalancePackage::addBuiltinFunctionsToModules(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : builtinModules) {
+        BalanceModule * builtinsModule = x.second;
+
+        for (auto const &x : modules)
+        {
+            BalanceModule *bmodule = x.second;
+            if (bmodule->tree == nullptr) {
+                continue;
+            }
+
+            this->currentModule = bmodule;
+
+            // Import functions
+            for (BalanceFunction * bfunction : builtinsModule->functions) {
+                createImportedFunction(bmodule, bfunction);
+            }
+        }
+    }
+}
+
+bool BalancePackage::buildTextualRepresentations(std::map<std::string, BalanceModule *> modules)
 {
     for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         try {
             this->currentModule = bmodule;
 
@@ -402,9 +510,13 @@ bool BalancePackage::buildTextualRepresentations()
     return true;
 }
 
-bool BalancePackage::finalizeProperties() {
+bool BalancePackage::finalizeProperties(std::map<std::string, BalanceModule *> modules) {
     for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         try {
             this->currentModule = bmodule;
 
@@ -420,17 +532,25 @@ bool BalancePackage::finalizeProperties() {
     return true;
 }
 
-bool BalancePackage::registerInheritance()
+bool BalancePackage::registerInheritance(std::map<std::string, BalanceModule *> modules)
 {
-    BalanceType * anyType = builtins->getType("Any");
-    for (BalanceType * btype : builtins->types) {
-        if (btype->parents.size() == 0 && btype->name != "Any") {
-            btype->addParent(anyType);
+    BalanceType * anyType = currentPackage->builtinModules["builtins"]->getType("Any");
+
+    for (auto const &x : currentPackage->builtinModules) {
+        BalanceModule *bmodule = x.second;
+        for (BalanceType * btype : bmodule->types) {
+            if (btype->parents.size() == 0 && btype->name != "Any") {
+                btype->addParent(anyType);
+            }
         }
     }
 
     for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         BalanceType * anyType = bmodule->getType("Any");
         try {
             this->currentModule = bmodule;
@@ -454,27 +574,58 @@ bool BalancePackage::registerInheritance()
     return true;
 }
 
-bool BalancePackage::registerTypes()
+bool BalancePackage::registerTypes(std::map<std::string, BalanceModule *> modules)
 {
     for (auto const &x : modules) {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
         try {
             this->currentModule = bmodule;
 
             // Visit entire tree
             TypeRegistrationVisitor visitor;
             visitor.visit(this->currentModule->tree);
+        } catch (const TypeRegistrationVisitorException& myException) {
+            bmodule->reportTypeErrors();
+            return false;
+        }
 
-            BalanceType * typeInfoType = currentPackage->builtins->getType("TypeInfo");
-            std::vector<Constant *> typeInfoVariables = {};
-            for (BalanceType * btype : bmodule->types) {
-                typeInfoVariables.push_back(btype->typeInfoVariable);
+        // Assert
+        for (BalanceType * btype : bmodule->types) {
+            assert(btype->internalType == nullptr);
+        }
+    }
+
+    return true;
+}
+
+bool BalancePackage::registerGenericTypes(std::map<std::string, BalanceModule *> modules) {
+    for (auto const &x : modules) {
+        BalanceModule *bmodule = x.second;
+
+        try {
+            this->currentModule = bmodule;
+
+            if (bmodule->tree != nullptr) {
+                // Visit entire tree
+                GenericTypeRegistrationVisitor visitor;
+                visitor.visit(this->currentModule->tree);
             }
 
-            ArrayRef<Constant *> valuesRef(typeInfoVariables);
-            llvm::ArrayType * arrayType = llvm::ArrayType::get(bmodule->typeInfoStructType, typeInfoVariables.size());
-            Constant * typeTableData = ConstantArray::get(arrayType, valuesRef);
-            bmodule->typeInfoTable->setInitializer(typeTableData);
+            // Replace generic types with concrete types which should be known by now.
+            for (BalanceType * btype : bmodule->types) {
+                if (btype->generics.size() > 0) {
+                    BalanceType * baseType = bmodule->genericTypes[btype->name];
+                    std::map<std::string, BalanceType *> typeMapping = {};
+                    for (int i = 0; i < baseType->generics.size(); i++) {
+                        typeMapping[baseType->generics[i]->name] = btype->generics[i];
+                    }
+
+                    btype->genericsMapping = typeMapping;
+                }
+            }
         } catch (const TypeRegistrationVisitorException& myException) {
             bmodule->reportTypeErrors();
             return false;
@@ -484,23 +635,27 @@ bool BalancePackage::registerTypes()
     return true;
 }
 
-void BalancePackage::buildLanguageServerTokens() {
-    for (auto const &x : modules)
-    {
-        BalanceModule *bmodule = x.second;
-        this->currentModule = bmodule;
+// void BalancePackage::buildLanguageServerTokens() {
+//     for (auto const &x : modules)
+//     {
+//         BalanceModule *bmodule = x.second;
+//         this->currentModule = bmodule;
 
-        // Visit entire tree
-        TokenVisitor visitor;
-        visitor.visit(this->currentModule->tree);
-    }
-}
+//         // Visit entire tree
+//         TokenVisitor visitor;
+//         visitor.visit(this->currentModule->tree);
+//     }
+// }
 
-void BalancePackage::compile()
+void BalancePackage::llvmCompile(std::map<std::string, BalanceModule *> modules)
 {
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         currentPackage->currentModule = bmodule;
 
         // Visit entire tree
@@ -525,39 +680,30 @@ BalanceModule *BalancePackage::getNextElementOrNull()
     return nullptr;
 }
 
-void BalancePackage::buildDependencyTree(std::string rootPath)
+void BalancePackage::buildDependencyTree(BalanceModule * bmodule)
 {
-    std::string rootPathWithoutExtension = rootPath.substr(0, rootPath.find_last_of("."));
-    modules[rootPathWithoutExtension] = new BalanceModule(rootPathWithoutExtension, true);
-    modules[rootPathWithoutExtension]->initializeModule();
-    this->currentModule = modules[rootPathWithoutExtension];
-    this->currentModule->generateASTFromPath();
-    modules[rootPathWithoutExtension]->finishedDiscovery = true;
-
-    this->logger("Running PackageVisitor");
     PackageVisitor visitor;
-    visitor.visit(this->currentModule->tree);
-
-    this->logger("Found " + std::to_string(modules.size()) + " modules");
-    if (modules.size() > 1)
+    BalanceModule *module = bmodule;
+    this->modules[bmodule->name] = bmodule;
+    while (module != nullptr)
     {
-        BalanceModule *module = getNextElementOrNull();
-        while (module != nullptr)
-        {
-            this->currentModule = module;
-            this->currentModule->generateASTFromPath();
-            visitor.visit(module->tree);
-            module->finishedDiscovery = true;
-            module = getNextElementOrNull();
-        }
+        this->currentModule = module;
+        this->currentModule->generateAST();
+        visitor.visit(module->tree);
+        module->finishedDiscovery = true;
+        module = getNextElementOrNull();
     }
 }
 
-bool BalancePackage::typeChecking() {
+bool BalancePackage::typeChecking(std::map<std::string, BalanceModule *> modules) {
     bool anyError = false;
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
+        if (bmodule->tree == nullptr) {
+            continue;
+        }
+
         this->currentModule = bmodule;
 
         // Visit entire tree
@@ -572,7 +718,7 @@ bool BalancePackage::typeChecking() {
     return !anyError;
 }
 
-void writeModuleToBinary(BalanceModule * bmodule) {
+void BalancePackage::writeModuleToBinary(BalanceModule * bmodule) {
     auto TargetTriple = sys::getDefaultTargetTriple();
 
     std::string Error;
@@ -599,13 +745,19 @@ void writeModuleToBinary(BalanceModule * bmodule) {
     bmodule->module->setDataLayout(TargetMachine->createDataLayout());
     bmodule->module->setTargetTriple(TargetTriple);
 
-    std::string objectFileName = bmodule->module->getSourceFileName() + ".o";
+    std::filesystem::path p = this->buildDirectory / (bmodule->module->getSourceFileName() + ".o");
+
+    if (!std::filesystem::is_directory(p.parent_path())) {
+        std::filesystem::create_directories(p.parent_path());
+    }
+
+    std::string objectFileName = std::filesystem::absolute(p).string();
     std::error_code EC;
     raw_fd_ostream dest(objectFileName, EC, sys::fs::OF_None);
 
     if (EC)
     {
-        errs() << "Could not open file: " << EC.message();
+        errs() << EC.message();
         return;
     }
 
@@ -630,7 +782,18 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
     InitializeAllAsmParsers();
     InitializeAllAsmPrinters();
 
-    writeModuleToBinary(this->builtins);
+    // Initialize build directory
+    if (std::filesystem::is_directory(this->buildDirectory)) {
+        std::filesystem::remove_all(this->buildDirectory);
+    }
+    std::filesystem::create_directories(this->buildDirectory);
+
+    for (auto const &x : this->builtinModules)
+    {
+        BalanceModule *bmodule = x.second;
+        writeModuleToBinary(bmodule);
+    }
+
     for (auto const &x : this->modules)
     {
         BalanceModule *bmodule = x.second;
@@ -647,13 +810,18 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
     std::vector<std::string> objectFilePaths;
 
     // Add builtins
-    objectFilePaths.push_back("builtins.o");
-    clangArguments.push_back("builtins.o");
+    for (auto const &x : builtinModules)
+    {
+        BalanceModule *bmodule = x.second;
+        std::string objectFileName = this->buildDirectory / (bmodule->module->getSourceFileName() + ".o");
+        objectFilePaths.push_back(objectFileName);
+        clangArguments.push_back(objectFileName);
+    }
 
     for (auto const &x : modules)
     {
         BalanceModule *bmodule = x.second;
-        std::string objectFileName = bmodule->module->getSourceFileName() + ".o";
+        std::string objectFileName = this->buildDirectory / (bmodule->module->getSourceFileName() + ".o");
         objectFilePaths.push_back(objectFileName);
         clangArguments.push_back(objectFileName);
     }
@@ -674,9 +842,36 @@ void BalancePackage::writePackageToBinary(std::string entrypointName)
         SmallVector<std::pair<int, const clang::driver::Command *>, 4> FailingCommands;
         TheDriver.ExecuteCompilation(*C, FailingCommands);
     }
+}
 
-    for (std::string objectFilePath : objectFilePaths)
+std::vector<BalanceType *> BalancePackage::getAllTypes() {
+    std::vector<BalanceType *> allTypes = {};
+
+    for (auto const &x : this->builtinModules)
     {
-        remove(objectFilePath.c_str());
+        BalanceModule *bmodule = x.second;
+        for (BalanceType * btype : bmodule->types) {
+            allTypes.push_back(btype);
+        }
     }
+
+    for (auto const &x : this->modules)
+    {
+        BalanceModule *bmodule = x.second;
+        for (BalanceType * btype : bmodule->types) {
+            allTypes.push_back(btype);
+        }
+    }
+
+    return allTypes;
+}
+
+BuiltinType * BalancePackage::getBuiltinType(std::string typeName) {
+    for (BuiltinType * btype : this->builtinTypes) {
+        if (btype->balanceType->name == typeName) {
+            return btype;
+        }
+    }
+
+    return nullptr;
 }

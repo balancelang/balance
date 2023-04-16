@@ -9,14 +9,56 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Bool_toString() {
-    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
+void BoolType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Bool");
+    this->balanceType->isSimpleType = true;
+    currentPackage->currentModule->addType(this->balanceType);
+}
+
+void BoolType::finalizeType() {
+    this->balanceType->internalType = Type::getInt1Ty(*currentPackage->context);
+}
+
+void BoolType::registerMethods() {
+    this->registerMethod_toString();
+}
+
+void BoolType::finalizeMethods() {
+    this->finalizeMethod_toString();
+}
+
+void BoolType::registerFunctions() {
+
+}
+
+void BoolType::finalizeFunctions() {
+
+}
+
+void BoolType::registerMethod_toString() {
+    std::string functionName = "toString";
     BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(this->balanceType, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
+    this->balanceType->addMethod(functionName, bfunction);
+}
+
+void BoolType::finalizeMethod_toString() {
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceType * boolType = currentPackage->currentModule->getType("Bool");
+
+    ArrayRef<Type *> parametersReference({
+        boolType->getReferencableType()
+    });
 
     BalanceParameter * valueParameter = new BalanceParameter(boolType, "value");
 
     std::string functionName = "toString";
-    std::string functionNameWithClass = "Bool_" + functionName;
 
     // Create BalanceFunction
     std::vector<BalanceParameter *> parameters = {
@@ -24,18 +66,11 @@ void createMethod_Bool_toString() {
     };
 
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        boolType->getReferencableType()
-    });
 
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * boolToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+    llvm::Function * boolToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, toStringFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", boolToStringFunc);
 
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
-    bfunction->function = boolToStringFunc;
+    toStringFunction->setLlvmFunction(boolToStringFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -53,7 +88,7 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
     int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
@@ -79,7 +114,7 @@ void createMethod_Bool_toString() {
 
     currentPackage->currentModule->builder->SetInsertPoint(thenBlock);
     // if value == 0 (false)                                                                        // 5 = 'false'
-    Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 5, true);
+    Value * sizeValueFalse = (Value *) ConstantInt::get(IntegerType::getInt64Ty(*currentPackage->context), 5, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueFalse, sizeGEP);
     Value * arrayValueFalse = geti8StrVal(*currentPackage->currentModule->module, "false", "false", true);
     currentPackage->currentModule->builder->CreateStore(arrayValueFalse, pointerGEP);
@@ -89,7 +124,7 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->SetInsertPoint(elseBlock);
 
     // if value != 0 (true)                                                                         // 4 = 'true'
-    Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt32Ty(*currentPackage->context), 4, true);
+    Value * sizeValueTrue = (Value *) ConstantInt::get(IntegerType::getInt64Ty(*currentPackage->context), 4, true);
     currentPackage->currentModule->builder->CreateStore(sizeValueTrue, sizeGEP);
 
     Value * arrayValueTrue = geti8StrVal(*currentPackage->currentModule->module, "true", "true", true);
@@ -101,18 +136,5 @@ void createMethod_Bool_toString() {
     currentPackage->currentModule->builder->SetInsertPoint(mergeBlock);
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
 
-void createType__Bool() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Bool");
-    bclass->internalType = Type::getInt1Ty(*currentPackage->context);
-    bclass->isSimpleType = true;
-    bclass->hasBody = true;
-
-    currentPackage->currentModule->addType(bclass);
-    currentPackage->currentModule->currentType = bclass;
-
-    createMethod_Bool_toString();
-
-    currentPackage->currentModule->currentType = nullptr;
 }

@@ -7,6 +7,12 @@ void BalanceType::addMethod(std::string name, BalanceFunction *method) {
     this->methods[name] = method;
 }
 
+void BalanceType::addConstructor(std::string name, std::vector<BalanceParameter *> parameters) {
+    std::string constructorName = name + std::to_string(this->constructors.size());
+    BalanceFunction * constructor = new BalanceFunction(currentPackage->currentModule, this, constructorName, parameters, currentPackage->currentModule->getType("None"));
+    this->constructors.push_back(constructor);
+}
+
 std::vector<BalanceFunction *> BalanceType::getMethods() {
     std::vector<BalanceFunction *> result = {};
     for (auto const &x : this->methods) {
@@ -65,22 +71,18 @@ std::string BalanceType::toString() {
     return result;
 }
 
-bool BalanceType::equalTo(BalanceModule *bmodule, std::string name, std::vector<BalanceType *> generics) {
-    return this->equalTo(new BalanceType(bmodule, name, generics));
-}
-
-bool BalanceType::equalTo(BalanceType *other) {
-    if (this->name != other->name) {
+bool BalanceType::equalTo(std::string name, std::vector<BalanceType *> generics) {
+    if (this->name != name) {
         return false;
     }
 
-    if (this->generics.size() != other->generics.size()) {
+    if (this->generics.size() != generics.size()) {
         return false;
     }
 
     for (int i = 0; i < this->generics.size(); i++) {
         BalanceType *thisI = this->generics[i];
-        BalanceType *otherI = other->generics[i];
+        BalanceType *otherI = generics[i];
 
         bool subResult = thisI->equalTo(otherI);
         if (!subResult) {
@@ -91,13 +93,16 @@ bool BalanceType::equalTo(BalanceType *other) {
     return true;
 }
 
+bool BalanceType::equalTo(BalanceType *other) {
+    return this->equalTo(other->name, other->generics);
+}
+
 void BalanceType::addParent(BalanceType * parentType) {
     this->parents.push_back(parentType);
 }
 
-llvm::Function * BalanceType::getConstructor() {
-    // TODO: When constructor overloading, change this signature to include e.g. parameters?
-    return this->constructor;
+BalanceFunction * BalanceType::getInitializer() {
+    return this->initializer;
 }
 
 BalanceProperty * BalanceType::getProperty(std::string propertyName) {
@@ -116,7 +121,7 @@ bool BalanceType::finalized() {
     }
 
     for (auto const &x : this->methods) {
-        if (x.second->function == nullptr) {
+        if (!x.second->finalized()) {
             return false;
         }
     }
@@ -154,4 +159,25 @@ vector<BalanceType *> BalanceType::getHierarchy() {
     }
 
     return result;
+}
+
+BalanceFunction * BalanceType::getConstructor(std::vector<BalanceType *> parameters) {
+    for (BalanceFunction * constructor : this->constructors) {
+        if (constructor->parameters.size() != parameters.size()) {
+            continue;
+        }
+        bool hasError = false;
+        for (int i = 0; i < constructor->parameters.size(); i++) {
+            if (!constructor->parameters[i]->balanceType->equalTo(parameters[i])) {
+                hasError = true;
+                break;
+            }
+        }
+
+        if (!hasError) {
+            return constructor;
+        }
+    }
+
+    return nullptr;
 }

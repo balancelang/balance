@@ -19,7 +19,13 @@ NEW                 : 'new';
 FROM                : 'from';
 IMPORT              : 'import';
 AS                  : 'as';
+IS                  : 'is';
+WHERE               : 'where';
 NONE                : 'None';
+SELF                : 'self';
+TO                  : 'to';
+FOR                 : 'for';
+IN                  : 'in';
 
 
 OPEN_BRACE          : '{';
@@ -29,6 +35,7 @@ CLOSE_BRACKET       : ']';
 OPEN_PARENS         : '(';
 CLOSE_PARENS        : ')';
 DOT                 : '.';
+PIPE                : '|';
 
 COMMA               : ',';
 COLON               : ':';

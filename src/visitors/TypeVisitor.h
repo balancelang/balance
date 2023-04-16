@@ -14,6 +14,7 @@ class TypeVisitor : public BalanceParserBaseVisitor
 public:
     std::string getText(antlr4::ParserRuleContext *ctx);
     std::any visitWhileStatement(BalanceParser::WhileStatementContext *ctx) override;
+    std::any visitForStatement(BalanceParser::ForStatementContext *ctx) override;
     std::any visitIfStatement(BalanceParser::IfStatementContext *ctx) override;
     std::any visitReturnStatement(BalanceParser::ReturnStatementContext *ctx) override;
     std::any visitNewAssignment(BalanceParser::NewAssignmentContext *ctx) override;
@@ -24,6 +25,7 @@ public:
     std::any visitRelationalExpression(BalanceParser::RelationalExpressionContext *ctx) override;
     std::any visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) override;
     std::any visitMultiplicativeExpression(BalanceParser::MultiplicativeExpressionContext *ctx) override;
+    std::any visitRange(BalanceParser::RangeContext *ctx) override;
     std::any visitVariable(BalanceParser::VariableContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
@@ -40,6 +42,8 @@ public:
     std::any visitNoneLiteral(BalanceParser::NoneLiteralContext *ctx) override;
     std::any visitClassExtendsImplements(BalanceParser::ClassExtendsImplementsContext *ctx) override;
     std::any visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) override;
+    std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
+    std::any visitLambdaType(BalanceParser::LambdaTypeContext *ctx) override;
 };
 
 #endif

@@ -1,0 +1,21 @@
+// Using iterable
+for (var i in new Range(10)) {
+    print(i)
+}
+
+// Using builtin range function (has 3 overloads)
+// for (var i in range(10)) {
+// for (var i in range(0, 10)) {
+for (var i in range(0, 100, 10)) {
+    print(i)
+}
+
+// Alternative syntax for range(0, 10)
+for (var i in 0 to 10) {
+    print(i)
+}
+
+// TODO: Not implemented
+// for (var i in [0, 1, 2, 3, 4]) {
+//     print(i)
+// }

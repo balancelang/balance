@@ -1,5 +1,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.7 FATAL_ERROR)
-project(Balance VERSION 0.0.11)
+project(Balance VERSION 0.0.12)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -14,6 +14,9 @@ set(LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING 1)
 find_package(Threads REQUIRED)
 # set(ENABLE_LLVM_SHARED ON)
 find_package(LLVM REQUIRED CONFIG)
+
+# For debug build:
+# find_package(LLVM EXACT REQUIRED CONFIG PATHS /path/to/built/llvm NO_DEFAULT_PATH)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
@@ -36,6 +39,9 @@ macro(find_program_or_die OUTPUT_VAR PROG_NAME DOCSTRING)
 endmacro()
 
 find_package(Clang REQUIRED)
+
+# For debug build:
+# find_package(Clang EXACT REQUIRED CONFIG PATHS /path/to/built/llvm-clang NO_DEFAULT_PATH)
 find_program_or_die( CLANGXX "clang++-12" "clang++ binary")
 execute_process(COMMAND "${CLANGXX}" "--version" OUTPUT_VARIABLE LLVM_CLANGXX_VERSION RESULT_VARIABLE CLANGXX_RES)
 
@@ -115,6 +121,7 @@ add_executable(balance
                src/Builtins.cpp
                src/BalancePackage.cpp
                src/Utilities.cpp
+               src/models/BalanceSource.cpp
                src/models/BalanceType.cpp
                src/models/BalanceValue.cpp
                src/models/BalanceFunction.cpp
@@ -125,6 +132,7 @@ add_executable(balance
                src/visitors/PackageVisitor.cpp
                src/visitors/StructureVisitor.cpp
                src/visitors/TypeRegistrationVisitor.cpp
+               src/visitors/GenericTypeRegistrationVisitor.cpp
                src/visitors/LLVMTypeVisitor.cpp
                src/visitors/TypeVisitor.cpp
                src/visitors/ClassVTableVisitor.cpp
@@ -134,6 +142,10 @@ add_executable(balance
                src/visitors/ForwardDeclarationVisitor.cpp
                src/visitors/ConstructorVisitor.cpp
                src/visitors/TokenVisitor.cpp
+               src/builtins/BuiltinType.cpp
+               src/builtins/natives/Int64.cpp
+               src/builtins/natives/Int64Pointer.cpp
+               src/builtins/natives/Int8Pointer.cpp
                src/builtins/Any.cpp
                src/builtins/Type.cpp
                src/builtins/File.cpp
@@ -143,6 +155,9 @@ add_executable(balance
                src/builtins/Bool.cpp
                src/builtins/Array.cpp
                src/builtins/Lambda.cpp
+               src/builtins/None.cpp
+               src/builtins/FatPointer.cpp
+               src/standard-library/Range.cpp
                src/language-server/LanguageServer.h
                tests/TestHelpers.cpp
                tests/ASTTests.cpp
@@ -160,5 +175,5 @@ target_link_libraries(balance lspcpp)
 
 target_link_libraries(balance antlr4_static)
 target_link_libraries(balance Threads::Threads)
-target_link_libraries(balance LLVM clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)
+target_link_libraries(balance ${llvm_libs} clangTooling clangFrontend clangSerialization clangDriver clangParse clangSema clangAnalysis clangAST clangBasic clangEdit clangLex)
 add_dependencies(balance rapidjson)

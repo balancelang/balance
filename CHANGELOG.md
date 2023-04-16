@@ -1,4 +1,7 @@
 # Change Log
+## [0.0.12]
+### Added
+- Support for for-loops, range functions and classes.
 
 ## [0.0.11]
 ### Added

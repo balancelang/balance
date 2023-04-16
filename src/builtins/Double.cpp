@@ -7,42 +7,64 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Double_toString() {
+void DoubleType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Double");
+    this->balanceType->isSimpleType = true;
+    currentPackage->currentModule->addType(this->balanceType);
+}
+
+void DoubleType::finalizeType() {
+    this->balanceType->internalType = Type::getDoubleTy(*currentPackage->context);
+}
+
+void DoubleType::registerMethods() {
+    this->registerMethod_toString();
+}
+
+void DoubleType::finalizeMethods() {
+    this->finalizeMethod_toString();
+}
+
+void DoubleType::registerFunctions() {
+
+}
+
+void DoubleType::finalizeFunctions() {
+
+}
+
+void DoubleType::registerMethod_toString() {
+    std::string functionName = "toString";
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+
+    BalanceParameter * valueParameter = new BalanceParameter(this->balanceType, "value");
+    std::vector<BalanceParameter *> parameters = {
+        valueParameter
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
+    this->balanceType->addMethod(functionName, bfunction);
+}
+
+void DoubleType::finalizeMethod_toString() {
+    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
     BalanceType * stringType = currentPackage->currentModule->getType("String");
 
     // Create forward declaration of snprintf
     ArrayRef<Type *> snprintfArguments({
         llvm::Type::getInt8PtrTy(*currentPackage->context),
-        llvm::IntegerType::getInt32Ty(*currentPackage->context),
+        llvm::IntegerType::getInt64Ty(*currentPackage->context),
         llvm::Type::getInt8PtrTy(*currentPackage->context)
     });
-    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt32Ty(*currentPackage->context), snprintfArguments, true);
+    llvm::FunctionType * snprintfFunctionType = llvm::FunctionType::get(llvm::IntegerType::getInt64Ty(*currentPackage->context), snprintfArguments, true);
     FunctionCallee snprintfFunction = currentPackage->currentModule->module->getOrInsertFunction("snprintf", snprintfFunctionType);
 
-    std::string functionName = "toString";
-    std::string functionNameWithClass = "Double_" + functionName;
-
-    BalanceParameter * valueParameter = new BalanceParameter(doubleType, "value");
-
-    // Create BalanceFunction
-    std::vector<BalanceParameter *> parameters = {
-        valueParameter
-    };
-
     // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        doubleType->getReferencableType()
-    });
+    llvm::Function * doubleToStringFunc = Function::Create(toStringFunction->getLlvmFunctionType(), Function::ExternalLinkage, toStringFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, toStringFunction->getFunctionName() + "_body", doubleToStringFunc);
 
-    FunctionType *functionType = FunctionType::get(stringType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * doubleToStringFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", doubleToStringFunc);
-
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, stringType);
-    currentPackage->currentModule->currentType->addMethod(functionName, bfunction);
-    bfunction->function = doubleToStringFunc;
+    toStringFunction->setLlvmFunction(doubleToStringFunc);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
@@ -60,7 +82,7 @@ void createMethod_Double_toString() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->constructor, argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
     int pointerIndex = stringType->properties["stringPointer"]->index;
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, pointerIndex, true));
@@ -73,7 +95,7 @@ void createMethod_Double_toString() {
     // Calculate length of string with int length = snprintf(NULL, 0,"%g",42);
     ArrayRef<Value *> sizeArguments({
         ConstantPointerNull::get(Type::getInt8PtrTy(*currentPackage->context)),
-        ConstantInt::get(*currentPackage->context, APInt(32, 0)),
+        ConstantInt::get(*currentPackage->context, APInt(64, 0)),
         geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
@@ -95,7 +117,7 @@ void createMethod_Double_toString() {
     // int snprintf ( char * s, size_t n, const char * format, ... );
     ArrayRef<Value *> arguments({
         memoryPointer,
-        ConstantInt::get(*currentPackage->context, APInt(32, 50)),
+        ConstantInt::get(*currentPackage->context, APInt(64, 50)),
         geti8StrVal(*currentPackage->currentModule->module, "%g", "args", true),
         intValue
     });
@@ -105,18 +127,4 @@ void createMethod_Double_toString() {
 
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
-void createType__Double() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Double");
-    bclass->internalType = Type::getDoubleTy(*currentPackage->context);
-    bclass->isSimpleType = true;
-    bclass->hasBody = true;
-
-    currentPackage->currentModule->addType(bclass);
-    currentPackage->currentModule->currentType = bclass;
-
-    createMethod_Double_toString();
-
-    currentPackage->currentModule->currentType = nullptr;
 }

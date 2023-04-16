@@ -13,4 +13,4 @@ funcTakesNothingReturnsNothing()
 functionWithAnyParameter(x) {
     print("Here, x implicitly has type 'Any' (x: Any)")
 }
-functionWithAnyParameter(5)
+functionWithAnyParameter("Abc")

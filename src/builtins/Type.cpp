@@ -9,29 +9,39 @@
 
 extern BalancePackage *currentPackage;
 
-BalanceType * createType__Type() {
-    BalanceType * bclass = new BalanceType(currentPackage->currentModule, "Type");
+void TypeBalanceType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Type");
+    currentPackage->currentModule->addType(this->balanceType);
+}
 
-    currentPackage->currentModule->addType(bclass);
+void TypeBalanceType::finalizeType() {
     BalanceType * stringType = currentPackage->currentModule->getType("String");
     BalanceType * intType = currentPackage->currentModule->getType("Int");
-    bclass->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
-    bclass->properties["name"] = new BalanceProperty("name", stringType, 1);
+    this->balanceType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
+    this->balanceType->properties["name"] = new BalanceProperty("name", stringType, 1);
 
-    currentPackage->currentModule->currentType = bclass;
     StructType *structType = StructType::create(*currentPackage->context, "Type");
     ArrayRef<Type *> propertyTypesRef({
-        bclass->properties["typeId"]->balanceType->getReferencableType(),
-        bclass->properties["name"]->balanceType->getReferencableType(),
+        this->balanceType->properties["typeId"]->balanceType->getReferencableType(),
+        this->balanceType->properties["name"]->balanceType->getReferencableType(),
     });
     structType->setBody(propertyTypesRef, false);
-    bclass->internalType = structType;
-    bclass->hasBody = true;
+    this->balanceType->internalType = structType;
+    this->balanceType->hasBody = true;
+}
 
-    createDefaultConstructor(currentPackage->currentModule, bclass);
-    createDefaultToStringMethod(bclass);
+void TypeBalanceType::registerMethods() {
 
-    currentPackage->currentModule->currentType = nullptr;
+}
 
-    return bclass;
+void TypeBalanceType::finalizeMethods() {
+    // createDefaultToStringMethod(this->balanceType);
+}
+
+void TypeBalanceType::registerFunctions() {
+
+}
+
+void TypeBalanceType::finalizeFunctions() {
+
 }

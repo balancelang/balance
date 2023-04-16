@@ -1,8 +1,20 @@
-#ifndef ANY_H
-#define ANY_H
-    #include "../models/BalanceType.h"
+#ifndef ANY_TYPE_H
+#define ANY_TYPE_H
 
-    BalanceType * createType__Any();
-    void createFunctions__Any();
+#include "BuiltinType.h"
+
+class AnyType : public BuiltinType {
+    void registerType() override;
+    void finalizeType() override;
+
+    void registerMethods() override;
+    void finalizeMethods() override;
+
+    void registerFunctions() override;
+    void finalizeFunctions() override;
+
+    void registerMethod_getType();
+    void finalizeMethod_getType();
+};
+
 #endif
-

@@ -109,6 +109,17 @@ void examplesFunctionsTest() {
     assertEqual("80\nBecause this returns 'None', we can ommit ': None'\nHere, x implicitly has type 'Any' (x: Any)\n", result, "Functions");
 }
 
+void examplesWhileTest() {
+    string result = runExample("../examples/while.bl");
+    assertEqual("0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n", result, "While-loop");
+}
+
+void examplesForTest() {
+    string result = runExample("../examples/for.bl");
+    assertEqual("0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n0\n10\n20\n30\n40\n50\n60\n70\n80\n90\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n", result, "For-loop");
+    // \n0\n1\n2\n3\n4\n
+}
+
 void examplesLambdasTest() {
     string result = runExample("../examples/lambdas.bl");
     assertEqual("5\nThis implicitly returns None\n5\nHello\n7\n", result, "Lambdas");
@@ -135,6 +146,8 @@ void runExamplesTestSuite() {
     examplesHelloWorldTest();
     examplesVariablesTest();
     examplesFunctionsTest();
+    examplesWhileTest();
+    examplesForTest();
     examplesLambdasTest();
     examplesFilesTest();
     examplesInterfacesTest();

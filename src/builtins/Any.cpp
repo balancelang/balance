@@ -9,39 +9,67 @@
 
 extern BalancePackage *currentPackage;
 
-void createMethod_Any_toString() {
+void AnyType::registerType() {
+    this->balanceType = new BalanceType(currentPackage->currentModule, "Any");
+    currentPackage->currentModule->addType(this->balanceType);
+}
+
+void AnyType::finalizeType() {
+    BalanceType * intType = currentPackage->currentModule->getType("Int");
+    this->balanceType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
+
+    StructType *structType = StructType::create(*currentPackage->context, "Any");
+    ArrayRef<Type *> propertyTypesRef({
+        this->balanceType->properties["typeId"]->balanceType->getReferencableType(),
+    });
+    structType->setBody(propertyTypesRef, false);
+    this->balanceType->hasBody = true;
+
+    this->balanceType->internalType = structType;
+}
+
+void AnyType::registerMethods() {
+    this->registerMethod_getType();
+}
+
+void AnyType::finalizeMethods() {
+    this->finalizeMethod_getType();
+}
+
+void AnyType::registerFunctions() {
 
 }
 
-void createMethod_Any_getType() {
-    BalanceType * anyType = currentPackage->currentModule->getType("Any");
-    BalanceType * typeType = currentPackage->currentModule->getType("Type");
-    BalanceType * stringType = currentPackage->currentModule->getType("String");
+void AnyType::finalizeFunctions() {
 
+}
+
+void AnyType::registerMethod_getType() {
     std::string functionName = "getType";
-    std::string functionNameWithClass = "Any_" + functionName;
+    BalanceType * typeType = currentPackage->currentModule->getType("Type");
+    std::vector<BalanceParameter *> parameters = {
+        new BalanceParameter(this->balanceType, "this")
+    };
+    BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, typeType);
+    this->balanceType->addMethod(functionName, bfunction);
+}
 
-    std::vector<BalanceParameter *> parameters = {};
+void AnyType::finalizeMethod_getType() {
+    BalanceFunction * getTypeBalanceFunction = this->balanceType->getMethod("getType");
+    BalanceType * anyType = currentPackage->currentModule->getType("Any");
+    BalanceType * stringType = currentPackage->currentModule->getType("String");
+    BalanceType * typeType = currentPackage->currentModule->getType("Type");
 
-    // Create llvm::Function
-    ArrayRef<Type *> parametersReference({
-        anyType->getReferencableType() // this argument
-    });
+    llvm::Function * getTypeFunction = Function::Create(getTypeBalanceFunction->getLlvmFunctionType(), Function::ExternalLinkage, getTypeBalanceFunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, getTypeBalanceFunction->name + "_body", getTypeFunction);
 
-    FunctionType *functionType = FunctionType::get(typeType->getReferencableType(), parametersReference, false);
-
-    llvm::Function * getTypeFunc = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
-    BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, functionName + "_body", getTypeFunc);
-
-    BalanceFunction * bfunction = new BalanceFunction(functionName, parameters, typeType);
-    anyType->addMethod(functionName, bfunction);
-    bfunction->function = getTypeFunc;
+    getTypeBalanceFunction->setLlvmFunction(getTypeFunction);
 
     // Store current block so we can return to it after function declaration
     BasicBlock *resumeBlock = currentPackage->currentModule->builder->GetInsertBlock();
     currentPackage->currentModule->builder->SetInsertPoint(functionBody);
 
-    Function::arg_iterator args = getTypeFunc->arg_begin();
+    Function::arg_iterator args = getTypeFunction->arg_begin();
     llvm::Value *thisPointer = args++;
 
     // load typeId of 'this'
@@ -52,7 +80,7 @@ void createMethod_Any_getType() {
     Value * typeIdValue = (Value *)currentPackage->currentModule->builder->CreateLoad(typeIdPointer);
 
     // lookup TypeInfo in typeInfoTable
-    auto typeInfoPointer = currentPackage->currentModule->builder->CreateGEP(currentPackage->currentModule->typeInfoTable, {zeroValue, typeIdValue});
+    auto typeInfoPointer = currentPackage->currentModule->builder->CreateGEP(currentPackage->typeInfoTable, {zeroValue, typeIdValue});
 
     // create destination 'Type' struct, extract type info and return
     auto typeMemoryPointer = llvm::CallInst::CreateMalloc(
@@ -64,7 +92,7 @@ void createMethod_Any_getType() {
     currentPackage->currentModule->builder->Insert(typeMemoryPointer);
 
     ArrayRef<Value *> argumentsReference{typeMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(typeType->getConstructor(), argumentsReference);
+    currentPackage->currentModule->builder->CreateCall(typeType->getInitializer()->getLlvmFunction(currentPackage->currentModule), argumentsReference);
 
     // Create pointer for destination Type.typeId
     auto dstTypeIdZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
@@ -74,7 +102,7 @@ void createMethod_Any_getType() {
     // Create pointer for source TypeInfo.typeId
     auto srcTypeIdZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto srcTypeIdIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
-    auto srcTypeIdGEP = currentPackage->currentModule->builder->CreateGEP(currentPackage->currentModule->typeInfoStructType, typeInfoPointer, {srcTypeIdZeroValue, srcTypeIdIndexValue});
+    auto srcTypeIdGEP = currentPackage->currentModule->builder->CreateGEP(currentPackage->typeInfoStructType, typeInfoPointer, {srcTypeIdZeroValue, srcTypeIdIndexValue});
     Value * srcTypeIdValue = (Value *)currentPackage->currentModule->builder->CreateLoad(typeIdPointer);
     currentPackage->currentModule->builder->CreateStore(srcTypeIdValue, dstTypeIdGEP);
 
@@ -93,7 +121,7 @@ void createMethod_Any_getType() {
     currentPackage->currentModule->builder->Insert(stringMemoryPointer);
 
     ArrayRef<Value *> stringArgumentsReference{stringMemoryPointer};
-    currentPackage->currentModule->builder->CreateCall(stringType->getConstructor(), stringArgumentsReference);
+    currentPackage->currentModule->builder->CreateCall(stringType->getInitializer()->getLlvmFunction(currentPackage->currentModule), stringArgumentsReference);
     auto pointerZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto pointerIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, stringType->properties["stringPointer"]->index, true));
     auto pointerGEP = currentPackage->currentModule->builder->CreateGEP(stringType->getInternalType(), stringMemoryPointer, {pointerZeroValue, pointerIndexValue});
@@ -104,7 +132,7 @@ void createMethod_Any_getType() {
     // Create pointer for source TypeInfo.name (i8*)
     auto srcNameZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto srcNameIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 1, true));
-    auto srcNameGEP = currentPackage->currentModule->builder->CreateGEP(currentPackage->currentModule->typeInfoStructType, typeInfoPointer, {srcNameZeroValue, srcNameIndexValue});
+    auto srcNameGEP = currentPackage->currentModule->builder->CreateGEP(currentPackage->typeInfoStructType, typeInfoPointer, {srcNameZeroValue, srcNameIndexValue});
     Value * srcNameValue = (Value *)currentPackage->currentModule->builder->CreateLoad(srcNameGEP);
 
     currentPackage->currentModule->builder->CreateStore(srcNameValue, pointerGEP);
@@ -113,25 +141,4 @@ void createMethod_Any_getType() {
     currentPackage->currentModule->builder->CreateStore(stringMemoryPointer, nameGEP);
     currentPackage->currentModule->builder->CreateRet(typeMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
-}
-
-BalanceType * createType__Any() {
-    BalanceType * anyType = new BalanceType(currentPackage->currentModule, "Any");
-
-    BalanceType * intType = currentPackage->currentModule->getType("Int");
-    anyType->properties["typeId"] = new BalanceProperty("typeId", intType, 0, false);
-    StructType *structType = StructType::create(*currentPackage->context, "Any");
-    ArrayRef<Type *> propertyTypesRef({
-        anyType->properties["typeId"]->balanceType->getReferencableType(),
-    });
-    structType->setBody(propertyTypesRef, false);
-    anyType->hasBody = true;
-
-    anyType->internalType = structType;
-    currentPackage->builtins->addType(anyType);
-    return anyType;
-}
-
-void createFunctions__Any() {
-    createMethod_Any_getType();
 }

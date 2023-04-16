@@ -13,7 +13,7 @@
     + If statements
     + Function definitions
     + while loops
-    - for loops
+    + for loops
         - break
         - continue
         - funky: Should for-loops be expressions?
@@ -43,9 +43,17 @@
     - Garbage collection
     - Sockets
     + File handles
-    - overloads
+    + Range syntax
+        + builtin class, with overloads: var r = new Range(...)
+        + builtin function, with overloads: range(...)
+        + alternative syntax '0 to 10' (equivalent of range(0, 10))
+    - overloading
+        + constructor overloading
+        - method overloading
+        + function overloading
     - Only explicit imports, e.g. no transitive imports
     - default parameter values, e.g. func(Int a = 5)
+    + constructors
     - tuples / anonymous class syntax?
         - E.g. x: <Int, Int>
     + support dictionary initializer expression, e.g.
@@ -71,6 +79,8 @@
             echo lsOut > test.txt
         }
     - operator overloading?
+    - Generics
+        - class X<T<Q>> {} ?
     - assignment as side-effect?
         if (var a = a < 5) { ...            (sets var a = true/false inside the if-block)
         print(var a = x.getString())        equivalent to var a = x.getString(); print(a)

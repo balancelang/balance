@@ -19,22 +19,30 @@ class BalanceType
 public:
     std::string name;                                   // E.g. "Array" in "Array<Int>"
     std::vector<BalanceType *> generics;                // E.g. ["String", "Int"] in Dictionary<String, Int>
+    std::map<std::string, BalanceType *> genericsMapping = {}; // E.g. [T => Int, T2 => Bool] if generics
     llvm::Type * internalType = nullptr;
-    llvm::Function * constructor = nullptr;
     int typeIndex = 0;
     bool isPublic = true;                               // TODO: Not used yet, will determine if type can be referenced from Balance-code
     bool isSimpleType = false;
+    bool isInternalType = false;                        // Is this an internal type, e.g. i8*
     bool isInterface = false;
+    bool isGenericPlaceholder = false;
     BalanceModule *balanceModule;
     bool hasBody = false;
     llvm::Constant * typeInfoVariable = nullptr;
 
-    // We may introduce multiple inheritance one day
+    // Used to store [Int, Double] if "T where T is Int | Double" (only support 'is' which means same or descendant type)
+    std::vector<BalanceType *> typeRequirements = {};
+
+    // TODO: We may introduce multiple inheritance one day
     std::vector<BalanceType *> parents = {};
 
     std::map<std::string, BalanceProperty *> properties = {};
     std::map<std::string, BalanceFunction *> methods = {};
+    std::vector<BalanceFunction *> constructors = {};
     std::map<std::string, BalanceType *> interfaces = {};
+
+    BalanceFunction * initializer = nullptr;
 
     // If interface, this holds the vtable struct (the vtable function types)
     llvm::StructType *vTableStructType = nullptr;
@@ -56,16 +64,18 @@ public:
 
     void addParent(BalanceType * parentType);
     void addMethod(std::string name, BalanceFunction * method);
+    void addConstructor(std::string name, std::vector<BalanceParameter *> parameters);
     std::vector<BalanceFunction *> getMethods();
     BalanceFunction * getMethod(std::string key);
+    BalanceFunction * getConstructor(std::vector<BalanceType *> parameters);
     int getMethodIndex(std::string key);
     llvm::Type * getReferencableType();
     llvm::Type * getInternalType();
     bool isFloatingPointType();
     std::string toString();
-    bool equalTo(BalanceModule * bmodule, std::string name, std::vector<BalanceType *> generics = {});
+    bool equalTo(std::string name, std::vector<BalanceType *> generics);
     bool equalTo(BalanceType * other);
-    llvm::Function * getConstructor();
+    BalanceFunction * getInitializer();
     BalanceProperty * getProperty(std::string propertyName);
     std::vector<BalanceProperty *> getProperties();
     bool finalized();

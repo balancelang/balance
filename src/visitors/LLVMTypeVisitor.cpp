@@ -5,6 +5,7 @@
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
 #include "Visitor.h"
+#include "../builtins/Lambda.h"
 
 #include "antlr4-runtime.h"
 #include "clang/Basic/Diagnostic.h"
@@ -52,6 +53,7 @@
 #include "BalanceLexer.h"
 #include "BalanceParser.h"
 #include "BalanceParserBaseVisitor.h"
+#include "../Builtins.h"
 
 #include <typeindex>
 #include <typeinfo>
@@ -60,6 +62,7 @@ using namespace antlrcpptest;
 
 extern BalancePackage *currentPackage;
 
+// TODO: What's the difference between this and ForwardDeclarationVisitor::visitImportStatement ?
 std::any LLVMTypeVisitor::visitImportStatement(BalanceParser::ImportStatementContext *ctx) {
     std::string text = ctx->getText();
 
@@ -87,13 +90,14 @@ std::any LLVMTypeVisitor::visitImportStatement(BalanceParser::ImportStatementCon
                 continue;
             }
 
-            BalanceFunction *bfunction = importedModule->getFunction(importString);
-            if (bfunction != nullptr) {
+            std::vector<BalanceFunction *> bfunctions = importedModule->getFunctionsByName(importString);
+            for (BalanceFunction * bfunction : bfunctions) {
                 createImportedFunction(currentPackage->currentModule, bfunction);
-                continue;
             }
 
-            // TODO: Handle
+            if (bfunctions.empty()) {
+                // TODO: Handle
+            }
         }
     }
 
@@ -104,48 +108,64 @@ std::any LLVMTypeVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCon
     string text = ctx->getText();
     string className = ctx->className->getText();
 
-    BalanceType * bclass = currentPackage->currentModule->getType(className);
+    // For each known generic use of class, visit the class
+    std::vector<BalanceType *> btypes = {};
 
-    // If already finalized, skip
-    if (bclass->finalized()) {
-        return nullptr;
+    if (ctx->classGenerics()) {
+        btypes = currentPackage->currentModule->getGenericVariants(className);
+    } else {
+        BalanceType * btype = currentPackage->currentModule->getType(className);
+        btypes.push_back(btype);
     }
 
-    currentPackage->currentModule->currentType = bclass;
+    for (BalanceType * btype : btypes) {
+        currentPackage->currentModule->currentType = btype;
 
-    // Visit all class properties
-    for (auto const &x : ctx->classElement()) {
-        if (x->classProperty()) {
-            visit(x->classProperty());
+        // If already finalized, skip
+        if (btype->finalized()) {
+            continue;
         }
-    }
 
-    // Visit all class functions
-    for (auto const &x : ctx->classElement()) {
-        if (x->functionDefinition()) {
-            visit(x);
+        // Visit all class properties
+        for (auto const &x : ctx->classElement()) {
+            if (x->classProperty()) {
+                visit(x->classProperty());
+            }
         }
-    }
 
-    vector<Type *> propertyTypes;
-    vector<BalanceProperty *> properties = currentPackage->currentModule->currentType->getProperties();
-    for (BalanceProperty * bproperty : properties) {
-        if (bproperty->balanceType->internalType == nullptr) {
-            // If a property type is not yet known
-            currentPackage->currentModule->currentType = nullptr;
-            return nullptr;
+        // Visit all class functions
+        for (auto const &x : ctx->classElement()) {
+            if (x->functionDefinition()) {
+                visit(x);
+            }
         }
-        propertyTypes.push_back(bproperty->balanceType->getReferencableType());
-    }
 
-    if (!currentPackage->currentModule->currentType->hasBody) {
-        ArrayRef<Type *> propertyTypesRef(propertyTypes);
-        StructType * structType = (StructType *) currentPackage->currentModule->currentType->internalType;
-        structType->setBody(propertyTypesRef, false);
-        currentPackage->currentModule->currentType->hasBody = true;
+        vector<Type *> propertyTypes;
+        vector<BalanceProperty *> properties = currentPackage->currentModule->currentType->getProperties();
+        for (BalanceProperty * bproperty : properties) {
+            if (bproperty->balanceType->internalType == nullptr) {
+                // If a property type is not yet known
+                currentPackage->currentModule->currentType = nullptr;
+                return nullptr;
+            }
+            propertyTypes.push_back(bproperty->balanceType->getReferencableType());
+        }
+
+        if (!currentPackage->currentModule->currentType->hasBody) {
+            ArrayRef<Type *> propertyTypesRef(propertyTypes);
+            if (currentPackage->currentModule->currentType->internalType == nullptr) {
+                currentPackage->currentModule->currentType->internalType = llvm::StructType::create(*currentPackage->context, currentPackage->currentModule->currentType->name);
+            }
+            StructType * structType = (StructType *) currentPackage->currentModule->currentType->internalType;
+            structType->setBody(propertyTypesRef, false);
+            currentPackage->currentModule->currentType->hasBody = true;
+        }
+
+        currentPackage->currentModule->currentType = nullptr;
     }
 
     currentPackage->currentModule->currentType = nullptr;
+
     return nullptr;
 }
 
@@ -170,6 +190,12 @@ std::any LLVMTypeVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefin
 
     currentPackage->currentModule->currentType = binterface;
 
+    if (binterface->internalType == nullptr) {
+        BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
+        binterface->internalType = fatPointerType->getInternalType();
+        binterface->hasBody = true;
+    }
+
     // Visit all interface functions
     for (auto const &x : ctx->interfaceElement()) {
         if (x->functionSignature()) {
@@ -185,16 +211,40 @@ std::any LLVMTypeVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefin
 std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
 
+    vector<BalanceType *> functionParameters;
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string type = parameter->type->getText();
+            BalanceType * btype = any_cast<BalanceType *>(visit(parameter->type));
+            functionParameters.push_back(btype);
+        } else {
+            functionParameters.push_back(currentPackage->currentModule->getType("Any"));
+        }
+    }
+
+    BalanceType *returnType;
+    if (ctx->returnType()) {
+        returnType = any_cast<BalanceType *>(visit(ctx->returnType()->balanceType()));
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
+    }
+
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentType != nullptr) {
-        bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+        if (functionName == currentPackage->currentModule->currentType->name) {
+            functionParameters.insert(functionParameters.begin(), currentPackage->currentModule->currentType); // implicit 'this'
+            bfunction = currentPackage->currentModule->currentType->getConstructor(functionParameters);
+        } else {
+            bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+        }
     } else if (currentPackage->currentModule->currentType != nullptr) {
         bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
     } else {
-        bfunction = currentPackage->currentModule->functions[functionName];
+        bfunction = currentPackage->currentModule->getFunction(functionName, functionParameters);
     }
 
-    if (bfunction->function != nullptr) {
+    if (bfunction->finalized()) {
         return nullptr;
     }
 
@@ -218,24 +268,113 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
             functionParameterNames.push_back(bparameter->name);
         }
 
-        // Check if we are parsing a class method
-        Function *function;
-        if (currentPackage->currentModule->currentType != nullptr) {
-            std::string functionNameWithClass = currentPackage->currentModule->currentType->toString() + "_" + functionName;
-            ArrayRef<Type *> parametersReference(functionParameterTypes);
-            // TODO: Make sure we have returnType before running all this? (when class methods can return class types)
-            FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
-            function = Function::Create(functionType, Function::ExternalLinkage, functionNameWithClass, currentPackage->currentModule->module);
+        Function * function = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
+        bfunction->setLlvmFunction(function);
+    }
 
-            bfunction->function = function;
-        } else {
-            ArrayRef<Type *> parametersReference(functionParameterTypes);
-            FunctionType *functionType = FunctionType::get(bfunction->returnType->getReferencableType(), parametersReference, false);
-            function = Function::Create(functionType, Function::ExternalLinkage, functionName, currentPackage->currentModule->module);
-            bfunction->function = function;
+    return nullptr;
+}
+
+std::any LLVMTypeVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
+    std::string base = ctx->IDENTIFIER()->getText();
+    std::vector<BalanceType *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type: ctx->typeList()->balanceType()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
+    }
+
+    BalanceType * btype = currentPackage->currentModule->getType(base, generics);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType(base, generics);
+    }
+
+    if (!btype->finalized()) {
+        if (btype->name == "Lambda") {
+            LambdaBalanceType * lambdaType = (LambdaBalanceType *) currentPackage->getBuiltinType("Lambda");
+            lambdaType->tryFinalizeGenericType(btype);
         }
     }
 
+    return btype;
+}
 
-    return nullptr;
+std::any LLVMTypeVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
+    std::string typeName = ctx->IDENTIFIER()->getText();
+
+    if (currentPackage->currentModule->currentType != nullptr) {
+        // Check if it is a class generic
+        if (currentPackage->currentModule->currentType->genericsMapping.find(typeName) != currentPackage->currentModule->currentType->genericsMapping.end()) {
+            return currentPackage->currentModule->currentType->genericsMapping[typeName];
+        }
+        for (BalanceType * genericType : currentPackage->currentModule->currentType->generics) {
+            if (typeName == genericType->name) {
+                return genericType;
+            }
+        }
+    }
+    return currentPackage->currentModule->getType(typeName);
+}
+
+std::any LLVMTypeVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
+    return currentPackage->currentModule->getType(ctx->NONE()->getText());
+}
+
+std::any LLVMTypeVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::string text = ctx->getText();
+    std::vector<BalanceType *> generics;
+
+    for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
+        BalanceType * btype = any_cast<BalanceType *>(visit(type));
+        generics.push_back(btype);
+    }
+
+    BalanceType *returnType = any_cast<BalanceType *>(visit(ctx->balanceType()));
+    generics.push_back(returnType);
+
+    BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
+    if (lambdaType == nullptr) {
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
+    }
+
+    return lambdaType;
+}
+
+std::any LLVMTypeVisitor::visitLambdaExpression(BalanceParser::LambdaExpressionContext *ctx) {
+    std::string text = ctx->getText();
+    vector<BalanceType *> generics;
+
+    for (BalanceParser::VariableTypeTupleContext *parameter : ctx->lambda()->parameterList()->variableTypeTuple()) {
+        BalanceType * btype = nullptr;
+        if (parameter->type) {
+            std::string typeString = parameter->type->getText();
+            btype = currentPackage->currentModule->getType(typeString);
+        } else {
+            btype = currentPackage->currentModule->getType("Any");
+        }
+        generics.push_back(btype);
+    }
+
+    // If we don't have a return type, assume none
+    BalanceType * returnType;
+    if (ctx->lambda()->returnType()) {
+        std::string functionReturnTypeString = ctx->lambda()->returnType()->balanceType()->getText();
+        returnType = currentPackage->currentModule->getType(functionReturnTypeString);
+    } else {
+        returnType = currentPackage->currentModule->getType("None");
+    }
+
+    generics.push_back(returnType);
+
+    BalanceType * btype = currentPackage->currentModule->getType("Lambda", generics);
+    if (btype == nullptr) {
+        btype = currentPackage->currentModule->createGenericType("Lambda", generics);
+    }
+
+    if (!btype->finalized()) {
+        LambdaBalanceType * lambdaType = (LambdaBalanceType *) currentPackage->getBuiltinType("Lambda");
+        lambdaType->tryFinalizeGenericType(btype);
+    }
+
+    return btype;
 }

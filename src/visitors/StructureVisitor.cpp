@@ -69,43 +69,63 @@ std::any StructureVisitor::visitClassDefinition(BalanceParser::ClassDefinitionCo
     string className = ctx->className->getText();
     string text = ctx->getText();
 
-    // Check for duplicate className
-    BalanceType * btype = currentPackage->currentModule->getType(className);
-    currentPackage->currentModule->currentType = btype;
+    // For each known generic use of class, visit the class
+    std::vector<BalanceType *> btypes = {};
 
-    // TODO: Test that this happens when type-checking instead, since then methods and interfaces exist
-    // // Parse extend/implements
-    // if (ctx->classExtendsImplements()) {
-    //     visit(ctx->classExtendsImplements());
-    // }
-
-    // Visit all class properties
-    for (auto const &x : ctx->classElement()) {
-        if (x->classProperty()) {
-            visit(x);
-        }
+    if (ctx->classGenerics()) {
+        btypes = currentPackage->currentModule->getGenericVariants(className);
+        btypes.push_back(currentPackage->currentModule->genericTypes[className]);
+    } else {
+        BalanceType * btype = currentPackage->currentModule->getType(className);
+        btypes.push_back(btype);
     }
 
-    // Visit all class functions
-    for (auto const &x : ctx->classElement()) {
-        if (x->functionDefinition()) {
-            visit(x);
+    for (BalanceType * btype : btypes) {
+        currentPackage->currentModule->currentType = btype;
+
+        // Visit all class properties
+        for (auto const &x : ctx->classElement()) {
+            if (x->classProperty()) {
+                visit(x);
+            }
         }
+
+        // Visit all class functions
+        for (auto const &x : ctx->classElement()) {
+            if (x->functionDefinition()) {
+                visit(x);
+            }
+        }
+
+        currentPackage->currentModule->currentType = nullptr;
     }
 
-    currentPackage->currentModule->currentType = nullptr;
     return nullptr;
 }
 
 std::any StructureVisitor::visitSimpleType(BalanceParser::SimpleTypeContext *ctx) {
-    if (ctx->IDENTIFIER()) {
-        return currentPackage->currentModule->getType(ctx->IDENTIFIER()->getText());
-    } else {
-        return currentPackage->currentModule->getType(ctx->NONE()->getText());
+    std::string typeName = ctx->IDENTIFIER()->getText();
+
+    if (currentPackage->currentModule->currentType != nullptr) {
+        // Check if it is a class generic
+        if (currentPackage->currentModule->currentType->genericsMapping.find(typeName) != currentPackage->currentModule->currentType->genericsMapping.end()) {
+            return currentPackage->currentModule->currentType->genericsMapping[typeName];
+        }
+        for (BalanceType * btype : currentPackage->currentModule->currentType->generics) {
+            if (btype->name == typeName) {
+                return btype;
+            }
+        }
     }
+    return currentPackage->currentModule->getType(typeName);
+}
+
+std::any StructureVisitor::visitNoneType(BalanceParser::NoneTypeContext *ctx) {
+    return currentPackage->currentModule->getType(ctx->NONE()->getText());
 }
 
 std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx) {
+    std::string text = ctx->getText();
     std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
@@ -118,8 +138,7 @@ std::any StructureVisitor::visitLambdaType(BalanceParser::LambdaTypeContext *ctx
 
     BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
     if (lambdaType == nullptr) {
-        lambdaType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, lambdaType);
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
     }
 
     return lambdaType;
@@ -151,8 +170,7 @@ std::any StructureVisitor::visitLambdaExpression(BalanceParser::LambdaExpression
     generics.push_back(returnType);
     BalanceType * lambdaType = currentPackage->currentModule->getType("Lambda", generics);
     if (lambdaType == nullptr) {
-        lambdaType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, lambdaType);
+        lambdaType = currentPackage->currentModule->createGenericType("Lambda", generics);
     }
     return lambdaType;
 }
@@ -170,7 +188,7 @@ std::any StructureVisitor::visitArrayLiteral(BalanceParser::ArrayLiteralContext 
 }
 
 std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *ctx) {
-    std::string base = ctx->base->getText();
+    std::string base = ctx->IDENTIFIER()->getText();
     std::vector<BalanceType *> generics;
 
     for (BalanceParser::BalanceTypeContext *type : ctx->typeList()->balanceType()) {
@@ -180,8 +198,7 @@ std::any StructureVisitor::visitGenericType(BalanceParser::GenericTypeContext *c
 
     BalanceType * genericType = currentPackage->currentModule->getType(base, generics);
     if (genericType == nullptr) {
-        genericType = createType__Lambda(generics);
-        createImportedClass(currentPackage->currentModule, genericType);
+        genericType = currentPackage->currentModule->createGenericType(base, generics);
     }
     return genericType;
 }
@@ -190,6 +207,7 @@ std::any StructureVisitor::visitClassProperty(BalanceParser::ClassPropertyContex
     string text = ctx->getText();
     string name = ctx->variableTypeTuple()->name->getText();
     BalanceType * btype = nullptr;
+
     if (ctx->variableTypeTuple()->type) {
         string typeName = ctx->variableTypeTuple()->type->getText();
         btype = any_cast<BalanceType *>(visit(ctx->variableTypeTuple()->type));
@@ -227,20 +245,27 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
     string functionName = ctx->IDENTIFIER()->getText();
 
     if (currentPackage->currentModule->currentType != nullptr) {
-        if (currentPackage->currentModule->currentType->getMethod(functionName) != nullptr) {
-            if (currentPackage->currentModule->currentType->isInterface) {
-                currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
-            } else {
-                currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+        // Check if it is a constructor
+        if (functionName == currentPackage->currentModule->currentType->name) {
+
+        } else {
+            // TODO: Update this when we allow method overloading
+            if (currentPackage->currentModule->currentType->getMethod(functionName) != nullptr) {
+                if (currentPackage->currentModule->currentType->isInterface) {
+                    currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
+                } else {
+                    currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+                }
+                throw StructureVisitorException();
             }
-            throw StructureVisitorException();
         }
     } else {
         // TODO: Should we allow overriding functions in new scopes?
-        if (currentPackage->currentModule->functions[functionName] != nullptr) {
-            currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
-            throw StructureVisitorException();
-        }
+        // TODO: Check if function with same signature exists
+        // if (currentPackage->currentModule->functions[functionName] != nullptr) {
+        //     currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
+        //     throw StructureVisitorException();
+        // }
     }
 
     vector<BalanceParameter *> parameters;
@@ -281,9 +306,18 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
 
     // Check if we are parsing a class method
     if (currentPackage->currentModule->currentType != nullptr) {
-        currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(functionName, parameters, returnType));
+        if (functionName == currentPackage->currentModule->currentType->name) {
+            if (returnType->name != "None") {
+                currentPackage->currentModule->addTypeError(ctx, "Wrong constructor return type - must be None: " + returnType->toString());
+            }
+
+            // TODO: Check if a constructor already exists with arguments
+            currentPackage->currentModule->currentType->addConstructor(functionName, parameters);
+        } else {
+            currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(currentPackage->currentModule, currentPackage->currentModule->currentType, functionName, parameters, returnType));
+        }
     } else {
-        currentPackage->currentModule->functions[functionName] = new BalanceFunction(functionName, parameters, returnType);
+        currentPackage->currentModule->addFunction(new BalanceFunction(currentPackage->currentModule, nullptr, functionName, parameters, returnType));
     }
 
     return nullptr;

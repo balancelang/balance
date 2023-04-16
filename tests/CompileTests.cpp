@@ -286,16 +286,27 @@ b.y = 2
 takesBase(a: A): None {
     print(a.x)
 }
-takesAny(x: Any): None {
-    print("Any")
-}
 takesBase(b)
-takesAny(b)
-takesAny(5)
+    )"""";
+    std::string result = run(program);
+    assertEqual("1\n", result, program);
+}
+
+void functionTakesAny() {
+    std::string program = R""""(
+class A {
+    x: Int
+}
+var a = new A()
+a.x = 1
+takesAny(x: Any): None {
+    print(x.getType().name)
+}
+takesAny(a)
 takesAny("abc")
     )"""";
     std::string result = run(program);
-    assertEqual("1\nAny\nAny\nAny\n", result, program);
+    assertEqual("A\nString\n", result, program);
 }
 
 // class Parent {
@@ -349,4 +360,5 @@ void runCompileTestSuite() {
     objectShorthandInitializer();
     inheritedMembers();
     functionTakesBaseClass();
+    functionTakesAny();
 }

@@ -66,6 +66,7 @@ class BalanceVisitor : public BalanceParserBaseVisitor
 {
 public:
     std::any visitWhileStatement(BalanceParser::WhileStatementContext *ctx) override;
+    std::any visitForStatement(BalanceParser::ForStatementContext *ctx) override;
     std::any visitMemberAssignment(BalanceParser::MemberAssignmentContext *ctx) override;
     std::any visitMemberIndexExpression(BalanceParser::MemberIndexExpressionContext *ctx) override;
     std::any visitArrayLiteral(BalanceParser::ArrayLiteralContext *ctx) override;
@@ -91,6 +92,11 @@ public:
     std::any visitMapInitializerExpression(BalanceParser::MapInitializerExpressionContext *ctx) override;
     std::any visitGenericType(BalanceParser::GenericTypeContext *ctx) override;
     std::any visitSimpleType(BalanceParser::SimpleTypeContext *ctx) override;
+    std::any visitNoneType(BalanceParser::NoneTypeContext *ctx) override;
+    std::any visitRange(BalanceParser::RangeContext *ctx) override;
+    std::any visitLambdaType(BalanceParser::LambdaTypeContext *ctx) override;
+
+    BalanceValue * visitAndLoad(ParserRuleContext * ctx);
     BalanceValue * visitFunctionCall__print(BalanceParser::FunctionCallContext *ctx);
 };
 

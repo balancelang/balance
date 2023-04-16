@@ -1,7 +1,17 @@
-#ifndef TYPE_H
-#define TYPE_H
-    #include "../models/BalanceType.h"
+#ifndef TYPE_BALANCE_TYPE_H
+#define TYPE_BALANCE_TYPE_H
 
-    BalanceType * createType__Type();
+#include "BuiltinType.h"
+
+class TypeBalanceType : public BuiltinType {
+    void registerType() override;
+    void finalizeType() override;
+
+    void registerMethods() override;
+    void finalizeMethods() override;
+
+    void registerFunctions() override;
+    void finalizeFunctions() override;
+};
+
 #endif
-

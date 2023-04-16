@@ -75,17 +75,26 @@ std::any ConstructorVisitor::visitClassDefinition(BalanceParser::ClassDefinition
     string text = ctx->getText();
     string className = ctx->className->getText();  // TODO: Parse generics when syntax is implemented
 
-    BalanceType * bclass = currentPackage->currentModule->getType(className);
-    currentPackage->currentModule->currentType = bclass;
+    // For each known generic use of class, visit the class
+    std::vector<BalanceType *> btypes = {};
 
-    if (bclass->constructor == nullptr) {
-        createDefaultConstructor(currentPackage->currentModule, currentPackage->currentModule->currentType);
-        createDefaultToStringMethod(currentPackage->currentModule->currentType);
+    if (ctx->classGenerics()) {
+        btypes = currentPackage->currentModule->getGenericVariants(className);
+    } else {
+        BalanceType * btype = currentPackage->currentModule->getType(className);
+        btypes.push_back(btype);
     }
 
-    currentPackage->currentModule->currentType = nullptr;
+    for (BalanceType * btype : btypes) {
+        currentPackage->currentModule->currentType = btype;
+
+        assert(btype->initializer != nullptr);
+        assert(btype->initializer->function == nullptr);
+        finalizeInitializer(currentPackage->currentModule->currentType);
+        createDefaultToStringMethod(currentPackage->currentModule->currentType);
+
+        currentPackage->currentModule->currentType = nullptr;
+    }
+
     return nullptr;
 }
-
-// TODO: Allow custom constructor generation, which will be handled in a future visit function here
-// std::any ConstructorVisitor::visitClassConstructor(BalanceParser::ClassConstructorContext *ctx) { ... }

@@ -3,6 +3,10 @@
 - test duplicate class/interface/variable names on import
 - make sure you can't 'new' up interfaces, builtins etc?
 
+## Setup
+- LLVM with debug symbols
+- clang vs gcc
+
 ## interfaces
 - test reusing interface value value in function call that takes same interface value
 - test type checking with wrong interface type
@@ -16,9 +20,11 @@
 - test not providing generic types for class which requires a generic type, e.g. Array<Int> used as Array
 - test arrays/generic types as class properties
 - test shorthand: non-string as key
+- test 'self' syntax
 
 ## Inheritance
 - throw error if inherited property already exists in ancestor
+    - even if the type is exactly the same
 - test overriding function (same parameters/return type)
 
 ## Lambdas
@@ -41,3 +47,19 @@
 - Whenever e.g. an Int is referenced as Any (or other non-simple types), box it as a struct version
     - this way, when a function e.g. accepts x: Any, we can always query x for its typeId (int32 won't have a getType() function)
     - Int can manually define a getType which statically returns Type == Int always.
+
+## For loops
+- Implement standard-library
+    - IEnumerable
+    - Range (connect to x..y syntax)
+- Implement class generics
+    - where syntax:
+        - test <T> can be used with any type
+        - test <T where T is Int> gives compile error with e.g. String
+        - test <T where T is Int | Double> gives compile error
+        - test class method which returns T
+        - test class method which accepts T
+    - test can't use generics in interfaces? Or?
+    - test number of generic arguments matching
+- Implement constructors
+- Implement Union types

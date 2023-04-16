@@ -91,4 +91,7 @@
         "comments": "off",
         "strings": "off"
     },
+    "C_Cpp.default.includePath": [
+        "src"
+    ],
 }
