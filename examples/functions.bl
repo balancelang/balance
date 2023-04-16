@@ -10,7 +10,7 @@ var a = funcTakesIntReturnsInt(25)
 print(a)
 funcTakesNothingReturnsNothing()
 
-// functionWithAnyParameter(x) {
-print("Here, x implicitly has type 'Any' (x: Any)")
-// }
-// functionWithAnyParameter(5)
+functionWithAnyParameter(x) {
+    print("Here, x implicitly has type 'Any' (x: Any)")
+}
+functionWithAnyParameter("Abc")
