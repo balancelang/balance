@@ -55,6 +55,7 @@
 #include "BalanceParserBaseVisitor.h"
 #include "../Builtins.h"
 
+#include "assert.h"
 #include <typeindex>
 #include <typeinfo>
 
@@ -232,17 +233,22 @@ std::any LLVMTypeVisitor::visitFunctionSignature(BalanceParser::FunctionSignatur
 
     BalanceFunction *bfunction;
     if (currentPackage->currentModule->currentType != nullptr) {
+        functionParameters.insert(functionParameters.begin(), currentPackage->currentModule->currentType); // implicit 'self'
+
         if (functionName == currentPackage->currentModule->currentType->name) {
-            functionParameters.insert(functionParameters.begin(), currentPackage->currentModule->currentType); // implicit 'this'
+            // Constructor
             bfunction = currentPackage->currentModule->currentType->getConstructor(functionParameters);
         } else {
-            bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+            // Class method
+            bfunction = currentPackage->currentModule->currentType->getMethod(functionName, functionParameters);
         }
     } else if (currentPackage->currentModule->currentType != nullptr) {
-        bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+        bfunction = currentPackage->currentModule->currentType->getMethod(functionName, functionParameters);
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName, functionParameters);
     }
+
+    assert(bfunction != nullptr);
 
     if (bfunction->finalized()) {
         return nullptr;

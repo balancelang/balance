@@ -218,7 +218,7 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
     currentPackage->currentModule->builder->SetInsertPoint(condBlock);
 
     // Get the hasNext function from the type
-    BalanceFunction * hasNextFunction = iterable->type->getMethod("hasNext");
+    BalanceFunction * hasNextFunction = iterable->type->getMethod("hasNext", { iterable->type });
     Value * hasNextValue = currentPackage->currentModule->builder->CreateCall(hasNextFunction->getLlvmFunction(currentPackage->currentModule), { iterable->value });
 
     // Create the condition - if expression is true, jump to loop block, else jump to after loop block
@@ -229,7 +229,7 @@ std::any BalanceVisitor::visitForStatement(BalanceParser::ForStatementContext *c
     currentPackage->currentModule->currentScope = new BalanceScopeBlock(loopBlock, currentPackage->currentModule->currentScope);
 
     // Assign to loop variable and add to scope
-    BalanceFunction * getNextFunction = iterable->type->getMethod("getNext");
+    BalanceFunction * getNextFunction = iterable->type->getMethod("getNext", { iterable->type });
     Value * getNextValue = currentPackage->currentModule->builder->CreateCall(getNextFunction->getLlvmFunction(currentPackage->currentModule), { iterable->value });
 
     std::string variableName = ctx->variableTypeTuple()->name->getText();
@@ -274,7 +274,7 @@ std::any BalanceVisitor::visitMemberAssignment(BalanceParser::MemberAssignmentCo
             BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
             llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
-            // set fat pointer 'this' argument
+            // set fat pointer 'self' argument
             auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
@@ -433,7 +433,7 @@ std::any BalanceVisitor::visitIfStatement(BalanceParser::IfStatementContext *ctx
 
 std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressionContext *ctx) {
     if (ctx->variable()->SELF()) {
-        BalanceValue * bvalue = currentPackage->currentModule->getValue("this");
+        BalanceValue * bvalue = currentPackage->currentModule->getValue("self");
         return bvalue;
     } else {
          std::string variableName = ctx->variable()->IDENTIFIER()->getText();
@@ -468,7 +468,7 @@ std::any BalanceVisitor::visitVariableExpression(BalanceParser::VariableExpressi
             BalanceProperty * bproperty = currentPackage->currentModule->currentType->getProperty(variableName);
             auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, bproperty->index, true));
-            BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
+            BalanceValue *thisValue = currentPackage->currentModule->getValue("self");
             thisValue = new BalanceValue(thisValue->type, currentPackage->currentModule->builder->CreateLoad(thisValue->value));
             Type *structType = thisValue->value->getType()->getPointerElementType();
 
@@ -517,7 +517,7 @@ std::any BalanceVisitor::visitExistingAssignment(BalanceParser::ExistingAssignme
         int intIndex = currentPackage->currentModule->currentType->getProperty(variableName)->index;
         auto zero = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
         auto index = ConstantInt::get(*currentPackage->context, llvm::APInt(32, intIndex, true));
-        BalanceValue *thisValue = currentPackage->currentModule->getValue("this");
+        BalanceValue *thisValue = currentPackage->currentModule->getValue("self");
         thisValue = new BalanceValue(thisValue->type, currentPackage->currentModule->builder->CreateLoad(thisValue->value));
         Type *structType = thisValue->value->getType()->getPointerElementType();
 
@@ -712,16 +712,15 @@ BalanceValue * BalanceVisitor::visitFunctionCall__print(BalanceParser::FunctionC
     BalanceParser::ArgumentContext *argument = ctx->argumentList()->argument().front();
 
     BalanceValue * bvalue = visitAndLoad(argument);
-    // BalanceValue * bvalue = any_cast<BalanceValue *>(visit(argument));
 
-    BalanceFunction * toStringFunction = bvalue->type->getMethod("toString");
-    if (toStringFunction == nullptr) {
+    BalanceFunction * toStringMethod = bvalue->type->getMethodsByName("toString")[0];
+    if (toStringMethod == nullptr) {
         // TODO: Can we predefine a print method? E.g. "MyClass(a=1, b=true)"
         throw std::runtime_error("Failed to find toString method for type: " + bvalue->type->toString());
     }
 
     auto args = ArrayRef<Value *>{bvalue->value};
-    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringFunction->getLlvmFunction(currentPackage->currentModule), args);
+    Value *stringValue = currentPackage->currentModule->builder->CreateCall(toStringMethod->getLlvmFunction(currentPackage->currentModule), args);
 
     auto printArgs = ArrayRef<Value *>{stringValue};
     Value * llvmValue = (Value *)currentPackage->currentModule->builder->CreateCall(printFunction->getLlvmFunction(currentPackage->currentModule), printArgs);
@@ -778,7 +777,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
                         BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
                         llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
-                        // set fat pointer 'this' argument
+                        // set fat pointer 'self' argument
                         auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                         auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                         auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
@@ -825,16 +824,28 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
             throw std::runtime_error("Failed to find type " + currentPackage->currentModule->accessedValue->type->toString());
         }
 
-        BalanceFunction *bfunction = btype->getMethod(functionName);
+        std::vector<BalanceValue *> functionArguments;
+        functionArguments.push_back(currentPackage->currentModule->accessedValue);
+
+        // Don't consider accessedValue when parsing arguments
+        BalanceValue * backup = currentPackage->currentModule->accessedValue;
+        currentPackage->currentModule->accessedValue = nullptr;
+        for (BalanceParser::ArgumentContext *argument : ctx->argumentList()->argument()) {
+            BalanceValue * bvalue = visitAndLoad(argument);
+            functionArguments.push_back(bvalue);
+        }
+        currentPackage->currentModule->accessedValue = backup;
+
+        BalanceFunction *bfunction = btype->getMethod(functionName, valuesToTypes(functionArguments));
 
         if (btype->isInterface) {
             // Get vtable function index
-            int index = btype->getMethodIndex(functionName);
+            int index = btype->getMethodIndex(functionName, valuesToTypes(functionArguments));
 
             // get fat pointer type
             BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
 
-            // get fat pointer 'this' argument
+            // get fat pointer 'self' argument
             auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             Value * value = currentPackage->currentModule->accessedValue->value;
@@ -864,7 +875,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
 
             // create call to function
             vector<Value *> functionArguments;
-            // Add "this" as first argument
+            // Add "self" as first argument
             functionArguments.push_back(bitcastThisValue);
 
             // Don't consider accessedValue when parsing arguments
@@ -883,7 +894,7 @@ std::any BalanceVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *c
             return new BalanceValue(bfunction->returnType, llvmValue);
         } else {
             vector<Value *> functionArguments;
-            // Add "this" as first argument
+            // Add "self" as first argument
             Value * thisLoaded = currentPackage->currentModule->accessedValue->value;
             if (currentPackage->currentModule->accessedValue->isVariablePointer) {
                 thisLoaded = currentPackage->currentModule->builder->CreateLoad(currentPackage->currentModule->accessedValue->value);
@@ -932,7 +943,7 @@ std::any BalanceVisitor::visitReturnStatement(BalanceParser::ReturnStatementCont
             BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
             llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
-            // set fat pointer 'this' argument
+            // set fat pointer 'self' argument
             auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
             auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});
@@ -1057,15 +1068,20 @@ std::any BalanceVisitor::visitFunctionDefinition(BalanceParser::FunctionDefiniti
     }
 
     if (currentPackage->currentModule->currentType != nullptr) {
+        functionArgumentTypes.insert(functionArgumentTypes.begin(), currentPackage->currentModule->currentType); // implicit 'self'
+
         if (functionName == currentPackage->currentModule->currentType->name) {
-            functionArgumentTypes.insert(functionArgumentTypes.begin(), currentPackage->currentModule->currentType); // implicit 'this')
+            // Constructor
             bfunction = currentPackage->currentModule->currentType->getConstructor(functionArgumentTypes);
         } else {
-            bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+            // Class method
+            bfunction = currentPackage->currentModule->currentType->getMethod(functionName, functionArgumentTypes);
         }
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName, functionArgumentTypes);
     }
+
+    assert(bfunction != nullptr);
 
     currentPackage->currentModule->currentFunction = bfunction;
 
@@ -1160,7 +1176,7 @@ std::any BalanceVisitor::visitMapInitializerExpression(BalanceParser::MapInitial
                 BalanceType * fatPointerType = currentPackage->currentModule->getType("FatPointer");
                 llvm::Value * fatPointer = currentPackage->currentModule->builder->CreateAlloca(fatPointerType->getInternalType());
 
-                // set fat pointer 'this' argument
+                // set fat pointer 'self' argument
                 auto fatPointerThisZeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                 auto fatPointerThisIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
                 auto fatPointerThisPointer = currentPackage->currentModule->builder->CreateGEP(fatPointerType->getInternalType(), fatPointer, {fatPointerThisZeroValue, fatPointerThisIndexValue});

@@ -1,10 +1,11 @@
 #include "BalanceType.h"
 #include "../BalancePackage.h"
+#include "../Utilities.h"
 
 extern BalancePackage * currentPackage;
 
-void BalanceType::addMethod(std::string name, BalanceFunction *method) {
-    this->methods[name] = method;
+void BalanceType::addMethod(BalanceFunction *method) {
+    this->methods.push_back(method);
 }
 
 void BalanceType::addConstructor(std::string name, std::vector<BalanceParameter *> parameters) {
@@ -15,8 +16,7 @@ void BalanceType::addConstructor(std::string name, std::vector<BalanceParameter 
 
 std::vector<BalanceFunction *> BalanceType::getMethods() {
     std::vector<BalanceFunction *> result = {};
-    for (auto const &x : this->methods) {
-        BalanceFunction * bfunction = x.second;
+    for (BalanceFunction * bfunction : this->methods) {
         result.push_back(bfunction);
     }
 
@@ -28,21 +28,35 @@ std::vector<BalanceFunction *> BalanceType::getMethods() {
     return result;
 }
 
-BalanceFunction * BalanceType::getMethod(std::string key) {
+BalanceFunction * BalanceType::getMethod(std::string functionName, std::vector<BalanceType *> parameters) {
     for (BalanceFunction * bfunction : this->getMethods()) {
-        if (bfunction->name == key) {
+        if (functionEqualTo(bfunction, functionName, parameters)) {
             return bfunction;
         }
     }
     return nullptr;
 }
 
-int BalanceType::getMethodIndex(std::string key) {
-    auto it = this->methods.find(key);
-    if (it == this->methods.end()) {
-        return -1;
+std::vector<BalanceFunction *> BalanceType::getMethodsByName(std::string methodName) {
+    std::vector<BalanceFunction *> methods;
+
+    for (BalanceFunction * bfunction : getMethods()) {
+        if (bfunction->name == methodName) {
+            methods.push_back(bfunction);
+        }
     }
-    return std::distance(this->methods.begin(), it);
+
+    return methods;
+}
+
+int BalanceType::getMethodIndex(std::string methodName, std::vector<BalanceType *> types) {
+    for (int i = 0; i < this->methods.size(); i++) {
+        if (functionEqualTo(this->methods[i], methodName, types)) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 llvm::Type * BalanceType::getReferencableType() { return this->isSimpleType ? this->internalType : (llvm::Type *)this->internalType->getPointerTo(); }
@@ -120,8 +134,8 @@ bool BalanceType::finalized() {
         return false;
     }
 
-    for (auto const &x : this->methods) {
-        if (!x.second->finalized()) {
+    for (BalanceFunction * bfunction : this->methods) {
+        if (!bfunction->finalized()) {
             return false;
         }
     }

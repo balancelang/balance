@@ -38,7 +38,7 @@ public:
     std::vector<BalanceType *> parents = {};
 
     std::map<std::string, BalanceProperty *> properties = {};
-    std::map<std::string, BalanceFunction *> methods = {};
+    std::vector<BalanceFunction *> methods = {};
     std::vector<BalanceFunction *> constructors = {};
     std::map<std::string, BalanceType *> interfaces = {};
 
@@ -63,12 +63,13 @@ public:
     }
 
     void addParent(BalanceType * parentType);
-    void addMethod(std::string name, BalanceFunction * method);
+    void addMethod(BalanceFunction * method);
     void addConstructor(std::string name, std::vector<BalanceParameter *> parameters);
     std::vector<BalanceFunction *> getMethods();
-    BalanceFunction * getMethod(std::string key);
+    BalanceFunction * getMethod(std::string key, std::vector<BalanceType *> parameters);
+    std::vector<BalanceFunction *> getMethodsByName(std::string methodName);
     BalanceFunction * getConstructor(std::vector<BalanceType *> parameters);
-    int getMethodIndex(std::string key);
+    int getMethodIndex(std::string methodName, std::vector<BalanceType *> types);
     llvm::Type * getReferencableType();
     llvm::Type * getInternalType();
     bool isFloatingPointType();

@@ -28,7 +28,7 @@ std::any ClassVTableVisitor::visitClassDefinition(BalanceParser::ClassDefinition
 
             vector<Constant *> values;
             for (BalanceFunction * bfunction : binterface->getMethods()) {
-                Function * function = btype->getMethod(bfunction->name)->getFunctionDefinition();
+                Function * function = btype->getMethod(bfunction->name, parametersToTypes(bfunction->parameters))->getFunctionDefinition();
                 values.push_back(ConstantExpr::getBitCast(function, bfunction->getFunctionDefinition()->getType()));
             }
 

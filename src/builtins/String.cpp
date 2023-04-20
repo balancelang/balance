@@ -44,7 +44,7 @@ void StringType::finalizeMethods() {
 }
 
 void StringType::registerFunctions() {
-    this->registerMethod_String_toString();
+
 }
 
 void StringType::finalizeFunctions() {
@@ -60,11 +60,11 @@ void StringType::registerMethod_String_toString() {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, stringType, functionName, parameters, stringType);
-    stringType->addMethod(functionName, bfunction);
+    stringType->addMethod(bfunction);
 }
 
 void StringType::finalizeMethod_String_toString() {
-    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceFunction * toStringFunction = this->balanceType->getMethodsByName("toString")[0];
     // Create forward declaration of memcpy
     // void * memcpy ( void * destination, const void * source, size_t num );
     ArrayRef<Type *> memcpyParams({

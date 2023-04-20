@@ -48,14 +48,14 @@ void AnyType::registerMethod_getType() {
     std::string functionName = "getType";
     BalanceType * typeType = currentPackage->currentModule->getType("Type");
     std::vector<BalanceParameter *> parameters = {
-        new BalanceParameter(this->balanceType, "this")
+        new BalanceParameter(this->balanceType, "self")
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, typeType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void AnyType::finalizeMethod_getType() {
-    BalanceFunction * getTypeBalanceFunction = this->balanceType->getMethod("getType");
+    BalanceFunction * getTypeBalanceFunction = this->balanceType->getMethodsByName("getType")[0];
     BalanceType * anyType = currentPackage->currentModule->getType("Any");
     BalanceType * stringType = currentPackage->currentModule->getType("String");
     BalanceType * typeType = currentPackage->currentModule->getType("Type");
@@ -72,7 +72,7 @@ void AnyType::finalizeMethod_getType() {
     Function::arg_iterator args = getTypeFunction->arg_begin();
     llvm::Value *thisPointer = args++;
 
-    // load typeId of 'this'
+    // load typeId of 'self'
     BalanceProperty * typeIdProperty = anyType->getProperty("typeId");
     auto zeroValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, 0, true));
     auto typeIdIndexValue = ConstantInt::get(*currentPackage->context, llvm::APInt(32, typeIdProperty->index, true));

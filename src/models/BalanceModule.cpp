@@ -3,6 +3,7 @@
 #include "../builtins/Array.h"
 #include "../builtins/Lambda.h"
 #include "../BalancePackage.h"
+#include "../Utilities.h"
 
 #include "llvm/IR/Value.h"
 #include "ParserRuleContext.h"
@@ -137,24 +138,6 @@ std::vector<BalanceType *> BalanceModule::getGenericVariants(std::string typeNam
     }
 
     return types;
-}
-
-bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters) {
-    if (bfunction->name != functionName) {
-        return false;
-    }
-
-    if (bfunction->parameters.size() != parameters.size()) {
-        return false;
-    }
-
-    for (int i = 0; i < bfunction->parameters.size(); i++) {
-        if (!canAssignTo(nullptr, parameters[i], bfunction->parameters[i]->balanceType)) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 std::vector<BalanceFunction *> BalanceModule::getFunctionsByName(std::string functionName) {
