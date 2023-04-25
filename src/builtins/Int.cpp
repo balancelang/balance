@@ -126,9 +126,3 @@ void IntType::finalizeMethod_toString() {
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
-
-// void createFunctions__Int() {
-//     currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Int");
-//     createMethod_Int_toString();
-//     currentPackage->currentModule->currentType = nullptr;
-// }
