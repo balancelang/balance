@@ -44,12 +44,12 @@ void BoolType::registerMethod_toString() {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void BoolType::finalizeMethod_toString() {
     BalanceType * stringType = currentPackage->currentModule->getType("String");
-    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceFunction * toStringFunction = this->balanceType->getMethodsByName("toString")[0];
     BalanceType * boolType = currentPackage->currentModule->getType("Bool");
 
     ArrayRef<Type *> parametersReference({

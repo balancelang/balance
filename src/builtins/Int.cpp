@@ -42,12 +42,12 @@ void IntType::registerMethod_toString() {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void IntType::finalizeMethod_toString() {
     BalanceType * stringType = currentPackage->currentModule->getType("String");
-    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceFunction * toStringFunction = this->balanceType->getMethodsByName("toString")[0];
 
     // Create forward declaration of snprintf
     ArrayRef<Type *> snprintfArguments({
@@ -126,9 +126,3 @@ void IntType::finalizeMethod_toString() {
     currentPackage->currentModule->builder->CreateRet(stringMemoryPointer);
     currentPackage->currentModule->builder->SetInsertPoint(resumeBlock);
 }
-
-// void createFunctions__Int() {
-//     currentPackage->currentModule->currentType = currentPackage->currentModule->getType("Int");
-//     createMethod_Int_toString();
-//     currentPackage->currentModule->currentType = nullptr;
-// }

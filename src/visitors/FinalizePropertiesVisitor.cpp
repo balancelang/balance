@@ -21,8 +21,6 @@ std::any FinalizePropertiesVisitor::visitClassDefinition(BalanceParser::ClassDef
     }
 
     for (BalanceType * btype : btypes) {
-        currentPackage->currentModule->currentType = btype;
-
         // Iterate parents and lay out properties starting with the most deep ancestor
         vector<BalanceType *> hierarchy = btype->getHierarchy();
         std::reverse(hierarchy.begin(), hierarchy.end());

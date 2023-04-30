@@ -24,4 +24,8 @@ void finalizeInitializer(BalanceType * btype);
 void createDefaultToStringMethod(BalanceType * btype);
 llvm::Constant *geti8StrVal(llvm::Module &M, char const *str, llvm::Twine const &name, bool addNull);
 bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bType);
+bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters);
+std::vector<BalanceType *> parametersToTypes(std::vector<BalanceParameter *> parameters);
+std::vector<BalanceType *> valuesToTypes(std::vector<BalanceValue *> values);
+
 #endif

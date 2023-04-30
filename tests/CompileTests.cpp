@@ -309,6 +309,54 @@ takesAny("abc")
     assertEqual("A\nString\n", result, program);
 }
 
+void functionOverloading() {
+    std::string program = R""""(
+function1(): None {
+    print("function1 with no parameters")
+}
+
+function1(a: Int): None {
+    print("function1 with Int parameter")
+}
+
+function1(a: Int, b: Int): None {
+    print("function1 with two Int parameters")
+}
+
+function1()
+function1(5)
+function1(5, 5)
+    )"""";
+    std::string result = run(program);
+    assertEqual("function1 with no parameters\nfunction1 with Int parameter\nfunction1 with two Int parameters\n", result, program);
+}
+
+void classTest_functionOverloading() {
+    std::string program = R""""(
+class A {
+    method1(): None {
+        print("method1 with no parameters")
+    }
+
+    method1(a: Int): None {
+        print("method1 with Int parameter")
+    }
+
+    method1(a: Int, b: Int): None {
+        print("method1 with two Int parameters")
+    }
+}
+
+var a = new A()
+a.method1()
+a.method1(5)
+a.method1(5, 5)
+    )"""";
+    std::string result = run(program);
+    assertEqual("method1 with no parameters\nmethod1 with Int parameter\nmethod1 with two Int parameters\n", result, program);
+}
+
+
 // class Parent {
 //     x: Int
 //     y: Int
@@ -351,6 +399,8 @@ void runCompileTestSuite() {
     operatorsThreeOperandsTest();
 
     classTest_classFunction();
+    classTest_functionOverloading();
+    functionOverloading();
     classTest_classProperty();
     classTest_classProperty_Interface();
 
@@ -361,4 +411,5 @@ void runCompileTestSuite() {
     inheritedMembers();
     functionTakesBaseClass();
     functionTakesAny();
+
 }

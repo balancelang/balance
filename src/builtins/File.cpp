@@ -52,18 +52,18 @@ void FileBalanceType::registerMethod_close() {
     std::string functionName = "close";
     BalanceType * fileType = currentPackage->currentModule->getType("File");
     BalanceType * noneType = currentPackage->currentModule->getType("None");
-    BalanceParameter * thisParameter = new BalanceParameter(fileType, "this");
+    BalanceParameter * thisParameter = new BalanceParameter(fileType, "self");
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, fileType, functionName, {thisParameter}, noneType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void FileBalanceType::registerMethod_read() {
     std::string functionName = "read";
     BalanceType * stringType = currentPackage->currentModule->getType("String");
     BalanceType * fileType = currentPackage->currentModule->getType("File");
-    BalanceParameter * thisParameter = new BalanceParameter(fileType, "this");
+    BalanceParameter * thisParameter = new BalanceParameter(fileType, "self");
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, fileType, functionName, {thisParameter}, stringType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void FileBalanceType::registerMethod_write() {
@@ -72,14 +72,14 @@ void FileBalanceType::registerMethod_write() {
     BalanceType * fileType = currentPackage->currentModule->getType("File");
     BalanceType * noneType = currentPackage->currentModule->getType("None");
 
-    BalanceParameter * thisParameter = new BalanceParameter(fileType, "this");
+    BalanceParameter * thisParameter = new BalanceParameter(fileType, "self");
     BalanceParameter * contentParameter = new BalanceParameter(stringType, "content");
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, fileType, functionName, {thisParameter, contentParameter}, noneType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void FileBalanceType::finalizeMethod_close() {
-    BalanceFunction * bfunction = this->balanceType->getMethod("close");
+    BalanceFunction * bfunction = this->balanceType->getMethodsByName("close")[0];
     llvm::Function * closeFunc = Function::Create(bfunction->getLlvmFunctionType(), Function::ExternalLinkage, bfunction->getFullyQualifiedFunctionName(), currentPackage->currentModule->module);
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, bfunction->getFunctionName() + "_body", closeFunc);
     bfunction->setLlvmFunction(closeFunc);
@@ -114,7 +114,7 @@ void FileBalanceType::finalizeMethod_close() {
 }
 
 void FileBalanceType::finalizeMethod_read() {
-    BalanceFunction * bfunction = this->balanceType->getMethod("read");
+    BalanceFunction * bfunction = this->balanceType->getMethodsByName("read")[0];
     BalanceType * stringType = currentPackage->currentModule->getType("String");
 
     // Make sure there's a declaration for fread
@@ -265,7 +265,7 @@ void FileBalanceType::finalizeMethod_read() {
 }
 
 void FileBalanceType::finalizeMethod_write() {
-    BalanceFunction * bfunction = this->balanceType->getMethod("write");
+    BalanceFunction * bfunction = this->balanceType->getMethodsByName("write")[0];
     BalanceType * fileType = currentPackage->currentModule->getType("File");
     BalanceType * noneType = currentPackage->currentModule->getType("None");
     BalanceType * stringType = currentPackage->currentModule->getType("String");

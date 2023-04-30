@@ -72,11 +72,11 @@ void ArrayBalanceType::registerMethod_toString(BalanceType * arrayType) {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, arrayType, functionName, parameters, stringType);
-    arrayType->addMethod(functionName, bfunction);
+    arrayType->addMethod(bfunction);
 }
 
 void ArrayBalanceType::finalizeMethod_toString(BalanceType * arrayType) {
-    BalanceFunction * toStringFunction = arrayType->getMethod("toString");
+    BalanceFunction * toStringFunction = arrayType->getMethodsByName("toString")[0];
     BalanceType * stringType = currentPackage->currentModule->getType("String");
 
     // Create forward declaration of memcpy
@@ -170,7 +170,7 @@ void ArrayBalanceType::finalizeMethod_toString(BalanceType * arrayType) {
 
     // Get the correct toString-function for the generic type
     BalanceType * btype = currentPackage->currentModule->getType(arrayType->generics[0]->name);
-    Function * genericToStringFunction = btype->getMethod("toString")->getLlvmFunction(currentPackage->currentModule);
+    Function * genericToStringFunction = btype->getMethodsByName("toString")[0]->getLlvmFunction(currentPackage->currentModule);
     Type * genericType = btype->getReferencableType();
 
     // Load the i'th element

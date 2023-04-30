@@ -243,36 +243,11 @@ std::any StructureVisitor::visitInterfaceDefinition(BalanceParser::InterfaceDefi
 
 std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatureContext *ctx) {
     string functionName = ctx->IDENTIFIER()->getText();
-
-    if (currentPackage->currentModule->currentType != nullptr) {
-        // Check if it is a constructor
-        if (functionName == currentPackage->currentModule->currentType->name) {
-
-        } else {
-            // TODO: Update this when we allow method overloading
-            if (currentPackage->currentModule->currentType->getMethod(functionName) != nullptr) {
-                if (currentPackage->currentModule->currentType->isInterface) {
-                    currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
-                } else {
-                    currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
-                }
-                throw StructureVisitorException();
-            }
-        }
-    } else {
-        // TODO: Should we allow overriding functions in new scopes?
-        // TODO: Check if function with same signature exists
-        // if (currentPackage->currentModule->functions[functionName] != nullptr) {
-        //     currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
-        //     throw StructureVisitorException();
-        // }
-    }
-
     vector<BalanceParameter *> parameters;
 
-    // Add implicit "this" argument to class methods
+    // Add implicit "self" argument to class methods
     if (currentPackage->currentModule->currentType != nullptr) {
-        BalanceParameter *thisParameter = new BalanceParameter(currentPackage->currentModule->currentType, "this");
+        BalanceParameter *thisParameter = new BalanceParameter(currentPackage->currentModule->currentType, "self");
         parameters.push_back(thisParameter);
     }
 
@@ -296,6 +271,30 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
         parameters.push_back(new BalanceParameter(btype, parameterName));
     }
 
+    if (currentPackage->currentModule->currentType != nullptr) {
+        // Check if it is a constructor
+        if (functionName == currentPackage->currentModule->currentType->name) {
+
+        } else {
+            // TODO: Update this when we allow method overloading
+            if (currentPackage->currentModule->currentType->getMethod(functionName, parametersToTypes(parameters)) != nullptr) {
+                if (currentPackage->currentModule->currentType->isInterface) {
+                    currentPackage->currentModule->addTypeError(ctx, "Duplicate interface method name, method already exist: " + functionName);
+                } else {
+                    currentPackage->currentModule->addTypeError(ctx, "Duplicate class method name, method already exist: " + functionName);
+                }
+                throw StructureVisitorException();
+            }
+        }
+    } else {
+        // TODO: Should we allow overriding functions in new scopes?
+        // TODO: Check if function with same signature exists
+        // if (currentPackage->currentModule->functions[functionName] != nullptr) {
+        //     currentPackage->currentModule->addTypeError(ctx, "Duplicate function name, function already exist: " + functionName);
+        //     throw StructureVisitorException();
+        // }
+    }
+
     // If we don't have a return type, assume none
     BalanceType *returnType;
     if (ctx->returnType()) {
@@ -314,7 +313,7 @@ std::any StructureVisitor::visitFunctionSignature(BalanceParser::FunctionSignatu
             // TODO: Check if a constructor already exists with arguments
             currentPackage->currentModule->currentType->addConstructor(functionName, parameters);
         } else {
-            currentPackage->currentModule->currentType->addMethod(functionName, new BalanceFunction(currentPackage->currentModule, currentPackage->currentModule->currentType, functionName, parameters, returnType));
+            currentPackage->currentModule->currentType->addMethod(new BalanceFunction(currentPackage->currentModule, currentPackage->currentModule->currentType, functionName, parameters, returnType));
         }
     } else {
         currentPackage->currentModule->addFunction(new BalanceFunction(currentPackage->currentModule, nullptr, functionName, parameters, returnType));

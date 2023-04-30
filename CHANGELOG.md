@@ -1,4 +1,8 @@
 # Change Log
+## [0.0.13]
+### Added
+- Support for function and method overloading.
+
 ## [0.0.12]
 ### Added
 - Support for for-loops, range functions and classes.

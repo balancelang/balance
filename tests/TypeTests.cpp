@@ -61,21 +61,6 @@ interface MyInterface {
     assertEqual("Duplicate parameter name: x", error->message, program);
 }
 
-// test duplicate interface function name
-void duplicateInterfaceMethod() {
-    std::string program = R""""(
-interface MyInterface {
-    someFunction(x: Int): None
-    someFunction(x: Int, y: Int): None
-}
-    )"""";
-    BalancePackage * package = new BalancePackage("", "", false);
-    bool success = package->executeString(program);
-    assertEqual(false, success, program);
-    TypeError * error = package->modules["program"]->typeErrors[0];
-    assertEqual("Duplicate interface method name, method already exist: someFunction", error->message, program);
-}
-
 void duplicateClassProperty() {
     std::string program = R""""(
 class X {
@@ -88,21 +73,6 @@ class X {
     assertEqual(false, success, program);
     TypeError * error = package->modules["program"]->typeErrors[0];
     assertEqual("Duplicate property name, property already exist: x", error->message, program);
-}
-
-// test class interface function name
-void duplicateClassMethod() {
-    std::string program = R""""(
-class MyClass {
-    someFunction(x: Int): None {}
-    someFunction(x: Int, y: Int): None {}
-}
-    )"""";
-    BalancePackage * package = new BalancePackage("", "", false);
-    bool success = package->executeString(program);
-    assertEqual(false, success, program);
-    TypeError * error = package->modules["program"]->typeErrors[0];
-    assertEqual("Duplicate class method name, method already exist: someFunction", error->message, program);
 }
 
 // test missing function implementation
@@ -151,7 +121,7 @@ class MyClass implements MyInterface {
     bool success = package->executeString(program);
     assertEqual(false, success, program);
     TypeError * error = package->modules["program"]->typeErrors[0];
-    assertEqual("Extraneous parameter in implemented method, someFunction, found Bool", error->message, program);
+    assertEqual("Missing interface implementation of function someFunction, required by interface MyInterface", error->message, program);
 }
 
 // test interface as property type
@@ -417,8 +387,6 @@ void runTypesTestSuite() {
     duplicateClassParameterName();
     duplicateInterfaceParameterName();
 
-    duplicateClassMethod();
-    duplicateInterfaceMethod();
     duplicateClassProperty();
 
     missingInterfaceImplementation();

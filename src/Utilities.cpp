@@ -45,7 +45,7 @@ void finalizeInitializer(BalanceType * btype) {
     // Add parameter names
     Function::arg_iterator args = function->arg_begin();
     llvm::Value *thisValue = args++;
-    thisValue->setName("this");
+    thisValue->setName("self");
 
     BasicBlock *functionBody = BasicBlock::Create(*currentPackage->context, btype->getInitializer()->getFunctionName() + "_body", function);
     // Store current block so we can return to it after function declaration
@@ -111,7 +111,7 @@ void registerInitializer(BalanceType * btype) {
     std::string constructorName = "initializer";
     BalanceType * returnType = currentPackage->currentModule->getType("None");
     assert(returnType != nullptr);
-    BalanceParameter * thisParameter = new BalanceParameter(btype, "this");
+    BalanceParameter * thisParameter = new BalanceParameter(btype, "self");
     btype->initializer = new BalanceFunction(currentPackage->currentModule, btype, constructorName, {thisParameter}, returnType);
 }
 
@@ -136,7 +136,7 @@ void createDefaultToStringMethod(BalanceType * btype) {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, btype, functionName, parameters, stringType);
-    btype->addMethod(functionName, bfunction);
+    btype->addMethod(bfunction);
 
     // Create llvm function
     ArrayRef<Type *> parametersReference({
@@ -240,4 +240,45 @@ bool canAssignTo(ParserRuleContext * ctx, BalanceType * aType, BalanceType * bTy
     }
 
     return true;
+}
+
+bool functionEqualTo(BalanceFunction * bfunction, std::string functionName, std::vector<BalanceType *> parameters) {
+    if (bfunction->name != functionName) {
+        return false;
+    }
+
+    if (bfunction->parameters.size() != parameters.size()) {
+        return false;
+    }
+
+    int parameterStartIndex = 0;
+
+    // If class-method, don't consider 'self' parameter.
+    if (bfunction->balanceType != nullptr) {
+        parameterStartIndex = 1;
+    }
+
+    for (int i = parameterStartIndex; i < bfunction->parameters.size(); i++) {
+        if (!canAssignTo(nullptr, parameters[i], bfunction->parameters[i]->balanceType)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+std::vector<BalanceType *> parametersToTypes(std::vector<BalanceParameter *> parameters) {
+    std::vector<BalanceType *> types;
+    for (BalanceParameter * bparameter : parameters) {
+        types.push_back(bparameter->balanceType);
+    }
+    return types;
+}
+
+std::vector<BalanceType *> valuesToTypes(std::vector<BalanceValue *> values) {
+    std::vector<BalanceType *> types;
+    for (BalanceValue * bvalue : values) {
+        types.push_back(bvalue->type);
+    }
+    return types;
 }

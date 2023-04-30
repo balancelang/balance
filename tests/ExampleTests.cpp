@@ -140,6 +140,11 @@ void examplesInheritanceTest() {
     assertEqual("25\n5\n", result, "Inheritance");
 }
 
+void examplesOverloadingTest() {
+    string result = runExample("../examples/overloading.bl");
+    assertEqual("function1 with no parameters\nfunction1 with Int parameter\nfunction1 with two Int parameters\nmethod1 with no parameters\nmethod1 with Int parameter\nmethod1 with two Int parameters\n", result, "Overloading");
+}
+
 void runExamplesTestSuite() {
     puts("RUNNING EXAMPLES TESTS");
     examplesClassTest();
@@ -152,4 +157,5 @@ void runExamplesTestSuite() {
     examplesFilesTest();
     examplesInterfacesTest();
     examplesInheritanceTest();
+    examplesOverloadingTest();
 }

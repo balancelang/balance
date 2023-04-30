@@ -1,0 +1,34 @@
+function1(): None {
+    print("function1 with no parameters")
+}
+
+function1(a: Int): None {
+    print("function1 with Int parameter")
+}
+
+function1(a: Int, b: Int): None {
+    print("function1 with two Int parameters")
+}
+
+class A {
+    method1(): None {
+        print("method1 with no parameters")
+    }
+
+    method1(a: Int): None {
+        print("method1 with Int parameter")
+    }
+
+    method1(a: Int, b: Int): None {
+        print("method1 with two Int parameters")
+    }
+}
+
+function1()             // prints: 'function1 with no parameters'
+function1(5)            // prints: 'function1 with Int parameter'
+function1(5, 5)         // prints: 'function1 with two Int parameters'
+
+var a = new A()
+a.method1()             // prints: 'method1 with no parameters'
+a.method1(5)            // prints: 'method1 with Int parameter'
+a.method1(5, 5)         // prints: 'method1 with two Int parameters'

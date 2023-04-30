@@ -42,11 +42,11 @@ void DoubleType::registerMethod_toString() {
         valueParameter
     };
     BalanceFunction * bfunction = new BalanceFunction(currentPackage->currentModule, this->balanceType, functionName, parameters, stringType);
-    this->balanceType->addMethod(functionName, bfunction);
+    this->balanceType->addMethod(bfunction);
 }
 
 void DoubleType::finalizeMethod_toString() {
-    BalanceFunction * toStringFunction = this->balanceType->getMethod("toString");
+    BalanceFunction * toStringFunction = this->balanceType->getMethodsByName("toString")[0];
 
     BalanceType * doubleType = currentPackage->currentModule->getType("Double");
     BalanceType * stringType = currentPackage->currentModule->getType("String");

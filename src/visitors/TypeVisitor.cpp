@@ -40,7 +40,7 @@ std::any TypeVisitor::visitForStatement(BalanceParser::ForStatementContext *ctx)
 
     // Check if type is Iterable
     BalanceType * iterable = any_cast<BalanceType *>(visit(ctx->expression()));
-    BalanceType * iterableType = iterable->methods["getNext"]->returnType;
+    BalanceType * iterableType = iterable->getMethod("getNext", { iterable })->returnType;
 
     // Check if using explicit typing (x: Int), that it matches what is returned by getNext()
     if (ctx->variableTypeTuple()->type) {
@@ -274,7 +274,7 @@ std::any TypeVisitor::visitMultiplicativeExpression(BalanceParser::Multiplicativ
 
 std::any TypeVisitor::visitVariable(BalanceParser::VariableContext *ctx) {
     if (ctx->SELF()) {
-        BalanceValue * bvalue = currentPackage->currentModule->getValue("this");
+        BalanceValue * bvalue = currentPackage->currentModule->getValue("self");
         if (bvalue == nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Can't reference 'self' here.");
             return currentPackage->currentModule->getType("Unknown");
@@ -352,6 +352,10 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     vector<BalanceType *> expectedParameters;
     vector<BalanceType *> actualParameters;
 
+    if (currentPackage->currentModule->accessedType != nullptr) {
+        actualParameters.push_back(currentPackage->currentModule->accessedType);  // Implicit 'self'
+    }
+
     // Don't consider accessedType when parsing arguments
     BalanceType * backup = currentPackage->currentModule->accessedType;
     currentPackage->currentModule->accessedType = nullptr;
@@ -375,15 +379,15 @@ std::any TypeVisitor::visitFunctionCall(BalanceParser::FunctionCallContext *ctx)
     // Check if we are accessing a type
     if (currentPackage->currentModule->accessedType != nullptr) {
         // check if function exists
-        BalanceFunction * bfunction = currentPackage->currentModule->accessedType->getMethod(functionName);
+        BalanceFunction * bfunction = currentPackage->currentModule->accessedType->getMethod(functionName, actualParameters);
         if (bfunction == nullptr) {
             currentPackage->currentModule->addTypeError(ctx, "Unknown method. Type " + currentPackage->currentModule->accessedType->toString() + " does not have a method called " + functionName);
             return currentPackage->currentModule->getType("Unknown");
         }
         returnType = bfunction->returnType;
 
-        // TODO: Remove 'this'
-        for (int i = 1; i < bfunction->parameters.size(); i++) {
+        // TODO: Remove 'self'
+        for (int i = 0; i < bfunction->parameters.size(); i++) {
             expectedParameters.push_back(bfunction->parameters[i]->balanceType);
         }
     } else {
@@ -459,7 +463,7 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
 
     std::vector<BalanceType *> parameters = {};
 
-    // Add implicit 'this' argument
+    // Add implicit 'self' argument
     if (currentPackage->currentModule->currentType != nullptr) {
         parameters.push_back(currentPackage->currentModule->currentType);
     }
@@ -478,11 +482,13 @@ std::any TypeVisitor::visitFunctionDefinition(BalanceParser::FunctionDefinitionC
         if (functionName == currentPackage->currentModule->currentType->name) {
             bfunction = currentPackage->currentModule->currentType->getConstructor(parameters);
         } else {
-            bfunction = currentPackage->currentModule->currentType->getMethod(functionName);
+            bfunction = currentPackage->currentModule->currentType->getMethod(functionName, parameters);
         }
     } else {
         bfunction = currentPackage->currentModule->getFunction(functionName, parameters);
     }
+
+    assert(bfunction != nullptr);
 
     for (BalanceParameter * parameter : bfunction->parameters) {
         currentPackage->currentModule->currentScope->symbolTable[parameter->name] = new BalanceValue(parameter->balanceType, nullptr);
@@ -680,7 +686,7 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
             // Check if class implements all functions
             for (BalanceFunction * interfaceFunction : btype->getMethods()) {
                 // Check if class implements function
-                BalanceFunction * classFunction = currentPackage->currentModule->currentType->getMethod(interfaceFunction->name);
+                BalanceFunction * classFunction = currentPackage->currentModule->currentType->getMethod(interfaceFunction->name, parametersToTypes(interfaceFunction->parameters));
                 if (classFunction == nullptr) {
                     currentPackage->currentModule->addTypeError(ctx, "Missing interface implementation of function " + interfaceFunction->name + ", required by interface " + btype->toString());
                     continue;
@@ -691,7 +697,7 @@ std::any TypeVisitor::visitClassExtendsImplements(BalanceParser::ClassExtendsImp
                     currentPackage->currentModule->addTypeError(ctx, "Wrong return-type of implemented function. Expected " + interfaceFunction->returnType->toString() + ", found " + classFunction->returnType->toString());
                 }
 
-                // We start from 1, since we assume 'this' as first parameter
+                // We start from 1, since we assume 'self' as first parameter
                 for (int i = 1; i < interfaceFunction->parameters.size(); i++) {
                     if (i >= classFunction->parameters.size()) {
                         currentPackage->currentModule->addTypeError(ctx, "Missing parameter in implemented method, " + text + ", expected " + interfaceFunction->parameters[i]->balanceType->toString());
